@@ -8,18 +8,18 @@ from typing import Dict, List
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
 from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.db.base import AsyncPGClient
 from ecom_agent_matrix.core.security import tenant_scope_from_security
+from ecom_agent_matrix.db.base import AsyncPGClient
 
 logger = setup_logger("mcp.bus")
 
 
 class MCPMessageBus:
     def __init__(self):
-        # 审计/背压缓冲：记录近期消息量；分发以 agent_subscribe 为准
+        # 审计/背压缓冲：记录近期消息量；分发以 agent_subscribe 为准。
         self.queue_max = settings.MCP_QUEUE_MAX_SIZE
         self.msg_queue: asyncio.Queue[MCPMessage] = asyncio.Queue(maxsize=self.queue_max)
-        self.agent_subscribe: Dict[str, List[asyncio.Queue]] = {}
+        self.agent_subscribe: Dict[str, List[asyncio.Queue[MCPMessage]]] = {}
         self.retry_times = settings.MCP_RETRY_TIMES
 
     async def _persist_msg(self, msg: MCPMessage) -> None:
@@ -31,8 +31,13 @@ class MCPMessageBus:
             ) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
             """
             params = [
-                scope.tenant_id, scope.store_id, msg.task_id, msg.sender,
-                msg.target, msg.priority, json.dumps(msg.content, ensure_ascii=False),
+                scope.tenant_id,
+                scope.store_id,
+                msg.task_id,
+                msg.sender,
+                msg.target,
+                msg.priority,
+                json.dumps(msg.content, ensure_ascii=False),
             ]
         else:
             insert_sql = """
@@ -41,14 +46,13 @@ class MCPMessageBus:
             ) VALUES (%s, %s, %s, %s, %s::jsonb)
             """
             params = [
-                msg.task_id, msg.sender, msg.target, msg.priority,
+                msg.task_id,
+                msg.sender,
+                msg.target,
+                msg.priority,
                 json.dumps(msg.content, ensure_ascii=False),
             ]
-        await AsyncPGClient.execute_write(
-            insert_sql,
-            params,
-            scope=scope,
-        )
+        await AsyncPGClient.execute_write(insert_sql, params, scope=scope)
 
     async def _put_audit_buffer(self, msg: MCPMessage) -> None:
         """写入全局缓冲；满则丢弃更低优先级消息腾出空间。"""
@@ -71,7 +75,7 @@ class MCPMessageBus:
         try:
             self.msg_queue.put_nowait(msg)
         except asyncio.QueueFull:
-            # 极端情况：仍满则丢弃本条审计缓冲写入，不影响订阅分发
+            # 极端情况：仍满则丢弃本条审计缓冲写入，不影响订阅分发。
             logger.warning(
                 "mcp_audit_drop",
                 extra={"event": "mcp_audit_drop", "task_id": msg.task_id},
@@ -79,8 +83,7 @@ class MCPMessageBus:
 
     async def _dispatch_to_subscribers(self, msg: MCPMessage) -> bool:
         """推送到目标 Agent 订阅队列；无订阅者返回 False。"""
-        target = msg.target
-        queues = self.agent_subscribe.get(target) or []
+        queues = tuple(self.agent_subscribe.get(msg.target) or ())
         if not queues:
             return False
         for sub_queue in queues:
@@ -88,17 +91,13 @@ class MCPMessageBus:
         return True
 
     async def send_msg(self, msg: MCPMessage) -> bool:
-        """
-        统一发送：审计缓冲 + DB 持久化 + 分发给订阅 Agent。
-        若目标 Agent 尚未注册，按 MCP_RETRY_TIMES 短暂重试后再放弃。
-        返回是否成功投递到至少一个订阅队列。
-        """
+        """审计、持久化并投递消息，返回是否有实际接收方。"""
         await self._put_audit_buffer(msg)
 
         try:
             await self._persist_msg(msg)
         except Exception as exc:
-            # 持久化失败不阻断实时分发（本地/测试可能无表）
+            # 持久化失败不阻断实时分发（本地/测试可能无表）。
             logger.warning(
                 "mcp_persist_failed",
                 extra={
@@ -127,7 +126,7 @@ class MCPMessageBus:
             if attempt + 1 < attempts:
                 await asyncio.sleep(0.05 * (attempt + 1))
 
-        # HTTP Gateway 等待最终回传（不依赖 api_gateway 订阅队列）
+        # HTTP Gateway 等待最终回传（不依赖 api_gateway 订阅队列）。
         try:
             from ecom_agent_matrix.core.mcp.result_waiter import GatewayResultWaiter
 
@@ -136,7 +135,11 @@ class MCPMessageBus:
         except Exception as exc:
             logger.warning(
                 "gateway_submit_failed",
-                extra={"event": "gateway_submit_failed", "task_id": msg.task_id, "error_type": type(exc).__name__},
+                extra={
+                    "event": "gateway_submit_failed",
+                    "task_id": msg.task_id,
+                    "error_type": type(exc).__name__,
+                },
             )
 
         if not delivered:
@@ -152,13 +155,33 @@ class MCPMessageBus:
             )
         return delivered
 
-    def register_agent(self, agent_id: str) -> asyncio.Queue:
-        """Agent 注册：返回专属消费队列。"""
-        agent_queue: asyncio.Queue = asyncio.Queue()
-        if agent_id not in self.agent_subscribe:
-            self.agent_subscribe[agent_id] = []
-        self.agent_subscribe[agent_id].append(agent_queue)
+    def register_agent(self, agent_id: str) -> asyncio.Queue[MCPMessage]:
+        """注册一个 Agent 消费队列，并返回可用于精确注销的 queue 句柄。"""
+        agent_queue: asyncio.Queue[MCPMessage] = asyncio.Queue()
+        self.agent_subscribe.setdefault(agent_id, []).append(agent_queue)
         return agent_queue
+
+    def unregister_agent(
+        self,
+        agent_id: str,
+        queue: asyncio.Queue[MCPMessage] | None = None,
+    ) -> int:
+        """注销订阅；queue 为空时移除该 Agent 的全部订阅。返回移除数量。"""
+        queues = self.agent_subscribe.get(agent_id)
+        if not queues:
+            return 0
+        if queue is None:
+            removed = len(queues)
+            self.agent_subscribe.pop(agent_id, None)
+            return removed
+
+        remaining = [candidate for candidate in queues if candidate is not queue]
+        removed = len(queues) - len(remaining)
+        if remaining:
+            self.agent_subscribe[agent_id] = remaining
+        else:
+            self.agent_subscribe.pop(agent_id, None)
+        return removed
 
 
 mcp_bus = MCPMessageBus()
