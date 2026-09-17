@@ -11,6 +11,7 @@ from ecom_agent_matrix.core.llm.providers.openai import OpenAIProvider
 from ecom_agent_matrix.core.mcp.message import MCPMessage
 from ecom_agent_matrix.core.mcp.reply import build_reply
 from ecom_agent_matrix.core.mcp.task_waiter import TaskReplyWaiter
+from ecom_agent_matrix.core.security import SecurityContext
 from ecom_agent_matrix.core.skill.skill_registry import exec_skill, skill_execution_context
 from ecom_agent_matrix.modules.agent_cluster.master_agent import _react_call_one, process_master_task
 from ecom_agent_matrix.modules.agent_cluster.master.schemas import (
@@ -165,7 +166,7 @@ def test_each_react_call_agent_creates_new_correlation_id():
     asyncio.run(scenario())
 
 
-def test_unknown_request_returns_clarify_without_rag_dispatch():
+def test_unknown_request_returns_router_clarification_without_dispatch():
     plan = plan_sub_tasks_keyword({"query": "随便说点什么 xyz"}, [])
     assert plan.decision == "clarify"
     assert plan.sub_tasks == []
@@ -180,17 +181,10 @@ def test_unknown_request_returns_clarify_without_rag_dispatch():
         )
         long_mem = AsyncMock()
         long_mem.recall.return_value = []
-        clarify = MasterPlan(
-            decision="clarify",
-            steps=[],
-            confidence=0.3,
-            reason_code="UNKNOWN",
-            clarification_question="请补充具体需求。",
-            planner_source="test",
-        )
+        planner = AsyncMock()
         with patch(
             "ecom_agent_matrix.modules.agent_cluster.master_agent.typed_master_planner.plan",
-            new=AsyncMock(return_value=clarify),
+            new=planner,
         ), patch(
             "ecom_agent_matrix.modules.agent_cluster.master_agent._dispatch_subtask",
             new=AsyncMock(),
@@ -199,10 +193,13 @@ def test_unknown_request_returns_clarify_without_rag_dispatch():
             new=AsyncMock(return_value=True),
         ) as send:
             await process_master_task(request, long_mem)
+        planner.assert_not_awaited()
         dispatch.assert_not_awaited()
         sent = send.await_args.args[0]
         assert sent.content["data"]["mode"] == "clarify"
-        assert sent.content["data"]["summary"] == "请补充具体需求。"
+        assert sent.content["data"]["summary"] == (
+            "请说明您要查询的数据、咨询的店铺规则，或需要执行的业务操作。"
+        )
 
     asyncio.run(scenario())
 
@@ -247,20 +244,30 @@ def test_query_context_rejects_write_skill():
     asyncio.run(scenario())
 
 
-def test_skill_execution_context_is_fail_closed_and_exec_can_write():
+def test_skill_execution_context_fails_closed_until_exec_identity_is_trusted():
     async def scenario():
         write_params = {
             "target_sku": "SKU-1",
             "competitor": "Temu",
             "compete_price": 80,
         }
+        security = SecurityContext(
+            subject="operator-1",
+            user_id="operator-1",
+            tenant_id="tenant-1",
+            store_id="store-1",
+            roles=frozenset({"operator"}),
+            scopes=frozenset(),
+            auth_type="system",
+            authenticated=True,
+        )
         with patch(
-            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_sql",
+            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_write",
             new=AsyncMock(return_value=[[123]]),
-        ) as execute_sql:
+        ) as execute_write:
             no_context_write = await exec_skill("record_competitor_price", write_params)
             assert no_context_write.success is False
-            execute_sql.assert_not_awaited()
+            execute_write.assert_not_awaited()
 
             no_context_read = await exec_skill(
                 "profit_calc",
@@ -277,11 +284,16 @@ def test_skill_execution_context_is_fail_closed_and_exec_can_write():
             assert "未授权" in unknown_agent.error_msg
 
             with skill_execution_context(AGENT_EXEC):
-                exec_write = await exec_skill("record_competitor_price", write_params)
-            assert exec_write.success is True
-            assert exec_write.data["record_id"] == 123
-            assert execute_sql.await_count == 1
-            assert "INSERT INTO competitor_price" in execute_sql.await_args.args[0]
+                untrusted_exec_write = await exec_skill("record_competitor_price", write_params)
+            assert untrusted_exec_write.success is False
+            assert execute_write.await_count == 0
+
+            with skill_execution_context(AGENT_EXEC, security=security):
+                trusted_exec_write = await exec_skill("record_competitor_price", write_params)
+            assert trusted_exec_write.success is True
+            assert trusted_exec_write.data["record_id"] == 123
+            assert execute_write.await_count == 1
+            assert "INSERT INTO competitor_price" in execute_write.await_args.args[0]
 
     asyncio.run(scenario())
 
