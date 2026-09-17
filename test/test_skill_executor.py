@@ -117,7 +117,7 @@ def test_invalid_and_extra_input_fail_before_skill_run():
     asyncio.run(scenario())
 
 
-def test_permission_matrix_and_explicit_executor_context():
+def test_permission_matrix_and_untrusted_executor_is_fail_closed():
     async def scenario():
         params = {"target_sku": "SKU-1", "competitor": "Temu", "compete_price": 80}
         no_context = await exec_skill("record_competitor_price", params)
@@ -125,22 +125,23 @@ def test_permission_matrix_and_explicit_executor_context():
             query_result = await exec_skill("record_competitor_price", params)
 
         with patch(
-            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_sql",
+            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_write",
             new=AsyncMock(return_value=[[9]]),
-        ):
+        ) as write:
             exec_result = await skill_executor.execute(
                 "record_competitor_price",
                 params,
                 context=SkillExecutionContext(agent_id=AGENT_EXEC),
             )
+        return no_context, query_result, exec_result, write
 
-        assert no_context.error_code == PERMISSION_DENIED
-        assert query_result.error_code == PERMISSION_DENIED
-        assert exec_result.success is True
-        assert exec_result.data["record_id"] == 9
-        assert exec_result.metadata["agent_id"] == AGENT_EXEC
-
-    asyncio.run(scenario())
+    no_context, query_result, exec_result, write = asyncio.run(scenario())
+    assert no_context.error_code == PERMISSION_DENIED
+    assert query_result.error_code == PERMISSION_DENIED
+    assert exec_result.error_code == PERMISSION_DENIED
+    assert exec_result.success is False
+    assert exec_result.metadata["agent_id"] == AGENT_EXEC
+    write.assert_not_awaited()
 
 
 def test_timeout_is_standardized_without_retry():
