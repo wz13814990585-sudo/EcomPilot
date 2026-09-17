@@ -74,6 +74,7 @@ class SkillExecutor:
                     "replacement": spec.replacement or "",
                 },
             )
+
         denied_reason = self._permission_denied_reason(spec, effective_context)
         if denied_reason:
             return self._error(
@@ -86,10 +87,19 @@ class SkillExecutor:
             )
 
         # Authorization precedes parameter parsing so an unauthorized caller
-        # cannot probe a write Skill's input contract.
-        if effective_context is not None and effective_context.identity_trusted:
+        # cannot probe a protected Skill's input contract.
+        if spec.required_scopes:
+            if effective_context is None or not effective_context.identity_trusted:
+                return self._error(
+                    PERMISSION_DENIED,
+                    f"受保护 Skill 需要可信身份：{skill_name}",
+                    skill_name,
+                    started,
+                    effective_context,
+                    spec=spec,
+                )
             granted_scopes = effective_scopes(effective_context)  # type: ignore[arg-type]
-            if spec.required_scopes and not spec.required_scopes.issubset(granted_scopes):
+            if not spec.required_scopes.issubset(granted_scopes):
                 return self._error(
                     PERMISSION_DENIED,
                     f"Skill scope permission denied: {skill_name}",
@@ -113,11 +123,18 @@ class SkillExecutor:
 
         params_hash = ""
         approval_id = ""
-        if (
-            spec.approval_required
-            and effective_context is not None
-            and effective_context.identity_trusted
-        ):
+        if spec.approval_required:
+            # approval_required Skill 本身就属于高风险边界；不能因为调用方没有
+            # identity_trusted 而绕过 approval gate。
+            if effective_context is None or not effective_context.identity_trusted:
+                return self._error(
+                    PERMISSION_DENIED,
+                    f"高风险 Skill 需要可信身份：{skill_name}",
+                    skill_name,
+                    started,
+                    effective_context,
+                    spec=spec,
+                )
             params_hash = approval_params_hash(skill_name, validated_params)
             if effective_context.approval is None:
                 try:
@@ -128,8 +145,12 @@ class SkillExecutor:
                     )
                 except Exception:
                     return self._error(
-                        EXECUTION_ERROR, "Approval service unavailable", skill_name,
-                        started, effective_context, spec=spec,
+                        EXECUTION_ERROR,
+                        "Approval service unavailable",
+                        skill_name,
+                        started,
+                        effective_context,
+                        spec=spec,
                     )
                 return self._error(
                     APPROVAL_REQUIRED,
@@ -153,16 +174,26 @@ class SkillExecutor:
                     params_hash=params_hash,
                 )
             except PermissionError as exc:
-                code = str(exc) if str(exc) in {
-                    APPROVAL_EXPIRED, APPROVAL_ALREADY_USED, APPROVAL_INVALID
-                } else APPROVAL_INVALID
+                code = (
+                    str(exc)
+                    if str(exc)
+                    in {APPROVAL_EXPIRED, APPROVAL_ALREADY_USED, APPROVAL_INVALID}
+                    else APPROVAL_INVALID
+                )
                 return self._error(
-                    code, "Approval is invalid or unavailable", skill_name,
-                    started, effective_context, spec=spec,
+                    code,
+                    "Approval is invalid or unavailable",
+                    skill_name,
+                    started,
+                    effective_context,
+                    spec=spec,
                 )
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_STARTED", effective_context, skill_name,
-                approval_id, "started",
+                "HIGH_RISK_EXECUTION_STARTED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "started",
             )
 
         try:
@@ -172,8 +203,11 @@ class SkillExecutor:
             )
         except asyncio.TimeoutError:
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                approval_id, "timeout",
+                "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "timeout",
             )
             return self._error(
                 TIMEOUT,
@@ -194,8 +228,11 @@ class SkillExecutor:
                 },
             )
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                approval_id, "failed",
+                "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "failed",
             )
             return self._error(
                 EXECUTION_ERROR,
@@ -208,8 +245,11 @@ class SkillExecutor:
 
         if not isinstance(raw_result, SkillResult):
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                approval_id, "output_validation_failed",
+                "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "output_validation_failed",
             )
             return self._error(
                 OUTPUT_VALIDATION_ERROR,
@@ -226,8 +266,11 @@ class SkillExecutor:
                 raw_result.data = validated_output.model_dump()
             except (ValidationError, TypeError, ValueError) as exc:
                 await self._audit_high_risk(
-                    "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                    approval_id, "output_validation_failed",
+                    "HIGH_RISK_EXECUTION_FAILED",
+                    effective_context,
+                    skill_name,
+                    approval_id,
+                    "output_validation_failed",
                 )
                 return self._error(
                     OUTPUT_VALIDATION_ERROR,
@@ -255,8 +298,12 @@ class SkillExecutor:
         self._log_result(raw_result)
         if spec.approval_required and effective_context and effective_context.identity_trusted:
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_SUCCEEDED" if raw_result.success else "HIGH_RISK_EXECUTION_FAILED",
-                effective_context, skill_name, approval_id,
+                "HIGH_RISK_EXECUTION_SUCCEEDED"
+                if raw_result.success
+                else "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
                 "succeeded" if raw_result.success else "failed",
             )
         return raw_result
@@ -268,12 +315,16 @@ class SkillExecutor:
         await record_audit_event(
             event,
             scope=TenantScope(
-                tenant_id=context.tenant_id, store_id=context.store_id,
+                tenant_id=context.tenant_id,
+                store_id=context.store_id,
                 identity_trusted=context.identity_trusted,
             ),
-            task_id=context.task_id, user_id=context.user_id,
-            agent_id=context.agent_id, skill_name=skill_name,
-            approval_id=approval_id, outcome=outcome,
+            task_id=context.task_id,
+            user_id=context.user_id,
+            agent_id=context.agent_id,
+            skill_name=skill_name,
+            approval_id=approval_id,
+            outcome=outcome,
         )
 
     @staticmethod
@@ -292,6 +343,8 @@ class SkillExecutor:
         if context.agent_id == AGENT_QUERY:
             return "" if pure_read else f"data_query 无权执行非只读 Skill：{spec.name}"
         if context.agent_id == AGENT_EXEC:
+            if spec.side_effect and not context.identity_trusted:
+                return f"biz_exec 缺少可信身份，拒绝执行副作用 Skill：{spec.name}"
             return ""
         return f"未授权的 Skill execution context：{context.agent_id}"
 
@@ -322,9 +375,7 @@ class SkillExecutor:
     ) -> SkillResult:
         metadata = self._metadata(skill_name, started, context)
         if spec is not None and spec.deprecated:
-            metadata.update(
-                {"deprecated": True, "replacement": spec.replacement}
-            )
+            metadata.update({"deprecated": True, "replacement": spec.replacement})
         result = SkillResult(
             success=False,
             error_code=error_code,
