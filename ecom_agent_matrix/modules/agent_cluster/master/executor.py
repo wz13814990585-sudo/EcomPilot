@@ -25,6 +25,7 @@ from ecom_agent_matrix.modules.agent_cluster.master.schemas import (
 DEPENDENCY_FAILED = "DEPENDENCY_FAILED"
 STEP_TIMEOUT = "TIMEOUT"
 AGENT_FAILED = "AGENT_FAILED"
+AGENT_UNAVAILABLE = "AGENT_UNAVAILABLE"
 STEP_EXECUTION_ERROR = "STEP_EXECUTION_ERROR"
 _TERMINAL = frozenset({"SUCCESS", "FAILED", "SKIPPED"})
 _FORBIDDEN_CONTEXT_KEYS = frozenset(
@@ -285,7 +286,20 @@ class MasterPlanExecutor:
                     security=root_message.security,
                     approval=root_message.approval,
                 )
-                await mcp_bus.send_msg(child)
+                delivered = await mcp_bus.send_msg(child)
+                if not delivered:
+                    return StepResult(
+                        step_id=step.step_id,
+                        agent=step.agent,
+                        task_type=step.task_type,
+                        status="FAILED",
+                        success=False,
+                        error_code=AGENT_UNAVAILABLE,
+                        error_msg="Target agent has no active subscriber",
+                        correlation_id=correlation_id,
+                        latency_ms=round((time.perf_counter() - started) * 1000, 2),
+                    )
+
                 replies = await TaskReplyWaiter.wait(correlation_id, timeout=self.timeout)
                 if not replies:
                     return StepResult(
