@@ -10,10 +10,13 @@ import uuid
 import hashlib
 from typing import Any
 
+from pydantic import BaseModel
+
 from ...config.constants import AGENT_MASTER
 from ...config.settings import settings
 from ...core.logging_config import setup_logger
 from ...core.errors import ErrorCode
+from ...core.tasking import TaskStatus
 from ...core.memory.long_vector_memory import AgentLongVectorMemory
 from ...runtime.messaging.bus import message_bus
 from ...runtime.messaging.message import AgentMessage
@@ -44,6 +47,27 @@ logger = setup_logger("agent.master")
 
 _master_task_semaphore: asyncio.Semaphore | None = None
 _master_tasks: set[asyncio.Task] = set()
+
+
+class MasterCompletion(BaseModel):
+    """Business outcome returned by the orchestration control plane."""
+
+    success: bool
+    status: TaskStatus
+    error_code: ErrorCode | None = None
+
+
+def _completion(success: bool, error_code: ErrorCode | str | None = None, *, partial=False):
+    typed_code = ErrorCode(error_code) if error_code else None
+    if success:
+        status = TaskStatus.SUCCEEDED
+    elif typed_code == ErrorCode.APPROVAL_REQUIRED:
+        status = TaskStatus.AWAITING_APPROVAL
+    elif partial or typed_code == ErrorCode.PARTIAL_SUCCESS:
+        status = TaskStatus.PARTIAL
+    else:
+        status = TaskStatus.FAILED
+    return MasterCompletion(success=success, status=status, error_code=typed_code)
 
 
 def _get_master_task_semaphore() -> asyncio.Semaphore:
@@ -95,6 +119,7 @@ def _observation_from_reply(reply: AgentMessage | None, target_agent: str, timed
         "error_msg": reply.content.get("error_msg", ""),
         "timed_out": timed_out,
         "error_code": reply.content.get("error_code") or data.get("error_code"),
+        "status": reply.content.get("status") or data.get("status"),
     }
 
 
@@ -323,7 +348,7 @@ async def _process_complex_plan(
     reply_registry=None,
     planner=None,
     recovery=None,
-) -> None:
+) -> MasterCompletion:
     active_bus = message_bus_instance or message_bus
     active_replies = reply_registry or task_replies
     active_planner = planner or typed_master_planner
@@ -360,9 +385,10 @@ async def _process_complex_plan(
                 success=True,
                 data=result,
                 msg_type="master_task_result",
+                status=TaskStatus.SUCCEEDED.value,
             )
         )
-        return
+        return _completion(True)
 
     if msg.security is not None:
         try:
@@ -376,9 +402,10 @@ async def _process_complex_plan(
                     data={"error_code": exc.error_code, "task_type": exc.task_type},
                     error_msg="PERMISSION_DENIED",
                     msg_type="master_task_result",
+                    status=TaskStatus.FAILED.value,
                 )
             )
-            return
+            return _completion(False, ErrorCode.PERMISSION_DENIED)
 
     executor = MasterPlanExecutor(
         message_bus=active_bus,
@@ -427,6 +454,25 @@ async def _process_complex_plan(
     usage = telemetry.snapshot().model_dump()
     calls = _compat_llm_calls(usage)
     step_results = {step_id: item.model_dump() for step_id, item in execution.step_results.items()}
+    execution_error_code = (
+        None
+        if execution.all_success
+        else ErrorCode.AGENT_TIMEOUT.value
+        if execution.timed_out
+        else next(
+            (
+                item.error_code
+                for item in execution.step_results.values()
+                if item.status == "FAILED" and item.error_code
+            ),
+            ErrorCode.AGENT_FAILED.value,
+        )
+    )
+    completion = _completion(
+        execution.all_success,
+        execution_error_code,
+        partial=execution.partial_success,
+    )
     result = {
         "task_id": msg.task_id,
         "mode": "plan",
@@ -437,20 +483,8 @@ async def _process_complex_plan(
         "timed_out": execution.timed_out,
         "all_success": execution.all_success,
         "partial_success": execution.partial_success,
-        "error_code": (
-            None
-            if execution.all_success
-            else ErrorCode.AGENT_TIMEOUT.value
-            if execution.timed_out
-            else next(
-                (
-                    item.error_code
-                    for item in execution.step_results.values()
-                    if item.status == "FAILED" and item.error_code
-                ),
-                ErrorCode.AGENT_FAILED.value,
-            )
-        ),
+        "error_code": execution_error_code,
+        "status": completion.status.value,
         "step_results": step_results,
         "sub_results": list(step_results.values()),
         "summary": summary,
@@ -477,6 +511,7 @@ async def _process_complex_plan(
             data=result,
             error_msg="" if execution.all_success else "部分计划步骤未成功",
             msg_type="master_task_result",
+            status=completion.status.value,
         )
     )
     try:
@@ -498,6 +533,7 @@ async def _process_complex_plan(
                 "error_type": type(exc).__name__,
             },
         )
+    return completion
 
 
 async def execute_fast_path(
@@ -526,7 +562,8 @@ async def execute_fast_path(
         reply_registry=reply_registry,
     )
     timed_out = bool(observation.get("timed_out"))
-    success = bool(observation.get("success")) and not timed_out
+    partial = observation.get("status") == TaskStatus.PARTIAL.value
+    success = bool(observation.get("success")) and not timed_out and not partial
     summary = _existing_summary(observation.get("data") or {})
     if not summary:
         summary = await polish_final_output(
@@ -549,8 +586,13 @@ async def execute_fast_path(
         "received": 1 if not timed_out else 0,
         "timed_out": timed_out,
         "all_success": success,
+        "partial_success": partial,
         "error_code": (
-            None if success else observation.get("error_code") or ErrorCode.AGENT_FAILED.value
+            None
+            if success
+            else ErrorCode.PARTIAL_SUCCESS.value
+            if partial
+            else observation.get("error_code") or ErrorCode.AGENT_FAILED.value
         ),
         "sub_results": [
             {
@@ -581,7 +623,7 @@ async def process_master_task(
     reply_registry=None,
     planner=None,
     recovery=None,
-) -> None:
+) -> MasterCompletion:
     """Route to Fast Path or validated DAG, then apply bounded recovery if needed."""
     task_id = msg.task_id
     active_bus = message_bus_instance or message_bus
@@ -627,9 +669,10 @@ async def process_master_task(
                     data={"error_code": exc.error_code, "task_type": exc.task_type},
                     error_msg="PERMISSION_DENIED",
                     msg_type="master_task_result",
+                    status=TaskStatus.FAILED.value,
                 )
             )
-            return
+            return _completion(False, ErrorCode.PERMISSION_DENIED)
 
     if route.mode == "clarify":
         clarification = "请说明您要查询的数据、咨询的店铺规则，或需要执行的业务操作。"
@@ -661,9 +704,10 @@ async def process_master_task(
                 success=True,
                 data=final_result,
                 msg_type="master_task_result",
+                status=TaskStatus.SUCCEEDED.value,
             )
         )
-        return
+        return _completion(True)
 
     if route.mode == "fast_path":
         final_result = await execute_fast_path(
@@ -672,6 +716,12 @@ async def process_master_task(
             message_bus_instance=message_bus_instance,
             reply_registry=reply_registry,
         )
+        completion = _completion(
+            final_result["all_success"] and not final_result["timed_out"],
+            final_result.get("error_code"),
+            partial=final_result.get("partial_success", False),
+        )
+        final_result["status"] = completion.status.value
         await active_bus.send(
             build_reply(
                 msg,
@@ -684,11 +734,12 @@ async def process_master_task(
                     else ""
                 ),
                 msg_type="master_task_result",
+                status=completion.status.value,
             )
         )
-        return
+        return completion
 
-    await _process_complex_plan(
+    return await _process_complex_plan(
         msg,
         long_mem,
         route,
@@ -699,7 +750,6 @@ async def process_master_task(
         planner=planner,
         recovery=recovery,
     )
-    return
 
 
 async def safe_process_master_task(
@@ -711,7 +761,7 @@ async def safe_process_master_task(
     planner=None,
     recovery=None,
     semaphore=None,
-) -> None:
+) -> MasterCompletion | None:
     """限制用户级并发，并保证未捕获异常也向 Gateway 回传。"""
     started = time.perf_counter()
     success = False
@@ -731,9 +781,9 @@ async def safe_process_master_task(
                 dependency is None
                 for dependency in (message_bus_instance, reply_registry, planner, recovery)
             ):
-                await process_master_task(msg, long_mem)
+                completion = await process_master_task(msg, long_mem)
             else:
-                await process_master_task(
+                completion = await process_master_task(
                     msg,
                     long_mem,
                     message_bus_instance=message_bus_instance,
@@ -741,7 +791,8 @@ async def safe_process_master_task(
                     planner=planner,
                     recovery=recovery,
                 )
-            success = True
+            success = bool(completion and completion.success)
+            return completion
     except asyncio.CancelledError:
         raise
     except Exception as exc:
@@ -777,6 +828,7 @@ async def safe_process_master_task(
                     data=failure,
                     error_msg="master task failed",
                     msg_type="master_task_result",
+                    status=TaskStatus.FAILED.value,
                 )
             )
         except Exception as reply_exc:
@@ -850,8 +902,8 @@ class MasterOrchestrator:
         self._semaphore = asyncio.Semaphore(int(settings.MASTER_MAX_CONCURRENT))
         self._tasks: set[asyncio.Task] = set()
 
-    async def run(self, message: AgentMessage) -> None:
-        await safe_process_master_task(
+    async def run(self, message: AgentMessage) -> MasterCompletion | None:
+        return await safe_process_master_task(
             message,
             self.long_memory,
             message_bus_instance=self.message_bus,
@@ -881,6 +933,7 @@ class MasterOrchestrator:
 
 
 __all__ = [
+    "MasterCompletion",
     "MasterOrchestrator",
     "aggregate_sub_replies",
     "cancel_master_tasks",

@@ -28,6 +28,7 @@ class AgentRegistry:
         bus: MessageBus = message_bus,
         *,
         worker_overrides: dict[str, AgentWorker] | None = None,
+        ready_event: asyncio.Event | None = None,
     ) -> None:
         workers: list[tuple[str, asyncio.Queue, asyncio.Task]] = []
         try:
@@ -36,6 +37,12 @@ class AgentRegistry:
                 queue = bus.register(agent_id)
                 task = asyncio.create_task(worker(queue), name=f"agent:{agent_id}")
                 workers.append((agent_id, queue, task))
+            await asyncio.sleep(0)
+            for _agent_id, _queue, task in workers:
+                if task.done():
+                    task.result()
+            if ready_event is not None:
+                ready_event.set()
             await asyncio.gather(*(item[2] for item in workers))
         finally:
             for _agent_id, _queue, task in workers:

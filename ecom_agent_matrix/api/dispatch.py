@@ -104,6 +104,7 @@ async def dispatch_and_wait(
         "error_msg": error_msg,
         "msg_type": response.msg_type,
         "error_code": response.error_code,
+        "status": response.status,
         "summary": summary,
         "performance": {
             "latency_ms": round((time.perf_counter() - request_started) * 1000, 2),

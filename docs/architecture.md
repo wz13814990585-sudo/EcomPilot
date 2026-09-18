@@ -14,7 +14,7 @@ sequenceDiagram
     participant S as SkillExecutor
     participant D as PostgreSQL
     C->>A: authenticated simple query
-    A->>M: MCPMessage(root task_id)
+    A->>M: AgentMessage(root task_id)
     M->>M: deterministic high-confidence route
     M->>Q: new correlation_id
     Q->>W: typed request
@@ -63,7 +63,7 @@ sequenceDiagram
     U->>E: deterministic risky order payload
     E->>X: record_order_risk
     X->>DB: create exact-parameter pending approval
-    X-->>U: APPROVAL_REQUIRED + approval_id
+    X-->>U: failed / awaiting_approval + approval_id
     H->>DB: authenticated approve endpoint
     DB-->>H: approved grant
     U->>E: same payload + X-Approval-Id

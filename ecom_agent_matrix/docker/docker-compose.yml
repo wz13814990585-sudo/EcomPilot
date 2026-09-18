@@ -8,6 +8,8 @@ services:
     build:
       context: ../..
       dockerfile: ecom_agent_matrix/docker/Dockerfile
+      args:
+        INSTALL_RAG_LOCAL: ${INSTALL_RAG_LOCAL:-0}
     ports:
       - "8000:8000"
     env_file:

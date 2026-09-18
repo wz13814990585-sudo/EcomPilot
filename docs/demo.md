@@ -72,7 +72,7 @@ RISK_RESPONSE=$(curl -sS "$BASE_URL/api/v1/tasks" \
 printf '%s\n' "$RISK_RESPONSE"
 ```
 
-The response structure contains `APPROVAL_REQUIRED` and an approval ID under the first Fast Path sub-result. With `jq`, capture it as:
+The response is intentionally not a completed success: `success=false`, `status=awaiting_approval`, and `error_code=APPROVAL_REQUIRED`. The approval ID is under the first Fast Path sub-result. With `jq`, capture it as:
 
 ```bash
 APPROVAL_ID=$(printf '%s' "$RISK_RESPONSE" | jq -r '.data.sub_results[0].data.approval_id')

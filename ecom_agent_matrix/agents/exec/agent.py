@@ -28,7 +28,6 @@ from ...workflows.crm import run_crm_workflow
 from ...workflows.report import run_report_workflow
 from ...workflows.risk import run_risk_workflow
 from ...workflows.social import run_social_workflow
-from ..legacy_routing import infer_exec_kind  # noqa: F401
 from ...platform.observability.context import TraceContext, set_trace_context
 from ...platform.observability.metrics import metrics
 
@@ -152,6 +151,7 @@ async def exec_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
                     success=ok,
                     error_msg=err or "",
                     data=data,
+                    status=result.status.value,
                 )
                 await bus.send(reply)
                 logger.info(

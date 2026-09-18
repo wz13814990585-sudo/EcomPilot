@@ -1,226 +1,312 @@
 # E-commerce Multi-Agent Matrix
 
 [![CI](https://github.com/wz13814990585-sudo/ecom_agent_matrix/actions/workflows/ci.yml/badge.svg)](https://github.com/wz13814990585-sudo/ecom_agent_matrix/actions/workflows/ci.yml)
-![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-cache-DC382D?logo=redis&logoColor=white)
 
-> 中文简介：这是一个面向跨境电商运营的多智能体作品集项目，重点展示可验证编排、混合 RAG、租户隔离、人工审批与可观测性，而不是堆叠分布式基础设施。
+> 面向跨境电商运营的 typed、fail-closed Multi-Agent Runtime。
+>
+> A production-inspired agent runtime with deterministic routing, validated DAG execution, hybrid RAG, tenant isolation, human approval, and measurable safety.
 
-A production-inspired multi-agent orchestration system for cross-border e-commerce automation, featuring deterministic fast paths, typed DAG planning, hybrid RAG, tenant isolation, human approval, and observability.
+本项目重点不是增加 Agent 数量，而是回答一个更重要的问题：**如何让 Agent 系统的规划、执行、审批、失败恢复和评估都可验证？**
 
-## Why this project exists
+系统只注册四个 Runtime Agent。库存、广告、风控、客服、报表等业务能力由 typed Workflow 与 Skill 承载，避免演变成难以治理的“一个功能一个 Agent”。
 
-The project demonstrates software-engineering decisions around AI systems: where deterministic code should replace model judgment, how an LLM-generated plan is constrained by typed validation, how read and write responsibilities remain separate, and how a useful fallback survives an unavailable model or external service.
+## 核心亮点
 
-Only four runtime Agents are registered. Business breadth is expressed through typed parsers, workflows, and skills rather than creating an Agent for every table or use case.
+| 能力 | 实现 |
+|---|---|
+| 确定性 Fast Path | 高置信单任务不调用 Planner，直接路由到目标 Agent |
+| Typed DAG | 复杂任务经过步骤上限、依赖、环路和 Agent/task mapping 校验 |
+| Fail-closed 执行 | 未认证身份、越权 Skill、无效审批和不可用 Agent 均显式失败 |
+| Human-in-the-loop | 高风险写操作绑定租户、Skill、精确参数哈希、有效期和一次性消费 |
+| Hybrid RAG | Vector + lexical recall、RRF、batch rerank、citation validation |
+| 多租户隔离 | SecurityContext、PostgreSQL RLS、cache、memory、approval 全链路携带 scope |
+| 可观测性 | 结构化日志、Prometheus 指标、task/correlation tracing、真实 LLM usage |
+| 系统化评估 | Routing、Planning、Safety、Recovery、Execution、RAG 独立评估与报告 |
 
-## Architecture
+## 当前验证状态
+
+当前分支已通过：
+
+- 425 个自动化测试
+- Ruff lint 与 format gate
+- Python compileall
+- 13/13 deterministic routing cases
+- 6/6 typed planning cases
+- 16/16 safety cases
+- Docker Compose 配置校验
+
+最新评估输出见 [JSON report](eval/results/latest.json) 和 [Markdown report](eval/results/latest.md)。依赖真实 API、数据库故障注入或已填充向量索引的指标会明确显示 `NOT_RUN`，不会被伪装成成功率。
+
+## 系统架构
 
 ```mermaid
 flowchart TD
-    Client[Client / Interview Demo] --> API[FastAPI]
-    API --> Guard[Authentication + RBAC + Rate Limit]
-    Guard --> Master[Master Agent<br/>Fast Path / Typed DAG / Recovery]
-    Master --> Query[Query Agent<br/>read side]
-    Master --> Exec[Exec Agent<br/>command side]
-    Master --> RAG[RAG Agent<br/>knowledge entry]
-    Query --> QW[Typed Parser + Query Workflow]
-    Exec --> EW[Typed Parser + Exec Workflow]
-    RAG --> RS[RAGService<br/>Vector + Lexical + RRF + Rerank]
-    QW --> SE[SkillExecutor]
-    EW --> Gate[Approval Gate]
-    Gate --> SE
-    SE --> PG[(PostgreSQL / pgvector)]
-    SE --> Redis[(Redis)]
-    SE --> LLM[LLM Provider]
-    SE --> External[External API]
+    Client[Client / Demo] --> API[FastAPI Ingress]
+    API --> Guard[Authentication / RBAC / Rate Limit]
+    Guard --> App[Application Service]
+    App --> Bus[In-process Async MessageBus]
+    Bus --> Master[Master Agent]
+
+    Master --> Fast[Deterministic Fast Path]
+    Master --> Plan[Typed Planner + DAG Validator]
+    Master --> Recover[Bounded Recovery]
+
+    Fast --> Query[Query Agent]
+    Fast --> Exec[Exec Agent]
+    Fast --> RAG[RAG Agent]
+    Plan --> Query
+    Plan --> Exec
+    Plan --> RAG
+
+    Query --> QW[Read Workflows]
+    Exec --> EW[Command Workflows]
+    RAG --> RS[Hybrid RAGService]
+
+    QW --> Skills[SkillExecutor]
+    EW --> Approval[Approval Gate]
+    Approval --> Skills
+
+    Skills --> PG[(PostgreSQL / pgvector)]
+    Skills --> Redis[(Redis)]
+    Skills --> LLM[LLM Provider]
+    Skills --> External[External APIs]
     RS --> PG
     RS --> Redis
     RS --> LLM
 ```
 
-The Agent boundaries are deliberately narrow:
+主执行链路：
 
-- **Master** owns routing, orchestration, typed planning, dependency execution, and bounded recovery.
-- **Query** owns read-side commerce and operational queries. It can execute only explicitly pure read Skills.
-- **Exec** owns command/production workflows. High-risk writes pass through a human approval gate.
-- **RAG** is the single knowledge-retrieval entry and delegates retrieval/generation to `RAGService`.
+```text
+HTTP API
+  -> Application Service
+  -> Master Orchestrator
+  -> Fast Path / Typed Planner
+  -> Validated DAG Executor
+  -> Query / Exec / RAG
+  -> Typed Workflow
+  -> SkillExecutor
+  -> Security / Approval / Idempotency
+  -> Infrastructure
+```
 
-See [Architecture details](docs/architecture.md) for the three main execution sequences.
+### 四个 Agent 的职责
 
-## Design principles
+| Agent | 职责 | 安全边界 |
+|---|---|---|
+| Master | 路由、规划、DAG 调度、聚合、有限恢复 | 不直接执行业务 Skill |
+| Query | 商品、订单、广告、库存和竞品查询 | 只能运行显式 pure-read Skill |
+| Exec | 广告优化、风控、报表、社媒和客服产物 | 高风险副作用必须经过审批 |
+| RAG | 店铺政策、FAQ、运营知识与商品知识 | 统一进入 `RAGService` |
 
-- **Agent = responsibility**
-- **Workflow = business orchestration**
-- **Skill = atomic capability with a validated contract**
-- **Database = source of facts**
-- **RAG = source of knowledge**
-- **LLM = uncertain judgment or language generation**
-- **Code = deterministic rules, permissions, and safety boundaries**
+更多时序图见 [Architecture](docs/architecture.md)。
 
-## Execution strategy
+## 为什么同时使用 Fast Path 和 Typed DAG？
 
-A simple, high-confidence request follows a deterministic **Fast Path** to one Agent. It avoids planner latency, token usage, and an unnecessary source of routing uncertainty.
+简单且高置信的请求走确定性 Fast Path，减少 Planner latency、token cost 和路由随机性。真正的组合任务才进入 Planner，并且模型输出必须先通过 typed policy validation，不能直接成为执行指令。
 
-A genuinely composite request uses a validated `MasterPlan`. The plan is a typed DAG with bounded steps, approved Agent/task mappings, cycle validation, dependency-aware concurrency, and explicit upstream context. Failed steps enter bounded recovery; ReAct is recovery-only, not the default execution path.
+ReAct 只用于有界恢复，不是默认执行模式。写操作不会因为模型建议而盲目重试。Clarification 被视为成功的控制面交互；超时、Agent 不可用、部分完成和等待审批不会计为完整业务成功。
+
+## 安全与人工审批
+
+代码负责认证、授权、审批和执行状态；LLM 只负责不确定规划与语言生成。
+
+高风险操作遵循以下状态流：
+
+```text
+risky request
+  -> protected Skill
+  -> no valid approval
+  -> success=false
+  -> status=awaiting_approval
+  -> error_code=APPROVAL_REQUIRED
+  -> authenticated approval of exact parameters
+  -> consume approval once
+  -> execute side effect once
+```
+
+审批绑定 tenant、store、requester、Skill 和精确参数哈希，并具有过期时间与一次性消费语义。用户 payload 或 LLM 输出不能伪造 `SecurityContext`，也不能自行批准写操作。
 
 ## Hybrid RAG
 
-`RAGService` independently retrieves vector and lexical candidates, combines them with Reciprocal Rank Fusion, performs one batch rerank, validates citations, and reports grounding status. A deterministic source-context answer remains available when the LLM is unavailable.
+`RAGService` 独立执行 vector 与 lexical recall，通过 Reciprocal Rank Fusion 合并候选，只进行一次 bounded batch rerank，随后验证 citation 与 grounding 状态。
 
-The evaluation harness reports HitRate, Recall, MRR, and nDCG from explicit evaluation cases. No retrieval-accuracy claim is made without running that harness on a populated index.
+当 LLM 不可用时，系统可以返回确定性的 source-context fallback；当某个召回通道失败时，会报告 degraded retrieval，而不是伪装成完整成功。统一评估保留 HitRate、Recall、MRR 和 nDCG，不使用未经运行的数据做质量宣传。
 
-## Security boundary
+## 快速启动
 
-- Development API-key mode and production JWT mode both create a trusted `SecurityContext`.
-- RBAC is checked at ingress and before typed plan execution.
-- Tenant/store identity comes from authentication, never from user payload fields.
-- PostgreSQL RLS and transaction-local tenant/store scope isolate data.
-- Read and write database roles are separated for production configuration.
-- High-risk Skills require an exact-parameter, tenant-bound, one-time approval.
-- Approval and high-risk execution create audit records.
+### 方案 A：Docker Compose
 
-**An LLM cannot approve a high-risk action.** Approval is an authenticated human/API security decision enforced below the workflow layer.
-
-## Observability and resilience
-
-The runtime propagates root `task_id` and hop-level `correlation_id` through structured JSON logs. Raw queries, prompts, credentials, JWTs, and tenant/user identifiers are excluded or hashed.
-
-`GET /metrics` exposes bounded-label Prometheus metrics for HTTP, Agent, Workflow, Skill, LLM latency, tokens, and configured estimated cost. The runtime also includes process-local rate limiting, bounded transient retries, component-level circuit breakers, dependency timeouts, and bounded graceful shutdown.
-
-## Quick start A: local Python
-
-Prerequisites: Python 3.11, Redis 7, and PostgreSQL 16 with the `pgvector` extension available.
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r ecom_agent_matrix/requirements.txt
-cp .env.example .env
-```
-
-Edit `.env` with your local PostgreSQL credentials and set:
-
-```dotenv
-API_KEY=<your-local-demo-key>
-```
-
-With PostgreSQL and Redis running, initialize the existing schema and structured seed data:
-
-```bash
-python -m ecom_agent_matrix.scripts.init_db
-```
-
-Build the real product embeddings required by the RAG demo, then start the API:
-
-```bash
-python -m ecom_agent_matrix.scripts.reembed_vectors --only goods
-uvicorn ecom_agent_matrix.api.main:app --host 0.0.0.0 --port 8000
-```
-
-The first RAG indexing run may download `BAAI/bge-small-en-v1.5`; the offline script therefore uses a wider 300-second model timeout, configurable with `--timeout`. CI and unit tests do not download embedding or CrossEncoder models. CrossEncoder download remains opt-in; without a local model, reranking uses the deterministic keyword fallback.
-
-## Quick start B: Docker Compose
-
-Docker Compose is the shortest reproducible local interview/demo environment:
+要求：Docker 与 Docker Compose。
 
 ```bash
 cp .env.example .env
-# Edit .env and set API_KEY to your own local demo value.
+# 编辑 .env，至少设置 API_KEY 和 PostgreSQL 密码
+
 docker compose -f ecom_agent_matrix/docker/docker-compose.yml up --build -d
 curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/health/ready
 ```
 
-PostgreSQL automatically runs the existing `business_tables.sql` and `vector_tables.sql` only when its data volume is empty. Structured demo rows are included, but the vector table still needs real embeddings:
+启动后可访问：
+
+- Swagger UI：<http://127.0.0.1:8000/docs>
+- ReDoc：<http://127.0.0.1:8000/redoc>
+- Health：<http://127.0.0.1:8000/health>
+- Readiness：<http://127.0.0.1:8000/health/ready>
+- Metrics：<http://127.0.0.1:8000/metrics>
+
+默认镜像是 lean API runtime，不包含 Torch/SentenceTransformer。需要完整本地 RAG Demo 时显式构建 `rag-local` 镜像：
 
 ```bash
+INSTALL_RAG_LOCAL=1 docker compose \
+  -f ecom_agent_matrix/docker/docker-compose.yml up --build -d
+
 docker compose -f ecom_agent_matrix/docker/docker-compose.yml exec api \
   python -m ecom_agent_matrix.scripts.reembed_vectors --only goods
 ```
 
-The indexing command may download the embedding model on its first run. To completely reset the local demo database and rerun entrypoint initialization:
+第一次生成向量可能下载 `BAAI/bge-small-en-v1.5`。PostgreSQL 初始化 SQL 只会在数据卷为空时自动执行；应用启动不会静默修改已有生产数据库。
+
+### 方案 B：本地 Python
+
+要求：Python 3.11+、Redis 7、PostgreSQL 16 与 `pgvector`。
 
 ```bash
-docker compose -f ecom_agent_matrix/docker/docker-compose.yml down -v
-docker compose -f ecom_agent_matrix/docker/docker-compose.yml up --build -d
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
 ```
 
-Application startup never silently alters an existing production database.
-
-## Four interview demos
-
-Set the values for your running environment:
+如需本地 embedding/reranking：
 
 ```bash
-export BASE_URL=http://127.0.0.1:8000
+pip install -e ".[rag-local]"
+```
+
+初始化数据库并启动 API：
+
+```bash
+python -m ecom_agent_matrix.scripts.init_db
+python -m ecom_agent_matrix.scripts.reembed_vectors --only goods  # 仅完整 RAG Demo 需要
+uvicorn ecom_agent_matrix.api.main:app --host 0.0.0.0 --port 8000
+```
+
+## 最小 API 示例
+
+```bash
+curl -sS http://127.0.0.1:8000/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-local-demo-key" \
+  -d '{
+    "query": "搜索防水户外背包",
+    "task_type": "goods_search",
+    "payload": {"sku": "SKU-BAG-001"}
+  }'
+```
+
+完整的四条演示路径：
+
+1. Simple Query Fast Path
+2. Knowledge RAG
+3. Composite Typed DAG
+4. Risk Approval
+
+可复制请求、审批 header 和响应字段说明见 [Demo guide](docs/demo.md)。也可以运行 smoke runner：
+
+```bash
 export DEMO_API_KEY=your-local-demo-key
-```
-
-1. **Simple Query Fast Path** — `goods_search` routes directly to Query and reads the seeded SKU.
-2. **Knowledge RAG** — the waterproof bag query uses populated product knowledge and can return validated `[S1]` citations.
-3. **Composite DAG** — order context and policy context execute independently before the Exec CRM step consumes both.
-4. **Risk Approval** — a deterministic amount threshold creates `APPROVAL_REQUIRED`; approval and exact resubmission perform one write.
-
-Copyable requests and response-shape guidance are in [Demo guide](docs/demo.md). The examples describe response structure rather than fabricated latency, throughput, accuracy, or cost results.
-
-The existing smoke runner exercises the same flows:
-
-```bash
 python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode fast-path --api-key "$DEMO_API_KEY"
 python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode rag --api-key "$DEMO_API_KEY"
 python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode composite --api-key "$DEMO_API_KEY"
 python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode risk --api-key "$DEMO_API_KEY"
 ```
 
-If no real LLM is configured, supported workflows use deterministic/template fallbacks and report degraded source metadata instead of treating a model call as successful.
+## Agent Evaluation
 
-## Deterministic benchmark
+pytest 验证代码正确性；Evaluation Harness 衡量 Agent 的可观察行为。
 
-`benchmark_demo.py` measures only deterministic Master routing. It does not call the full API, PostgreSQL, Redis, or a real LLM and must not be interpreted as a production benchmark.
+```bash
+python -m eval.runner --suite routing
+python -m eval.runner --suite deterministic --fail-on-regression
+python -m eval.runner --suite all
+```
+
+评估维度：
+
+- Routing：accuracy、Fast Path precision/recall、clarification、无效路由
+- Planning：parse、policy validity、cycle、dependency、Agent/task mapping
+- Execution：task/workflow/Skill success、timeout、latency、LLM usage 与 cost
+- Safety：越权执行、审批合规、重复副作用和租户隔离
+- Recovery：有界恢复、degraded success、unsafe retry、recovery LLM calls
+- RAG：HitRate、Recall、MRR、nDCG、citation validity 与 grounding
+
+报告写入 `eval/results/latest.json` 和 `eval/results/latest.md`，并严格区分 `PASS`、`FAIL`、`DEGRADED` 与 `NOT_RUN`。
+
+## 开发与质量门
+
+```bash
+python -m compileall -q ecom_agent_matrix eval
+ruff check ecom_agent_matrix test eval
+ruff format --check ecom_agent_matrix test eval
+pytest -q
+python -m eval.runner --suite deterministic --fail-on-regression
+```
+
+默认 CI 不下载 embedding/CrossEncoder 模型，也不依赖外部 API、PostgreSQL 或 Redis 集成环境。
+
+确定性 routing benchmark 可单独运行，但它不是端到端性能测试：
 
 ```bash
 python -m ecom_agent_matrix.scripts.benchmark_demo -n 100
 ```
 
-## Project structure
+## 项目结构
 
 ```text
 ecom_agent_matrix/
   api/                 FastAPI ingress and schemas
-  core/                MCP, task, security, Skill contracts, LLM abstraction
-  modules/             four Agents, typed parsers, workflows, Skills, RAGService
+  application/         HTTP-independent application boundary
+  agents/              four runtime Agent adapters
+  orchestration/       routing, typed planning, DAG execution, recovery
+  runtime/             lifecycle and in-process async messaging
+  workflows/           typed business orchestration
+  core/                task, security, Skill, approval, LLM contracts
+  infrastructure/      database, Redis, LLM, embedding adapters
+  modules/             parsers, Skills, and RAG implementation
   platform/            observability and resilience
-  db/                  schema, RLS migration, and database clients
-  scripts/             initialization, indexing, smoke, and benchmark tools
+  db/                  schemas, RLS migration, database clients
+  scripts/             initialization, indexing, smoke, benchmark
   docker/              local demo image and Compose environment
-test/                   unit, contract, security, RAG, DAG, and resilience tests
-eval/                   RAG evaluation case format
-docs/                   architecture, demo, operations, and interview notes
+test/                   correctness, contract, security, architecture tests
+eval/                   behavior cases, evaluator, CLI, reports
+docs/                   architecture, demo, observability, interview notes
 ```
 
-## Testing strategy
+## 有意保留的架构取舍
 
-The test suite covers unit behavior, Skill contracts, typed workflows, Master Fast Path/DAG/recovery, RAG retrieval/citations/evaluation, security/RBAC/approval/RLS contracts, observability, and resilience. External services and model downloads are mocked in default tests. Database/Redis integration checks remain optional and are not required by CI.
+- MessageBus 是单进程 asyncio transport，适合当前作品集与 Demo 规模。
+- 不声称已经实现 Kafka、RabbitMQ、Celery 或分布式一致性。
+- 不引入 LangChain、LangGraph、CrewAI 或 AutoGen；核心约束由 typed Python contracts 表达。
+- 全局 singleton 仅作为旧调用兼容入口；活动 Runtime 由 `AppRuntime` 持有并注入依赖。
+- 只有在测量结果证明需要时，才引入 durable transport 或拆分进程。
 
-```bash
-python -m compileall -q ecom_agent_matrix
-ruff check ecom_agent_matrix test --select E9,F63,F7,F82
-pytest -q
-```
+## 当前限制
 
-## Architecture trade-offs
+- MessageBus、rate limiter、circuit breaker 和 reply registry 是进程内状态。
+- 默认 Docker 镜像不包含本地 Transformer 模型。
+- 完整 RAG 质量评估需要真实填充的向量索引与 ranked results。
+- 生产部署仍需要 managed secrets、正式数据库角色/迁移、SLO 和部署平台配置。
+- 仓库不包含虚构的 CD 或未经测量的吞吐量、准确率与成本声明。
 
-The runtime intentionally uses a **single-process asyncio message bus**. At portfolio/demo scale this lowers operational complexity, makes behavior reproducible, and keeps attention on orchestration and safety semantics. The `MessageBus` boundary permits a future Redis Streams or RabbitMQ transport without changing the Agent responsibilities, but no distributed transport is implemented here.
+## 延伸阅读
 
-Production deployment target is intentionally not configured. GitHub Actions is an automated quality gate, while the hardened Docker image is the deployment artifact; there is no fake CD workflow.
-
-## Limitations and future work
-
-- The message bus, rate limiter, circuit-breaker state, and request correlation registry are process-local.
-- No distributed transport, multi-process coordination, or cloud deployment target is included.
-- Demo RAG model loading and indexing are local and can be slow on the first run.
-- Production operations would need managed secrets, production DB roles/migrations, durable message transport where justified, and deployment-specific SLOs.
-
-For concise design rationale and interview answers, see [Interview notes](docs/interview_notes.md).
+- [Architecture](docs/architecture.md) — Fast Path、Typed DAG、Risk Approval 时序
+- [Demo guide](docs/demo.md) — 四条可复制演示路径
+- [Observability](docs/observability.md) — 日志、指标与 tracing
+- [Interview notes](docs/interview_notes.md) — 架构取舍与常见面试问答

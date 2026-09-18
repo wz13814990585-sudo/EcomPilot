@@ -6,13 +6,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY ecom_agent_matrix/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+ARG INSTALL_RAG_LOCAL=0
+
+COPY pyproject.toml README.md /app/
+COPY ecom_agent_matrix /app/ecom_agent_matrix
+
+RUN if [ "$INSTALL_RAG_LOCAL" = "1" ]; then \
+        pip install --no-cache-dir ".[rag-local]"; \
+    else \
+        pip install --no-cache-dir .; \
+    fi \
     && groupadd --system app \
     && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin appuser \
-    && chown appuser:app /app
-
-COPY --chown=appuser:app ecom_agent_matrix /app/ecom_agent_matrix
+    && chown -R appuser:app /app
 
 USER appuser
 

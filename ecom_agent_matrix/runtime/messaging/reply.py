@@ -11,6 +11,7 @@ def build_reply(
     data: dict | None = None,
     error_msg: str = "",
     msg_type: str = "agent_reply",
+    status: str | None = None,
 ) -> AgentMessage:
     body = {
         "type": msg_type,
@@ -21,6 +22,8 @@ def build_reply(
     }
     if error_msg:
         body["error_msg"] = error_msg
+    if status:
+        body["status"] = status
     return AgentMessage(
         task_id=request.task_id,
         correlation_id=request.correlation_id,

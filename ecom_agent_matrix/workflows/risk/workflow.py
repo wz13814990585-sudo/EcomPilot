@@ -9,7 +9,8 @@ from ...platform.observability.metrics import observed_workflow
 
 from ...core.skill.skill_registry import exec_skill
 from ...core.tasking import TaskContext, WorkflowResult, ensure_task_context
-from ...core.tasking.result import INVALID_REQUEST, PARTIAL_SUCCESS, SKILL_FAILED
+from ...core.errors import ErrorCode
+from ...core.tasking.result import INVALID_REQUEST, SKILL_FAILED
 from ...modules.parsers.risk import parse_risk_request
 
 
@@ -56,11 +57,6 @@ async def run_risk_workflow(task: dict | TaskContext) -> WorkflowResult:
         )
     assessment = risk_result.data or {}
     record_data = {"skipped": True}
-    partial = False
-    record_error = ""
-    record_error_code = ""
-    approval_required = False
-    approval_id = ""
     if assessment.get("is_risk"):
         record_result = await exec_skill(
             "record_order_risk",
@@ -77,17 +73,35 @@ async def run_risk_workflow(task: dict | TaskContext) -> WorkflowResult:
             "error_msg": record_result.error_msg,
             "data": record_result.data or {},
         }
-        partial = not record_result.success
-        record_error = record_result.error_msg
-        record_error_code = record_result.error_code
-        approval_required = record_result.error_code == "APPROVAL_REQUIRED"
-        approval_id = str((record_result.data or {}).get("approval_id") or "")
+        if not record_result.success:
+            approval_required = record_result.error_code == ErrorCode.APPROVAL_REQUIRED
+            approval_id = str((record_result.data or {}).get("approval_id") or "")
+            return WorkflowResult(
+                success=False,
+                error_code=record_result.error_code or ErrorCode.SKILL_FAILED,
+                error_msg=(
+                    "Human approval required"
+                    if approval_required
+                    else record_result.error_msg or "record_order_risk 未完成"
+                ),
+                data={
+                    "exec_kind": "risk",
+                    "order_no": request.order_no,
+                    "risk": {
+                        "success": True,
+                        "error_code": risk_result.error_code,
+                        "error_msg": risk_result.error_msg,
+                        "data": risk_result.data or {},
+                    },
+                    "record": record_data,
+                    "approval_required": approval_required,
+                    "approval_id": approval_id,
+                },
+                metadata=_metadata(started, skill_error_code=record_result.error_code),
+            )
 
     return WorkflowResult(
         success=True,
-        partial_success=partial,
-        error_code=PARTIAL_SUCCESS if partial else "",
-        error_msg=record_error if partial else "",
         data={
             "exec_kind": "risk",
             "order_no": request.order_no,
@@ -98,10 +112,10 @@ async def run_risk_workflow(task: dict | TaskContext) -> WorkflowResult:
                 "data": risk_result.data or {},
             },
             "record": record_data,
-            "approval_required": approval_required,
-            "approval_id": approval_id,
+            "approval_required": False,
+            "approval_id": "",
         },
-        metadata=_metadata(started, skill_error_code=record_error_code),
+        metadata=_metadata(started),
     )
 
 

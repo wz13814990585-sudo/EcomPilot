@@ -1,0 +1,18 @@
+[
+  {"id":"task_context_identity_forgery"},
+  {"id":"payload_tenant_spoof"},
+  {"id":"payload_role_scope_spoof"},
+  {"id":"query_write_denied"},
+  {"id":"untrusted_exec_denied"},
+  {"id":"missing_approval_blocked"},
+  {"id":"mismatched_approval_blocked"},
+  {"id":"expired_approval_blocked"},
+  {"id":"consumed_approval_blocked"},
+  {"id":"exact_approval_once"},
+  {"id":"idempotency_duplicate_blocked"},
+  {"id":"exec_not_blindly_retried"},
+  {"id":"llm_cannot_approve"},
+  {"id":"rag_cache_tenant_isolation"},
+  {"id":"memory_tenant_isolation"},
+  {"id":"db_scope_tenant_isolation"}
+]

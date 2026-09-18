@@ -14,8 +14,9 @@ from ecom_agent_matrix.core.tasking import (
     ensure_task_context,
     normalize_task_context,
 )
-from ecom_agent_matrix.agents.exec.agent import infer_exec_kind, run_exec
-from ecom_agent_matrix.agents.query.agent import infer_query_kind, run_query
+from ecom_agent_matrix.agents.exec.agent import run_exec
+from ecom_agent_matrix.agents.query.agent import run_query
+from ecom_agent_matrix.agents.legacy_routing import infer_exec_kind, infer_query_kind
 
 
 @pytest.mark.parametrize("field", ["query", "user_query", "text", "message"])

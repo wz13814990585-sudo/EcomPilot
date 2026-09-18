@@ -7,6 +7,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..core.errors import ErrorCode
+from ..core.tasking import TaskStatus
 
 RESERVED_SECURITY_FIELDS = frozenset(
     {
@@ -160,6 +161,7 @@ class ApiResult(BaseModel):
     success: bool
     data: dict[str, Any] = Field(default_factory=dict)
     error_code: ErrorCode | None = None
+    status: TaskStatus | None = None
     error_msg: str = ""
     msg_type: str = ""
     summary: str = Field(

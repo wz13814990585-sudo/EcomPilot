@@ -1,0 +1,8 @@
+[
+  {"id":"composite_customer_reply","kind":"composite","input":{"query":"查订单 ORD-2026-001 物流，根据退款规则帮我回复客户"},"expected_steps":["order_context","policy_context","customer_reply"],"expected_dependencies":{"customer_reply":["order_context","policy_context"]}},
+  {"id":"cycle_rejected","kind":"invalid","expected_error":"PLAN_CYCLE","plan":{"decision":"execute","confidence":1,"reason_code":"fixture","planner_source":"eval","steps":[{"step_id":"read_order","agent":"data_query","task_type":"order_query","depends_on":["write_reply"]},{"step_id":"write_reply","agent":"biz_exec","task_type":"customer_service","depends_on":["read_order"]}]}},
+  {"id":"unknown_dependency_rejected","kind":"invalid","expected_error":"INVALID_DEPENDENCY","plan":{"decision":"execute","confidence":1,"reason_code":"fixture","planner_source":"eval","steps":[{"step_id":"read_order","agent":"data_query","task_type":"order_query","depends_on":["missing_context"]}]}},
+  {"id":"invalid_mapping_rejected","kind":"invalid","expected_error":"INVALID_AGENT_ROUTE","plan":{"decision":"execute","confidence":1,"reason_code":"fixture","planner_source":"eval","steps":[{"step_id":"write_ad","agent":"data_query","task_type":"ad_optimize"}]}},
+  {"id":"write_routes_to_exec","kind":"valid","plan":{"decision":"execute","confidence":1,"reason_code":"fixture","planner_source":"eval","steps":[{"step_id":"write_ad","agent":"biz_exec","task_type":"ad_optimize"}]}},
+  {"id":"retrieval_routes_to_rag","kind":"valid","plan":{"decision":"execute","confidence":1,"reason_code":"fixture","planner_source":"eval","steps":[{"step_id":"read_policy","agent":"knowledge_rag","task_type":"knowledge_qa"}]}}
+]

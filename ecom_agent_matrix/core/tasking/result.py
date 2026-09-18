@@ -5,8 +5,9 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from ..errors import ErrorCode
+from .status import TaskStatus
 
 INVALID_REQUEST = ErrorCode.INVALID_REQUEST.value
 MISSING_PRODUCT = ErrorCode.MISSING_PRODUCT.value
@@ -26,6 +27,7 @@ class WorkflowResult(BaseModel):
     error_code: ErrorCode | None = None
     error_msg: str = ""
     partial_success: bool = False
+    status: TaskStatus | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("error_code", mode="before")
@@ -33,12 +35,26 @@ class WorkflowResult(BaseModel):
     def empty_error_is_none(cls, value):
         return None if value == "" else value
 
+    @model_validator(mode="after")
+    def derive_status(self):
+        if self.status is None:
+            if self.success and self.partial_success:
+                self.status = TaskStatus.PARTIAL
+            elif self.success:
+                self.status = TaskStatus.SUCCEEDED
+            elif self.error_code == ErrorCode.APPROVAL_REQUIRED:
+                self.status = TaskStatus.AWAITING_APPROVAL
+            else:
+                self.status = TaskStatus.FAILED
+        return self
+
     def to_legacy_data(self) -> dict[str, Any]:
         """保留 tuple 形状，同时携带 typed workflow 状态。"""
         data = deepcopy(self.data)
         data["_workflow"] = {
             "error_code": self.error_code,
             "partial_success": self.partial_success,
+            "status": self.status,
             "metadata": deepcopy(self.metadata),
         }
         return data

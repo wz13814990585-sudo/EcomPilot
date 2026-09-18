@@ -11,6 +11,7 @@ from ecom_agent_matrix.api.dispatch import dispatch_and_wait
 from ecom_agent_matrix.api.schemas import ApiResult
 from ecom_agent_matrix.application import AgentApplicationService, AgentResponse
 from ecom_agent_matrix.core.errors import ErrorCode
+from ecom_agent_matrix.core.tasking import TaskStatus
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
 from ecom_agent_matrix.runtime.messaging.reply_registry import ReplyRegistry
 
@@ -78,6 +79,7 @@ def test_unmapped_business_failure_preserves_error_code_in_api_result():
 
     result = ApiResult(**payload)
     assert result.error_code is ErrorCode.APPROVAL_REQUIRED
+    assert result.status is TaskStatus.AWAITING_APPROVAL
 
 
 @pytest.mark.parametrize(

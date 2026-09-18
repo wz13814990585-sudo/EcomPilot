@@ -14,6 +14,19 @@ from ecom_agent_matrix.runtime.messaging.replies import gateway_replies, task_re
 from ecom_agent_matrix.runtime.messaging.reply_registry import ReplyRegistry
 
 
+def _runtime_with(registry, *, db=None, redis=None, bus=None):
+    return AppRuntime(
+        settings=SimpleNamespace(),
+        db=db or SimpleNamespace(start=AsyncMock(), close=AsyncMock()),
+        redis=redis or SimpleNamespace(start=AsyncMock(), close=AsyncMock()),
+        message_bus=bus or MessageBus(queue_max=2),
+        agent_registry=registry,
+        llm_gateway=SimpleNamespace(close=AsyncMock()),
+        skill_executor=SimpleNamespace(),
+        approval_service=SimpleNamespace(),
+    )
+
+
 def test_message_bus_register_unregister_and_unavailable_are_deterministic():
     async def scenario():
         bus = MessageBus(queue_max=2)
@@ -151,3 +164,88 @@ def test_runtime_build_owns_bus_replies_orchestrator_and_application_service():
     assert runtime.application_service.message_bus is runtime.message_bus
     assert runtime.application_service.reply_registry is runtime.gateway_reply_registry
     assert runtime.skill_executor.approval_service is runtime.approval_service
+
+
+def test_runtime_rolls_back_when_database_start_fails_and_close_is_idempotent():
+    async def scenario():
+        registry = AgentRegistry()
+        registry.register("worker")(AsyncMock())
+        db = SimpleNamespace(start=AsyncMock(side_effect=RuntimeError("db")), close=AsyncMock())
+        redis = SimpleNamespace(start=AsyncMock(), close=AsyncMock())
+        runtime = _runtime_with(registry, db=db, redis=redis)
+        with patch("ecom_agent_matrix.runtime.container.cancel_master_tasks", new=AsyncMock()):
+            try:
+                await runtime.start()
+            except RuntimeError as exc:
+                assert str(exc) == "db"
+            await runtime.close()
+            await runtime.close()
+        assert db.close.await_count == 1
+        assert redis.start.await_count == 0 and redis.close.await_count == 0
+        assert runtime.agents_alive is False
+
+    asyncio.run(scenario())
+
+
+def test_runtime_rolls_back_database_when_redis_start_fails():
+    async def scenario():
+        registry = AgentRegistry()
+        registry.register("worker")(AsyncMock())
+        db = SimpleNamespace(start=AsyncMock(), close=AsyncMock())
+        redis = SimpleNamespace(
+            start=AsyncMock(side_effect=RuntimeError("redis")), close=AsyncMock()
+        )
+        runtime = _runtime_with(registry, db=db, redis=redis)
+        with patch("ecom_agent_matrix.runtime.container.cancel_master_tasks", new=AsyncMock()):
+            try:
+                await runtime.start()
+            except RuntimeError as exc:
+                assert str(exc) == "redis"
+        assert db.close.await_count == 1 and redis.close.await_count == 1
+        assert runtime.message_bus.agent_subscribe == {}
+
+    asyncio.run(scenario())
+
+
+def test_runtime_rolls_back_when_agent_worker_fails_during_startup():
+    async def scenario():
+        async def broken_worker(_queue):
+            raise RuntimeError("worker")
+
+        registry = AgentRegistry()
+        registry.register("worker")(broken_worker)
+        runtime = _runtime_with(registry)
+        with patch("ecom_agent_matrix.runtime.container.cancel_master_tasks", new=AsyncMock()):
+            try:
+                await runtime.start()
+            except RuntimeError as exc:
+                assert str(exc) == "worker"
+        assert runtime.agents_alive is False
+        assert runtime.message_bus.agent_subscribe == {}
+        assert runtime.db.close.await_count == 1
+        assert runtime.redis.close.await_count == 1
+
+    asyncio.run(scenario())
+
+
+def test_runtime_repeated_start_does_not_duplicate_workers():
+    async def scenario():
+        started = 0
+
+        async def worker(queue):
+            nonlocal started
+            started += 1
+            await asyncio.Event().wait()
+
+        registry = AgentRegistry()
+        registry.register("worker")(worker)
+        runtime = _runtime_with(registry)
+        with patch("ecom_agent_matrix.runtime.container.cancel_master_tasks", new=AsyncMock()):
+            await runtime.start()
+            await runtime.start()
+            assert started == 1
+            await runtime.close()
+        assert runtime.db.start.await_count == 1
+        assert runtime.redis.start.await_count == 1
+
+    asyncio.run(scenario())

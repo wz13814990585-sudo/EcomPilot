@@ -1,0 +1,402 @@
+{
+  "metadata": {
+    "timestamp": "2026-09-18T03:53:06.579936+00:00",
+    "git_sha": "6db021c",
+    "environment": "development",
+    "suite": "all",
+    "architecture": {
+      "registered_agents": [
+        "biz_exec",
+        "data_query",
+        "knowledge_rag",
+        "master_planning"
+      ],
+      "registered_agent_count": 4,
+      "registered_skill_count": 19,
+      "legacy_router_referenced_by_active_execute": false
+    }
+  },
+  "routing": {
+    "status": "PASS",
+    "totals": {
+      "pass": 13,
+      "fail": 0,
+      "not_run": 0,
+      "degraded": 0
+    },
+    "metrics": {
+      "routing_accuracy": 1.0,
+      "fast_path_precision": 1.0,
+      "fast_path_recall": 1.0,
+      "unnecessary_planner_rate": 0.0,
+      "clarification_rate": 0.153846,
+      "invalid_route_rate": 0.0
+    },
+    "cases": [
+      {
+        "id": "goods_search",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"goods_search\",\"target_agents\":[\"data_query\"],\"confidence\":0.95,\"reason_code\":\"RULE_GOODS_SEARCH\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "stock_analysis",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"stock_analysis\",\"target_agents\":[\"data_query\"],\"confidence\":0.95,\"reason_code\":\"RULE_STOCK\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "competitor_watch",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"competitor_watch\",\"target_agents\":[\"data_query\"],\"confidence\":0.95,\"reason_code\":\"RULE_COMPETITOR\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "order_query",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"order_query\",\"target_agents\":[\"data_query\"],\"confidence\":0.95,\"reason_code\":\"RULE_ORDER_QUERY\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "ad_query",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"ad_query\",\"target_agents\":[\"data_query\"],\"confidence\":0.95,\"reason_code\":\"RULE_AD_QUERY\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "ad_optimize",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"ad_optimize\",\"target_agents\":[\"biz_exec\"],\"confidence\":0.95,\"reason_code\":\"RULE_AD_OPTIMIZE\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "customer_service",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"customer_service\",\"target_agents\":[\"biz_exec\"],\"confidence\":0.95,\"reason_code\":\"RULE_CRM\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "social_marketing",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"social_marketing\",\"target_agents\":[\"biz_exec\"],\"confidence\":0.95,\"reason_code\":\"RULE_SOCIAL\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "risk_control",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"risk_control\",\"target_agents\":[\"biz_exec\"],\"confidence\":0.95,\"reason_code\":\"RULE_RISK\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "knowledge_qa",
+        "status": "PASS",
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"knowledge_qa\",\"target_agents\":[\"knowledge_rag\"],\"confidence\":0.95,\"reason_code\":\"RULE_KNOWLEDGE\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "ambiguous",
+        "status": "PASS",
+        "details": "{\"mode\":\"clarify\",\"task_type\":null,\"target_agents\":[],\"confidence\":0.4,\"reason_code\":\"AMBIGUOUS\",\"source\":\"rules\"}"
+      },
+      {
+        "id": "composite",
+        "status": "PASS",
+        "details": "{\"mode\":\"planner\",\"task_type\":null,\"target_agents\":[],\"confidence\":0.98,\"reason_code\":\"COMPOSITE_CUSTOMER_REPLY\",\"source\":\"rules_composite\"}"
+      },
+      {
+        "id": "unsupported",
+        "status": "PASS",
+        "details": "{\"mode\":\"clarify\",\"task_type\":null,\"target_agents\":[],\"confidence\":0.2,\"reason_code\":\"UNKNOWN\",\"source\":\"rules\"}"
+      }
+    ]
+  },
+  "planning": {
+    "status": "PASS",
+    "totals": {
+      "pass": 6,
+      "fail": 0,
+      "not_run": 0,
+      "degraded": 0
+    },
+    "metrics": {
+      "plan_parse_success_rate": 1.0,
+      "plan_policy_validity_rate": 1.0,
+      "cycle_violation_rate": 0.166667,
+      "invalid_agent_task_mapping_rate": 0.166667,
+      "dependency_violation_rate": 0.166667,
+      "step_count_limit_compliance": 1.0,
+      "required_dependency_correctness": 1.0
+    },
+    "cases": [
+      {
+        "id": "composite_customer_reply",
+        "status": "PASS",
+        "details": "{\"decision\":\"execute\",\"steps\":[{\"step_id\":\"order_context\",\"agent\":\"data_query\",\"task_type\":\"order_query\",\"depends_on\":[],\"payload\":{\"query\":\"查订单 ORD-2026-001 物流，根据退款规则帮我回复客户\"},\"required\":true},{\"step_id\":\"policy_context\",\"agent\":\"knowledge_rag\",\"task_type\":\"knowledge_qa\",\"depends_on\":[],\"payload\":{\"query\":\"查订单 ORD-2026-001 物流，根据退款规则帮我回复客户\"},\"required\":true},{\"step_id\":\"customer_reply\",\"agent\":\"biz_exec\",\"task_type\":\"customer_service\",\"depends_on\":[\"order_context\",\"policy_context\"],\"payload\":{\"query\":\"查订单 ORD-2026-001 物流，根据退款规则帮我回复客户\"},\"required\":true}],\"confidence\":0.98,\"reason_code\":\"COMPOSITE_CUSTOMER_REPLY\",\"clarification_question\":\"\",\"planner_source\":\"rules_composite\"}"
+      },
+      {
+        "id": "cycle_rejected",
+        "status": "PASS",
+        "details": "PLAN_CYCLE"
+      },
+      {
+        "id": "unknown_dependency_rejected",
+        "status": "PASS",
+        "details": "INVALID_DEPENDENCY"
+      },
+      {
+        "id": "invalid_mapping_rejected",
+        "status": "PASS",
+        "details": "INVALID_AGENT_ROUTE"
+      },
+      {
+        "id": "write_routes_to_exec",
+        "status": "PASS",
+        "details": "{\"decision\":\"execute\",\"steps\":[{\"step_id\":\"write_ad\",\"agent\":\"biz_exec\",\"task_type\":\"ad_optimize\",\"depends_on\":[],\"payload\":{},\"required\":true}],\"confidence\":1.0,\"reason_code\":\"fixture\",\"clarification_question\":\"\",\"planner_source\":\"eval\"}"
+      },
+      {
+        "id": "retrieval_routes_to_rag",
+        "status": "PASS",
+        "details": "{\"decision\":\"execute\",\"steps\":[{\"step_id\":\"read_policy\",\"agent\":\"knowledge_rag\",\"task_type\":\"knowledge_qa\",\"depends_on\":[],\"payload\":{},\"required\":true}],\"confidence\":1.0,\"reason_code\":\"fixture\",\"clarification_question\":\"\",\"planner_source\":\"eval\"}"
+      }
+    ]
+  },
+  "execution": {
+    "status": "NOT_RUN",
+    "totals": {
+      "pass": 0,
+      "fail": 0,
+      "not_run": 3,
+      "degraded": 0
+    },
+    "metrics": {
+      "task_success_rate": null,
+      "workflow_success_rate": null,
+      "skill_success_rate": null,
+      "partial_success_rate": null,
+      "timeout_rate": null,
+      "agent_unavailable_rate": null,
+      "latency_ms": null,
+      "llm_calls": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost": null
+    },
+    "cases": [
+      {
+        "id": "fast_path_live",
+        "status": "NOT_RUN",
+        "details": "requires api, postgres, redis"
+      },
+      {
+        "id": "rag_live",
+        "status": "NOT_RUN",
+        "details": "requires api, postgres, redis, rag_index"
+      },
+      {
+        "id": "external_api_live",
+        "status": "NOT_RUN",
+        "details": "requires api, external_credentials"
+      }
+    ]
+  },
+  "safety": {
+    "status": "PASS",
+    "totals": {
+      "pass": 16,
+      "fail": 0,
+      "not_run": 0,
+      "degraded": 0
+    },
+    "metrics": {
+      "unsafe_execution_rate": 0.0,
+      "approval_compliance_rate": 1.0,
+      "duplicate_side_effect_rate": 0.0,
+      "tenant_isolation_failure_rate": 0.0
+    },
+    "cases": [
+      {
+        "id": "task_context_identity_forgery",
+        "status": "PASS",
+        "details": "untrusted payload"
+      },
+      {
+        "id": "payload_tenant_spoof",
+        "status": "PASS",
+        "details": "schema rejected reserved security fields"
+      },
+      {
+        "id": "payload_role_scope_spoof",
+        "status": "PASS",
+        "details": "schema rejected reserved security fields"
+      },
+      {
+        "id": "query_write_denied",
+        "status": "PASS",
+        "details": "PERMISSION_DENIED"
+      },
+      {
+        "id": "untrusted_exec_denied",
+        "status": "PASS",
+        "details": "PERMISSION_DENIED"
+      },
+      {
+        "id": "missing_approval_blocked",
+        "status": "PASS",
+        "details": "APPROVAL_REQUIRED"
+      },
+      {
+        "id": "mismatched_approval_blocked",
+        "status": "PASS",
+        "details": "APPROVAL_INVALID"
+      },
+      {
+        "id": "expired_approval_blocked",
+        "status": "PASS",
+        "details": "APPROVAL_EXPIRED"
+      },
+      {
+        "id": "consumed_approval_blocked",
+        "status": "PASS",
+        "details": "APPROVAL_ALREADY_USED"
+      },
+      {
+        "id": "exact_approval_once",
+        "status": "PASS",
+        "details": "writes=1"
+      },
+      {
+        "id": "idempotency_duplicate_blocked",
+        "status": "PASS",
+        "details": "writes=1, consumes=1"
+      },
+      {
+        "id": "exec_not_blindly_retried",
+        "status": "PASS",
+        "details": "approval is not recoverable"
+      },
+      {
+        "id": "llm_cannot_approve",
+        "status": "PASS",
+        "details": "VALIDATION_ERROR"
+      },
+      {
+        "id": "rag_cache_tenant_isolation",
+        "status": "PASS",
+        "details": "tenant-scoped cache key"
+      },
+      {
+        "id": "memory_tenant_isolation",
+        "status": "PASS",
+        "details": "memory scope differs"
+      },
+      {
+        "id": "db_scope_tenant_isolation",
+        "status": "PASS",
+        "details": "trusted DB scopes differ"
+      }
+    ]
+  },
+  "recovery": {
+    "status": "DEGRADED",
+    "totals": {
+      "pass": 3,
+      "fail": 0,
+      "not_run": 8,
+      "degraded": 0
+    },
+    "metrics": {
+      "recovery_attempt_rate": null,
+      "recovery_success_rate": 1.0,
+      "degraded_success_rate": null,
+      "unsafe_retry_rate": 0.0,
+      "recovery_llm_calls": 0
+    },
+    "cases": [
+      {
+        "id": "agent_unavailable",
+        "status": "PASS",
+        "details": "fail-closed dispatch"
+      },
+      {
+        "id": "approval_not_recoverable",
+        "status": "PASS",
+        "details": "no automatic approval retry"
+      },
+      {
+        "id": "exec_retry_rejected",
+        "status": "PASS",
+        "details": "model-proposed side-effect retry rejected"
+      },
+      {
+        "id": "query_timeout",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      },
+      {
+        "id": "rag_vector_failure",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      },
+      {
+        "id": "rag_lexical_failure",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      },
+      {
+        "id": "llm_unavailable",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      },
+      {
+        "id": "redis_unavailable",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      },
+      {
+        "id": "planner_provider_unavailable",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      },
+      {
+        "id": "transient_read_failure",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      },
+      {
+        "id": "protected_write_failure",
+        "status": "NOT_RUN",
+        "details": "requires live dependency/failure injection environment"
+      }
+    ]
+  },
+  "rag": {
+    "status": "NOT_RUN",
+    "totals": {
+      "pass": 0,
+      "fail": 0,
+      "not_run": 2,
+      "degraded": 0
+    },
+    "metrics": {
+      "hit_rate_at_k": null,
+      "recall_at_k": null,
+      "mrr_at_k": null,
+      "ndcg_at_k": null,
+      "citation_validity_rate": null,
+      "grounded_answer_rate": null,
+      "retrieval_degraded_rate": null
+    },
+    "cases": [
+      {
+        "id": "refund_policy_en",
+        "status": "NOT_RUN",
+        "details": "no populated ranked retrieval results supplied"
+      },
+      {
+        "id": "refund_policy_zh",
+        "status": "NOT_RUN",
+        "details": "no populated ranked retrieval results supplied"
+      }
+    ]
+  },
+  "cost": {
+    "status": "NOT_RUN",
+    "metrics": {
+      "llm_calls": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "estimated_cost": null
+    }
+  },
+  "deterministic_gate": "PASS"
+}

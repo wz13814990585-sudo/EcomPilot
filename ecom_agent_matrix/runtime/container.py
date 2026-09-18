@@ -52,6 +52,11 @@ class AppRuntime:
     master_orchestrator: MasterOrchestrator | None = None
     application_service: AgentApplicationService | None = None
     _agent_task: asyncio.Task | None = field(default=None, init=False, repr=False)
+    _started: bool = field(default=False, init=False, repr=False)
+    _db_started: bool = field(default=False, init=False, repr=False)
+    _redis_started: bool = field(default=False, init=False, repr=False)
+    _db_attempted: bool = field(default=False, init=False, repr=False)
+    _redis_attempted: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.task_reply_registry = self.task_reply_registry or self.message_bus.task_reply_registry
@@ -114,50 +119,94 @@ class AppRuntime:
         )
 
     async def start(self) -> None:
-        await self.db.start()
-        await self.redis.start()
-        if not self.agent_registry.definitions:
-            raise RuntimeError("agent registry is empty")
+        if self._started and self.agents_alive:
+            return
+        if self._started or self._db_attempted or self._redis_attempted or self._agent_task:
+            await self._shutdown_resources()
 
-        async def serve_query(queue):
-            with skill_executor_context(self.skill_executor):
-                await query_agent(queue, bus=self.message_bus)
+        try:
+            self._db_attempted = True
+            await self.db.start()
+            self._db_started = True
+            self._redis_attempted = True
+            await self.redis.start()
+            self._redis_started = True
+            if not self.agent_registry.definitions:
+                raise RuntimeError("agent registry is empty")
 
-        async def serve_exec(queue):
-            with skill_executor_context(self.skill_executor):
-                await exec_agent(queue, bus=self.message_bus)
+            async def serve_query(queue):
+                with skill_executor_context(self.skill_executor):
+                    await query_agent(queue, bus=self.message_bus)
 
-        worker_overrides = {
-            AGENT_MASTER: MasterAgent(self.master_orchestrator).serve,
-            AGENT_QUERY: serve_query,
-            AGENT_EXEC: serve_exec,
-            AGENT_RAG: partial(rag_agent, bus=self.message_bus),
-        }
-        self._agent_task = asyncio.create_task(
-            self.agent_registry.serve(
-                self.message_bus,
-                worker_overrides=worker_overrides,
-            ),
-            name="agent-runtime",
-        )
-        await asyncio.sleep(0)
+            async def serve_exec(queue):
+                with skill_executor_context(self.skill_executor):
+                    await exec_agent(queue, bus=self.message_bus)
+
+            worker_overrides = {
+                AGENT_MASTER: MasterAgent(self.master_orchestrator).serve,
+                AGENT_QUERY: serve_query,
+                AGENT_EXEC: serve_exec,
+                AGENT_RAG: partial(rag_agent, bus=self.message_bus),
+            }
+            ready_event = asyncio.Event()
+            self._agent_task = asyncio.create_task(
+                self.agent_registry.serve(
+                    self.message_bus,
+                    worker_overrides=worker_overrides,
+                    ready_event=ready_event,
+                ),
+                name="agent-runtime",
+            )
+            ready_task = asyncio.create_task(ready_event.wait(), name="agent-runtime-ready")
+            done, _ = await asyncio.wait(
+                {self._agent_task, ready_task}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if self._agent_task in done:
+                ready_task.cancel()
+                await asyncio.gather(ready_task, return_exceptions=True)
+                await self._agent_task
+            await ready_task
+            self._started = True
+        except BaseException:
+            await self._shutdown_resources()
+            raise
 
     @property
     def agents_alive(self) -> bool:
         return bool(self._agent_task and not self._agent_task.done())
 
     async def close(self) -> None:
+        if not any(
+            (
+                self._started,
+                self._db_attempted,
+                self._redis_attempted,
+                self._agent_task is not None,
+            )
+        ):
+            return
+        await self._shutdown_resources()
+
+    async def _shutdown_resources(self) -> None:
+        """Best-effort reverse-order cleanup, safe after partial startup."""
         if self._agent_task and not self._agent_task.done():
             self._agent_task.cancel()
             await asyncio.gather(self._agent_task, return_exceptions=True)
         if self.master_orchestrator is not None:
-            await self.master_orchestrator.close()
-        await cancel_master_tasks()
-        await self.message_bus.close()
-        await self.llm_gateway.close()
-        await self.redis.close()
-        await self.db.close()
+            await asyncio.gather(self.master_orchestrator.close(), return_exceptions=True)
+        await asyncio.gather(cancel_master_tasks(), return_exceptions=True)
+        await asyncio.gather(self.message_bus.close(), return_exceptions=True)
+        await asyncio.gather(self.llm_gateway.close(), return_exceptions=True)
+        if self._redis_attempted:
+            await asyncio.gather(self.redis.close(), return_exceptions=True)
+        if self._db_attempted:
+            await asyncio.gather(self.db.close(), return_exceptions=True)
         self._agent_task = None
+        self._started = False
+        self._db_started = False
+        self._redis_started = False
+        self._db_attempted = False
+        self._redis_attempted = False
 
 
 __all__ = ["AppRuntime"]

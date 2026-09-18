@@ -29,7 +29,6 @@ from ...workflows.goods import run_goods_workflow
 from ...workflows.competitor import run_competitor_workflow
 from ...workflows.stock import run_stock_workflow
 from ...modules.parsers.stock import extract_stock_sku
-from ..legacy_routing import infer_query_kind  # noqa: F401
 from ...platform.observability.context import TraceContext, set_trace_context
 from ...platform.observability.metrics import metrics
 
@@ -191,6 +190,7 @@ async def query_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
                     success=ok,
                     error_msg=err or "",
                     data=data,
+                    status=result.status.value,
                 )
                 await bus.send(reply)
                 logger.info(

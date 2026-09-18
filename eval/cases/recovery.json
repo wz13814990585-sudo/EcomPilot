@@ -1,0 +1,13 @@
+[
+  {"id":"agent_unavailable","mode":"deterministic"},
+  {"id":"approval_not_recoverable","mode":"deterministic"},
+  {"id":"exec_retry_rejected","mode":"deterministic"},
+  {"id":"query_timeout","mode":"external"},
+  {"id":"rag_vector_failure","mode":"external"},
+  {"id":"rag_lexical_failure","mode":"external"},
+  {"id":"llm_unavailable","mode":"external"},
+  {"id":"redis_unavailable","mode":"external"},
+  {"id":"planner_provider_unavailable","mode":"external"},
+  {"id":"transient_read_failure","mode":"external"},
+  {"id":"protected_write_failure","mode":"external"}
+]

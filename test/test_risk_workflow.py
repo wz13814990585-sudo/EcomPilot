@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_QUERY
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
 from ecom_agent_matrix.core.skill.skill_registry import skill_execution_context
-from ecom_agent_matrix.core.tasking import normalize_task_context
+from ecom_agent_matrix.core.tasking import TaskStatus, normalize_task_context
 from ecom_agent_matrix.workflows.data_check import workflow as data_check
 from ecom_agent_matrix.workflows.risk.workflow import handle_risk, run_risk_workflow
 from ecom_agent_matrix.modules.parsers.risk import parse_risk_request
@@ -156,7 +156,10 @@ def test_risky_order_surfaces_approval_and_does_not_retry_write():
         return result, execute
 
     result, execute = asyncio.run(scenario())
-    assert result.success and result.partial_success
+    assert result.success is False
+    assert result.partial_success is False
+    assert result.error_code == "APPROVAL_REQUIRED"
+    assert result.status is TaskStatus.AWAITING_APPROVAL
     assert result.data["approval_required"] is True
     assert result.data["approval_id"] == "approval-1"
     assert execute.await_count == 2
@@ -184,5 +187,7 @@ def test_approved_risky_order_records_once_and_write_failure_is_not_retried():
     )
     assert success.success and not success.partial_success
     assert success.data["record"]["data"]["record_id"] == 7
-    assert failure.success and failure.partial_success
+    assert failure.success is False and failure.partial_success is False
+    assert failure.status is TaskStatus.FAILED
+    assert failure.error_code == "SKILL_EXECUTION_ERROR"
     assert success_exec.await_count == 2 and failure_exec.await_count == 2

@@ -1,0 +1,15 @@
+[
+  {"id":"goods_search","input":{"query":"搜索商品防水背包"},"expected_task_type":"goods_search","expected_mode":"fast_path","expected_agent":"data_query","max_planner_calls":0},
+  {"id":"stock_analysis","input":{"query":"SKU-BAG-001 需要备货多少天"},"expected_task_type":"stock_analysis","expected_mode":"fast_path","expected_agent":"data_query","max_planner_calls":0},
+  {"id":"competitor_watch","input":{"query":"监控 Temu 竞品价格"},"expected_task_type":"competitor_watch","expected_mode":"fast_path","expected_agent":"data_query","max_planner_calls":0},
+  {"id":"order_query","input":{"query":"查询订单 ORD-2026-001 状态"},"expected_task_type":"order_query","expected_mode":"fast_path","expected_agent":"data_query","max_planner_calls":0},
+  {"id":"ad_query","input":{"query":"查询广告消耗"},"expected_task_type":"ad_query","expected_mode":"fast_path","expected_agent":"data_query","max_planner_calls":0},
+  {"id":"ad_optimize","input":{"query":"优化广告出价"},"expected_task_type":"ad_optimize","expected_mode":"fast_path","expected_agent":"biz_exec","max_planner_calls":0},
+  {"id":"customer_service","input":{"query":"帮我回复客户"},"expected_task_type":"customer_service","expected_mode":"fast_path","expected_agent":"biz_exec","max_planner_calls":0},
+  {"id":"social_marketing","input":{"query":"生成社媒文案"},"expected_task_type":"social_marketing","expected_mode":"fast_path","expected_agent":"biz_exec","max_planner_calls":0},
+  {"id":"risk_control","input":{"query":"触发订单风控"},"expected_task_type":"risk_control","expected_mode":"fast_path","expected_agent":"biz_exec","max_planner_calls":0},
+  {"id":"knowledge_qa","input":{"query":"退款规则是什么"},"expected_task_type":"knowledge_qa","expected_mode":"fast_path","expected_agent":"knowledge_rag","max_planner_calls":0},
+  {"id":"ambiguous","input":{"query":"查询广告数据并优化广告"},"expected_task_type":null,"expected_mode":"clarify","expected_agent":null,"max_planner_calls":0},
+  {"id":"composite","input":{"query":"查订单 ORD-2026-001 状态，根据退款规则帮我回复客户"},"expected_task_type":null,"expected_mode":"planner","expected_agent":null,"max_planner_calls":0},
+  {"id":"unsupported","input":{"query":"今天天气怎么样"},"expected_task_type":null,"expected_mode":"clarify","expected_agent":null,"max_planner_calls":0}
+]

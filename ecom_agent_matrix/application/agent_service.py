@@ -6,10 +6,11 @@ import time
 import uuid
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ..config.settings import settings
 from ..core.errors import ErrorCode
+from ..core.tasking import TaskStatus
 from ..core.security import ApprovalGrant, SecurityContext
 from ..runtime.messaging.message import AgentMessage
 from ..runtime.messaging.replies import gateway_replies
@@ -23,8 +24,20 @@ class AgentResponse(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
     error_code: ErrorCode | None = None
     error_message: str = ""
+    status: TaskStatus | None = None
     msg_type: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def derive_status(self):
+        if self.status is None:
+            if self.success:
+                self.status = TaskStatus.SUCCEEDED
+            elif self.error_code == ErrorCode.APPROVAL_REQUIRED:
+                self.status = TaskStatus.AWAITING_APPROVAL
+            else:
+                self.status = TaskStatus.FAILED
+        return self
 
 
 class AgentApplicationService:
@@ -108,6 +121,17 @@ class AgentApplicationService:
             data=data,
             error_code=error_code,
             error_message=str(body.get("error_msg") or ""),
+            status=(
+                body.get("status")
+                or data.get("status")
+                or (
+                    TaskStatus.SUCCEEDED
+                    if success
+                    else TaskStatus.AWAITING_APPROVAL
+                    if error_code == ErrorCode.APPROVAL_REQUIRED
+                    else TaskStatus.FAILED
+                )
+            ),
             msg_type=str(body.get("type") or ""),
             metadata={
                 "latency_ms": round((time.perf_counter() - started) * 1000, 2),

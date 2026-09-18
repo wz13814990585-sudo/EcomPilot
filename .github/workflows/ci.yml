@@ -37,13 +37,16 @@ jobs:
           python -m pip install -e ".[dev]"
 
       - name: Compile Python sources
-        run: python -m compileall -q ecom_agent_matrix
+        run: python -m compileall -q ecom_agent_matrix eval
 
       - name: Ruff checks
-        run: ruff check ecom_agent_matrix test
+        run: ruff check ecom_agent_matrix test eval
 
       - name: Ruff formatting
-        run: ruff format --check ecom_agent_matrix test
+        run: ruff format --check ecom_agent_matrix test eval
 
       - name: Run tests
         run: pytest -q
+
+      - name: Run deterministic Agent evaluation
+        run: python -m eval.runner --suite deterministic --fail-on-regression

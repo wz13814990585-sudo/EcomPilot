@@ -19,7 +19,6 @@ from ecom_agent_matrix.core.skill.skill_registry import (
 )
 from ecom_agent_matrix.core.security import ApprovalGrant, SecurityContext
 from ecom_agent_matrix.core.security.approval import approval_params_hash
-from ecom_agent_matrix.core.tasking.result import PARTIAL_SUCCESS
 from ecom_agent_matrix.workflows.risk.workflow import (
     handle_risk,
     run_risk_workflow,
@@ -190,7 +189,7 @@ def test_risk_workflow_skips_record_for_safe_order():
     execute.assert_awaited_once()
 
 
-def test_risk_workflow_records_risk_and_handles_partial_failure():
+def test_risk_workflow_record_failure_is_not_reported_as_partial_success():
     evaluation = SkillResult(
         success=True,
         data={"is_risk": True, "risk_tags": ["大额订单"], "risk_detail": "大额订单"},
@@ -209,8 +208,8 @@ def test_risk_workflow_records_risk_and_handles_partial_failure():
         return result, execute
 
     result, execute = asyncio.run(scenario())
-    assert result.success is True and result.partial_success is True
-    assert result.error_code == PARTIAL_SUCCESS
+    assert result.success is False and result.partial_success is False
+    assert result.error_code == "SKILL_FAILED"
     assert result.data["risk"]["data"]["is_risk"] is True
     assert execute.await_args_list[1].args == (
         "record_order_risk",

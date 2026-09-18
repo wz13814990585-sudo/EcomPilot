@@ -6,6 +6,7 @@ from .normalizer import (
     normalize_task_context,
 )
 from .result import WorkflowResult
+from .status import TaskStatus
 from .requests import (
     AdOptimizeRequest,
     CRMReplyRequest,
@@ -20,6 +21,7 @@ from .requests import (
 __all__ = [
     "TaskContext",
     "WorkflowResult",
+    "TaskStatus",
     "ensure_task_context",
     "normalize_task_context",
     "AdOptimizeRequest",

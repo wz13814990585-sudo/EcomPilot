@@ -119,7 +119,7 @@ async def shutdown_runtime(runtime_or_task: AppRuntime | asyncio.Task | None) ->
 
 app = FastAPI(
     title="Ecom Agent Matrix",
-    version="0.1.0",
+    version="0.2.0",
     description=(
         "跨境独立站电商多智能体矩阵 HTTP 网关。\n\n"
         "- 交互文档：`/docs`（Swagger）或 `/redoc`\n"

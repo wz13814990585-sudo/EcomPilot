@@ -1,0 +1,5 @@
+[
+  {"id":"fast_path_live","requires":["api","postgres","redis"],"description":"Full Fast Path business execution"},
+  {"id":"rag_live","requires":["api","postgres","redis","rag_index"],"description":"Full hybrid retrieval execution"},
+  {"id":"external_api_live","requires":["api","external_credentials"],"description":"External commerce integration"}
+]

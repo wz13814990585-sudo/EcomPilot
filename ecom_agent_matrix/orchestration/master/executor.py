@@ -317,8 +317,10 @@ class MasterPlanExecutor:
                         correlation_id=correlation_id,
                         latency_ms=round((time.perf_counter() - started) * 1000, 2),
                     )
-                success = bool(reply.content.get("success"))
                 data = reply.content.get("data") or {}
+                reply_status = reply.content.get("status") or data.get("status")
+                partial = reply_status == "partial"
+                success = bool(reply.content.get("success")) and not partial
                 return StepResult(
                     step_id=step.step_id,
                     agent=step.agent,
@@ -332,6 +334,7 @@ class MasterPlanExecutor:
                         else str(
                             reply.content.get("error_code")
                             or data.get("error_code")
+                            or (ErrorCode.PARTIAL_SUCCESS.value if partial else None)
                             or AGENT_FAILED
                         )
                     ),
