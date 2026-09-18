@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict, Field
-
-from ecom_agent_matrix.core.tasking import TaskContext
+from ecom_agent_matrix.core.tasking import CompetitorWatchRequest, TaskContext
 
 DEFAULT_COMPARE_PLATFORMS = ("Temu", "Amazon", "AliExpress", "Shein", "Walmart")
 
@@ -53,16 +49,7 @@ _STOP_COMPETITOR_TOKENS = frozenset(
 )
 
 
-class CompetitorRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-
-    sku: str | None = None
-    mode: Literal["single", "multi"]
-    competitor: str | None = None
-    compete_price: float | None = Field(default=None, gt=0)
-    warn_threshold: float = Field(default=-10, le=0)
-    platforms: list[str] = Field(default_factory=lambda: list(DEFAULT_COMPARE_PLATFORMS))
-    query: str = ""
+CompetitorRequest = CompetitorWatchRequest
 
 
 def _normalize_competitor(raw: str) -> str | None:

@@ -28,24 +28,35 @@ def tenant_scope_from_security(security: Any | None) -> TenantScope:
 
 
 def tenant_scope_from_task_context(context: Any | None) -> TenantScope:
+    """Compatibility adapter; only authenticated security-like objects are trusted.
+
+    A TaskContext may carry tenant/store identifiers for business routing and tracing,
+    but its ``identity_trusted`` field is not an authentication authority.
+    """
     return TenantScope(
         tenant_id=str(getattr(context, "tenant_id", "") or ""),
         store_id=str(getattr(context, "store_id", "") or ""),
-        identity_trusted=bool(
-            getattr(context, "identity_trusted", False) or getattr(context, "authenticated", False)
-        ),
+        identity_trusted=bool(getattr(context, "authenticated", False)),
     )
 
 
 def tenant_scope_from_skill_context(context: Any | None = None) -> TenantScope:
+    try:
+        from ecom_agent_matrix.core.skill.skill_registry import (
+            SkillExecutionContext,
+            current_skill_execution_context,
+        )
+    except ImportError:
+        return TenantScope()
     if context is None:
-        try:
-            from ecom_agent_matrix.core.skill.skill_registry import current_skill_execution_context
-
-            context = current_skill_execution_context()
-        except ImportError:
-            context = None
-    return tenant_scope_from_task_context(context)
+        context = current_skill_execution_context()
+    if not isinstance(context, SkillExecutionContext):
+        return TenantScope()
+    return TenantScope(
+        tenant_id=str(getattr(context, "tenant_id", "") or ""),
+        store_id=str(getattr(context, "store_id", "") or ""),
+        identity_trusted=bool(getattr(context, "identity_trusted", False)),
+    )
 
 
 def require_tenant_scope(scope: TenantScope, *, production: bool) -> TenantScope:

@@ -33,7 +33,7 @@ async def competitor_warn(
     query = (body.query or "").strip()
     if not query and not (body.sku and body.competitor):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="请提供 query，或同时提供 sku + competitor",
         )
 
@@ -60,9 +60,10 @@ async def competitor_warn(
     else:
         if not content.get("sku") or not content.get("competitor"):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="直达预警需显式提供 sku 与 competitor",
             )
+        content["task_type"] = "competitor_watch"
         result = await dispatch_and_wait(
             target=AGENT_QUERY,
             content=content,

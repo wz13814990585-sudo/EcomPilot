@@ -42,7 +42,7 @@ VALIDATION_ERROR = ErrorCode.VALIDATION_ERROR.value
 TIMEOUT = ErrorCode.SKILL_TIMEOUT.value
 EXECUTION_ERROR = ErrorCode.SKILL_EXECUTION_ERROR.value
 OUTPUT_VALIDATION_ERROR = ErrorCode.OUTPUT_VALIDATION_ERROR.value
-SKILL_FAILED = "SKILL_FAILED"
+SKILL_FAILED = ErrorCode.SKILL_FAILED.value
 
 logger = logging.getLogger("skill.executor")
 
@@ -50,8 +50,14 @@ logger = logging.getLogger("skill.executor")
 class SkillExecutor:
     """完成查找、鉴权、契约校验、超时控制和结果标准化。"""
 
-    def __init__(self, idempotency_store: IdempotencyStore | None = None) -> None:
+    def __init__(
+        self,
+        idempotency_store: IdempotencyStore | None = None,
+        *,
+        approval_service_instance=None,
+    ) -> None:
         self.idempotency_store = idempotency_store or default_idempotency_store
+        self.approval_service = approval_service_instance
 
     async def execute(
         self,
@@ -155,10 +161,11 @@ class SkillExecutor:
                     spec=spec,
                 )
         if spec.approval_required:
+            active_approval_service = self.approval_service or approval_service
             params_hash = approval_params_hash(skill_name, validated_params)
             if effective_context.approval is None:
                 try:
-                    request = await approval_service.create_pending(
+                    request = await active_approval_service.create_pending(
                         context=effective_context,
                         skill_name=skill_name,
                         params_hash=params_hash,
@@ -187,7 +194,7 @@ class SkillExecutor:
                 )
             approval_id = effective_context.approval.approval_id
             try:
-                await approval_service.consume(
+                await active_approval_service.consume(
                     effective_context.approval,
                     context=effective_context,
                     skill_name=skill_name,

@@ -93,6 +93,7 @@ class Settings(BaseSettings):
 
     # 进程内 Agent message bus
     MESSAGE_BUS_QUEUE_MAX_SIZE: int = 200
+    MESSAGE_BUS_ENQUEUE_TIMEOUT: float = 2.0
     AGENT_REPLY_TIMEOUT: int = 30
 
     # vLLM推理端口（预留）

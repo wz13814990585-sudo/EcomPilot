@@ -13,6 +13,7 @@ from typing import Any
 from ecom_agent_matrix.config.constants import AGENT_MASTER
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.core.memory.long_vector_memory import AgentLongVectorMemory
 from ecom_agent_matrix.runtime.messaging.bus import message_bus
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
@@ -84,13 +85,16 @@ def _observation_from_reply(reply: AgentMessage | None, target_agent: str, timed
             "data": {},
             "error_msg": "子任务超时无回传",
             "timed_out": True,
+            "error_code": ErrorCode.AGENT_TIMEOUT.value,
         }
+    data = reply.content.get("data") or {}
     return {
         "agent": reply.sender or target_agent,
         "success": bool(reply.content.get("success")) and not timed_out,
-        "data": reply.content.get("data") or {},
+        "data": data,
         "error_msg": reply.content.get("error_msg", ""),
         "timed_out": timed_out,
+        "error_code": reply.content.get("error_code") or data.get("error_code"),
     }
 
 
@@ -102,6 +106,8 @@ async def _dispatch_subtask(
     priority: int,
     security=None,
     approval=None,
+    *,
+    message_bus_instance=None,
 ) -> bool:
     """向子 Agent 下发单步任务；DAG 并发预算由每个 Executor 拥有。"""
     clean = {k: v for k, v in payload.items() if k not in ("_memory_context",)}
@@ -115,7 +121,8 @@ async def _dispatch_subtask(
         security=security,
         approval=approval,
     )
-    delivered = await message_bus.send(sub_msg)
+    active_bus = message_bus_instance or message_bus
+    delivered = await active_bus.send(sub_msg)
     if not delivered:
         return False
     logger.info(
@@ -137,12 +144,27 @@ async def _react_call_one(
     priority: int,
     security=None,
     approval=None,
+    *,
+    message_bus_instance=None,
+    reply_registry=None,
 ) -> dict:
     """ReAct 单步：下发一个 Agent → 等待回传 → 返回 observation。"""
     correlation_id = str(uuid.uuid4())
-    task_replies.create(correlation_id)
+    active_replies = reply_registry or task_replies
+    active_replies.create(correlation_id)
     try:
-        if security is None and approval is None:
+        if message_bus_instance is not None:
+            delivered = await _dispatch_subtask(
+                task_id,
+                correlation_id,
+                target_agent,
+                payload,
+                priority,
+                security,
+                approval,
+                message_bus_instance=message_bus_instance,
+            )
+        elif security is None and approval is None:
             delivered = await _dispatch_subtask(
                 task_id, correlation_id, target_agent, payload, priority
             )
@@ -158,14 +180,16 @@ async def _react_call_one(
             return {
                 "agent": target_agent,
                 "success": False,
-                "data": {"error_code": "AGENT_UNAVAILABLE"},
+                "data": {"error_code": ErrorCode.AGENT_UNAVAILABLE.value},
                 "error_msg": "Agent is unavailable",
                 "timed_out": False,
-                "error_code": "AGENT_UNAVAILABLE",
+                "error_code": ErrorCode.AGENT_UNAVAILABLE.value,
             }
-        reply = await task_replies.wait(correlation_id, timeout=float(settings.AGENT_REPLY_TIMEOUT))
+        reply = await active_replies.wait(
+            correlation_id, timeout=float(settings.AGENT_REPLY_TIMEOUT)
+        )
     finally:
-        task_replies.discard(correlation_id)
+        active_replies.discard(correlation_id)
     timed_out = reply is None
     return _observation_from_reply(reply, target_agent, timed_out)
 
@@ -294,9 +318,18 @@ async def _process_complex_plan(
     route: MasterRouteDecision,
     task_input: dict[str, Any],
     started: float,
+    *,
+    message_bus_instance=None,
+    reply_registry=None,
+    planner=None,
+    recovery=None,
 ) -> None:
+    active_bus = message_bus_instance or message_bus
+    active_replies = reply_registry or task_replies
+    active_planner = planner or typed_master_planner
+    active_recovery = recovery or recovery_controller
     telemetry = MasterLLMTelemetry()
-    plan = await typed_master_planner.plan(task_input, telemetry)
+    plan = await active_planner.plan(task_input, telemetry)
     if plan.decision == "clarify":
         usage = telemetry.snapshot().model_dump()
         calls = _compat_llm_calls(usage)
@@ -320,7 +353,7 @@ async def _process_complex_plan(
                 "master_memory": "skipped_clarify",
             },
         }
-        await message_bus.send(
+        await active_bus.send(
             build_reply(
                 msg,
                 sender=AGENT_MASTER,
@@ -335,7 +368,7 @@ async def _process_complex_plan(
         try:
             authorize_task_types(msg.security, (step.task_type for step in plan.steps))
         except AuthorizationError as exc:
-            await message_bus.send(
+            await active_bus.send(
                 build_reply(
                     msg,
                     sender=AGENT_MASTER,
@@ -347,14 +380,17 @@ async def _process_complex_plan(
             )
             return
 
-    executor = MasterPlanExecutor()
+    executor = MasterPlanExecutor(
+        message_bus=active_bus,
+        reply_registry=active_replies,
+    )
     execution = await executor.execute(plan, msg)
     recovery_actions: list[dict[str, Any]] = []
     terminal_recovery = None
     for _ in range(max(0, int(settings.MASTER_RECOVERY_MAX_STEPS))):
         if execution.all_success:
             break
-        decision = await recovery_controller.run(execution, telemetry)
+        decision = await active_recovery.run(execution, telemetry)
         if decision is None:
             break
         applied = await apply_recovery_decision(
@@ -364,7 +400,7 @@ async def _process_complex_plan(
             root_message=msg,
             task_input=task_input,
             executor=executor,
-            planner=typed_master_planner,
+            planner=active_planner,
             telemetry=telemetry,
         )
         plan = applied.plan
@@ -401,6 +437,20 @@ async def _process_complex_plan(
         "timed_out": execution.timed_out,
         "all_success": execution.all_success,
         "partial_success": execution.partial_success,
+        "error_code": (
+            None
+            if execution.all_success
+            else ErrorCode.AGENT_TIMEOUT.value
+            if execution.timed_out
+            else next(
+                (
+                    item.error_code
+                    for item in execution.step_results.values()
+                    if item.status == "FAILED" and item.error_code
+                ),
+                ErrorCode.AGENT_FAILED.value,
+            )
+        ),
         "step_results": step_results,
         "sub_results": list(step_results.values()),
         "summary": summary,
@@ -419,7 +469,7 @@ async def _process_complex_plan(
             "latency_ms": round((time.perf_counter() - started) * 1000, 2),
         },
     }
-    await message_bus.send(
+    await active_bus.send(
         build_reply(
             msg,
             sender=AGENT_MASTER,
@@ -453,6 +503,9 @@ async def _process_complex_plan(
 async def execute_fast_path(
     msg: AgentMessage,
     route: MasterRouteDecision,
+    *,
+    message_bus_instance=None,
+    reply_registry=None,
 ) -> dict[str, Any]:
     """单次 Agent dispatch；不进入 Planner、ReAct 或 Master Memory。"""
     started = time.perf_counter()
@@ -469,6 +522,8 @@ async def execute_fast_path(
         msg.priority,
         msg.security,
         msg.approval,
+        message_bus_instance=message_bus_instance,
+        reply_registry=reply_registry,
     )
     timed_out = bool(observation.get("timed_out"))
     success = bool(observation.get("success")) and not timed_out
@@ -494,6 +549,9 @@ async def execute_fast_path(
         "received": 1 if not timed_out else 0,
         "timed_out": timed_out,
         "all_success": success,
+        "error_code": (
+            None if success else observation.get("error_code") or ErrorCode.AGENT_FAILED.value
+        ),
         "sub_results": [
             {
                 "agent": observation.get("agent") or target_agent,
@@ -515,9 +573,18 @@ async def execute_fast_path(
     }
 
 
-async def process_master_task(msg: AgentMessage, long_mem: AgentLongVectorMemory) -> None:
+async def process_master_task(
+    msg: AgentMessage,
+    long_mem: AgentLongVectorMemory,
+    *,
+    message_bus_instance=None,
+    reply_registry=None,
+    planner=None,
+    recovery=None,
+) -> None:
     """Route to Fast Path or validated DAG, then apply bounded recovery if needed."""
     task_id = msg.task_id
+    active_bus = message_bus_instance or message_bus
     require_trusted_ingress(msg.security, app_env=settings.APP_ENV)
     started = time.perf_counter()
     task_input = dict(msg.content or {})
@@ -552,7 +619,7 @@ async def process_master_task(msg: AgentMessage, long_mem: AgentLongVectorMemory
         try:
             authorize_task(msg.security, route.task_type)
         except AuthorizationError as exc:
-            await message_bus.send(
+            await active_bus.send(
                 build_reply(
                     msg,
                     sender=AGENT_MASTER,
@@ -587,7 +654,7 @@ async def process_master_task(msg: AgentMessage, long_mem: AgentLongVectorMemory
                 "master_memory": "skipped_clarify",
             },
         }
-        await message_bus.send(
+        await active_bus.send(
             build_reply(
                 msg,
                 sender=AGENT_MASTER,
@@ -599,8 +666,13 @@ async def process_master_task(msg: AgentMessage, long_mem: AgentLongVectorMemory
         return
 
     if route.mode == "fast_path":
-        final_result = await execute_fast_path(msg, route)
-        await message_bus.send(
+        final_result = await execute_fast_path(
+            msg,
+            route,
+            message_bus_instance=message_bus_instance,
+            reply_registry=reply_registry,
+        )
+        await active_bus.send(
             build_reply(
                 msg,
                 sender=AGENT_MASTER,
@@ -616,13 +688,29 @@ async def process_master_task(msg: AgentMessage, long_mem: AgentLongVectorMemory
         )
         return
 
-    await _process_complex_plan(msg, long_mem, route, task_input, started)
+    await _process_complex_plan(
+        msg,
+        long_mem,
+        route,
+        task_input,
+        started,
+        message_bus_instance=message_bus_instance,
+        reply_registry=reply_registry,
+        planner=planner,
+        recovery=recovery,
+    )
     return
 
 
 async def safe_process_master_task(
     msg: AgentMessage,
     long_mem: AgentLongVectorMemory,
+    *,
+    message_bus_instance=None,
+    reply_registry=None,
+    planner=None,
+    recovery=None,
+    semaphore=None,
 ) -> None:
     """限制用户级并发，并保证未捕获异常也向 Gateway 回传。"""
     started = time.perf_counter()
@@ -637,8 +725,22 @@ async def safe_process_master_task(
         )
     )
     try:
-        async with _get_master_task_semaphore():
-            await process_master_task(msg, long_mem)
+        active_semaphore = semaphore or _get_master_task_semaphore()
+        async with active_semaphore:
+            if all(
+                dependency is None
+                for dependency in (message_bus_instance, reply_registry, planner, recovery)
+            ):
+                await process_master_task(msg, long_mem)
+            else:
+                await process_master_task(
+                    msg,
+                    long_mem,
+                    message_bus_instance=message_bus_instance,
+                    reply_registry=reply_registry,
+                    planner=planner,
+                    recovery=recovery,
+                )
             success = True
     except asyncio.CancelledError:
         raise
@@ -658,6 +760,7 @@ async def safe_process_master_task(
             "received": 0,
             "timed_out": False,
             "all_success": False,
+            "error_code": ErrorCode.INTERNAL_ERROR.value,
             "sub_results": [],
             "summary": "master task failed",
             "master_llm_usage": MasterLLMTelemetry().snapshot().model_dump(),
@@ -665,7 +768,8 @@ async def safe_process_master_task(
             "metadata": {"master_llm_calls": _llm_call_metadata()},
         }
         try:
-            await message_bus.send(
+            active_bus = message_bus_instance or message_bus
+            await active_bus.send(
                 build_reply(
                     msg,
                     sender=AGENT_MASTER,
@@ -729,17 +833,51 @@ async def cancel_master_tasks() -> None:
 class MasterOrchestrator:
     """Application control plane; owns routing, planning and recovery policy."""
 
-    def __init__(self, long_memory: AgentLongVectorMemory | None = None) -> None:
+    def __init__(
+        self,
+        long_memory: AgentLongVectorMemory | None = None,
+        *,
+        message_bus_instance=message_bus,
+        reply_registry=task_replies,
+        planner=typed_master_planner,
+        recovery=recovery_controller,
+    ) -> None:
         self.long_memory = long_memory or AgentLongVectorMemory()
+        self.message_bus = message_bus_instance
+        self.reply_registry = reply_registry
+        self.planner = planner
+        self.recovery = recovery
+        self._semaphore = asyncio.Semaphore(int(settings.MASTER_MAX_CONCURRENT))
+        self._tasks: set[asyncio.Task] = set()
 
     async def run(self, message: AgentMessage) -> None:
-        await safe_process_master_task(message, self.long_memory)
+        await safe_process_master_task(
+            message,
+            self.long_memory,
+            message_bus_instance=self.message_bus,
+            reply_registry=self.reply_registry,
+            planner=self.planner,
+            recovery=self.recovery,
+            semaphore=self._semaphore,
+        )
 
     def submit(self, message: AgentMessage) -> asyncio.Task:
-        return _track_master_task(message, self.long_memory)
+        task = asyncio.create_task(self.run(message))
+        self._tasks.add(task)
+        task.add_done_callback(self._consume_task)
+        return task
+
+    def _consume_task(self, task: asyncio.Task) -> None:
+        self._tasks.discard(task)
+        if not task.cancelled():
+            task.exception()
 
     async def close(self) -> None:
-        await cancel_master_tasks()
+        tasks = list(self._tasks)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 
 __all__ = [

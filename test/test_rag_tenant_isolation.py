@@ -10,8 +10,10 @@ from ecom_agent_matrix.modules.rag.schemas import RAGRequest
 from ecom_agent_matrix.modules.rag.schemas import RAGRetrievalResult
 from ecom_agent_matrix.modules.rag.service import RAGService
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
+from ecom_agent_matrix.core.skill.skill_registry import skill_execution_context
 from ecom_agent_matrix.core.tasking import normalize_task_context
 from ecom_agent_matrix.workflows.crm.workflow import run_crm_workflow
+from ecom_agent_matrix.config.constants import AGENT_EXEC
 
 
 def _scope(tenant, store):
@@ -129,7 +131,8 @@ def test_crm_rag_uses_trusted_task_scope():
                 new=AsyncMock(return_value=[]),
             ),
         ):
-            return await run_crm_workflow(ctx)
+            with skill_execution_context(AGENT_EXEC, task_context=ctx, security=_security()):
+                return await run_crm_workflow(ctx)
 
     result = asyncio.run(scenario())
     assert result.success

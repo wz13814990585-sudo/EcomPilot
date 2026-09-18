@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from ecom_agent_matrix.config.constants import AGENT_RAG
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.runtime.messaging.bus import message_bus
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
 from ecom_agent_matrix.runtime.messaging.registry import register_agent
@@ -31,7 +32,7 @@ def _legacy_document(document) -> dict:
 
 
 @register_agent(AGENT_RAG)
-async def rag_agent(msg_queue: asyncio.Queue):
+async def rag_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
     """Convert a message payload to RAGRequest and return an agent reply."""
     logger.info("rag_agent_started", extra={"event": "rag_agent_started", "agent": AGENT_RAG})
     while True:
@@ -88,7 +89,7 @@ async def rag_agent(msg_queue: asyncio.Queue):
                 channel_errors=result.channel_errors,
                 candidate_counts=result.candidate_counts,
             )
-            await message_bus.send(reply)
+            await bus.send(reply)
             metrics.observe_agent(AGENT_RAG, result.success, time.perf_counter() - started)
             logger.info(
                 "rag_task_done",
@@ -105,7 +106,7 @@ async def rag_agent(msg_queue: asyncio.Queue):
         except (ValidationError, TypeError, ValueError) as exc:
             metrics.observe_agent(AGENT_RAG, False, time.perf_counter() - started)
             elapsed = round((time.perf_counter() - started) * 1000, 2)
-            await message_bus.send(
+            await bus.send(
                 build_rag_reply(
                     msg,
                     query=query,
@@ -116,7 +117,7 @@ async def rag_agent(msg_queue: asyncio.Queue):
                     cached=False,
                     success=False,
                     error_msg="Invalid RAG request",
-                    error_code="INVALID_REQUEST",
+                    error_code=ErrorCode.INVALID_REQUEST.value,
                     retrieval_version=settings.RAG_RETRIEVAL_VERSION,
                 )
             )
@@ -132,7 +133,7 @@ async def rag_agent(msg_queue: asyncio.Queue):
         except Exception as exc:
             metrics.observe_agent(AGENT_RAG, False, time.perf_counter() - started)
             elapsed = round((time.perf_counter() - started) * 1000, 2)
-            await message_bus.send(
+            await bus.send(
                 build_rag_reply(
                     msg,
                     query=query,
@@ -143,7 +144,7 @@ async def rag_agent(msg_queue: asyncio.Queue):
                     cached=False,
                     success=False,
                     error_msg="RAG retrieval failed",
-                    error_code="RETRIEVAL_ERROR",
+                    error_code=ErrorCode.RETRIEVAL_ERROR.value,
                     retrieval_version=settings.RAG_RETRIEVAL_VERSION,
                 )
             )

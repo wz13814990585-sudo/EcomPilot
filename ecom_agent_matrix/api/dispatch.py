@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from ecom_agent_matrix.config.constants import AGENT_MASTER
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.llm.output_polish import polish_final_output
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.application import AgentApplicationService
 from ecom_agent_matrix.runtime.messaging.bus import message_bus
 from ecom_agent_matrix.runtime.messaging.registry import agent_registry
@@ -22,6 +23,15 @@ from ecom_agent_matrix.platform.observability.context import get_performance_sum
 application_service = AgentApplicationService(
     message_bus=message_bus, agent_registry=agent_registry
 )
+
+_ERROR_HTTP_STATUS = {
+    ErrorCode.AUTHENTICATION_REQUIRED: status.HTTP_401_UNAUTHORIZED,
+    ErrorCode.PERMISSION_DENIED: status.HTTP_403_FORBIDDEN,
+    ErrorCode.AGENT_UNAVAILABLE: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ErrorCode.AGENT_TIMEOUT: status.HTTP_504_GATEWAY_TIMEOUT,
+    ErrorCode.RATE_LIMITED: status.HTTP_429_TOO_MANY_REQUESTS,
+    ErrorCode.INVALID_REQUEST: status.HTTP_422_UNPROCESSABLE_CONTENT,
+}
 
 
 def set_application_service(service: AgentApplicationService) -> None:
@@ -55,16 +65,14 @@ async def dispatch_and_wait(
         task_id=task_id,
         correlation_id=str(response.metadata.get("correlation_id") or ""),
     )
-    if response.error_code and response.error_code.value == "AGENT_UNAVAILABLE":
+    mapped_status = _ERROR_HTTP_STATUS.get(response.error_code)
+    if mapped_status is not None:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=response.error_message,
-            headers={"X-Task-Id": task_id},
-        )
-    if response.error_code and response.error_code.value == "AGENT_TIMEOUT":
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=response.error_message,
+            status_code=mapped_status,
+            detail={
+                "error_code": response.error_code.value,
+                "message": response.error_message,
+            },
             headers={"X-Task-Id": task_id},
         )
 
@@ -95,7 +103,7 @@ async def dispatch_and_wait(
         "data": data,
         "error_msg": error_msg,
         "msg_type": response.msg_type,
-        "error_code": response.error_code.value if response.error_code else "",
+        "error_code": response.error_code,
         "summary": summary,
         "performance": {
             "latency_ms": round((time.perf_counter() - request_started) * 1000, 2),

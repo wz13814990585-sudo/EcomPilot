@@ -28,9 +28,10 @@ class AgentResponse(BaseModel):
 
 
 class AgentApplicationService:
-    def __init__(self, *, message_bus, agent_registry) -> None:
+    def __init__(self, *, message_bus, agent_registry, reply_registry=gateway_replies) -> None:
         self.message_bus = message_bus
         self.agent_registry = agent_registry
+        self.reply_registry = reply_registry
 
     async def execute(
         self,
@@ -53,7 +54,7 @@ class AgentApplicationService:
                 error_code=ErrorCode.AGENT_UNAVAILABLE,
                 error_message=f"Agent unavailable: {target}",
             )
-        gateway_replies.create(request_id)
+        self.reply_registry.create(request_id)
         message = AgentMessage(
             task_id=request_id,
             sender=settings.API_SENDER,
@@ -73,11 +74,11 @@ class AgentApplicationService:
                     error_code=ErrorCode.AGENT_UNAVAILABLE,
                     error_message=f"Agent unavailable: {target}",
                 )
-            reply = await gateway_replies.wait(
+            reply = await self.reply_registry.wait(
                 request_id, float(timeout if timeout is not None else settings.API_REQUEST_TIMEOUT)
             )
         finally:
-            gateway_replies.discard(request_id)
+            self.reply_registry.discard(request_id)
         if reply is None:
             return AgentResponse(
                 task_id=request_id,
@@ -91,15 +92,19 @@ class AgentApplicationService:
         if not isinstance(data, dict):
             data = {"raw": data}
         raw_code = body.get("error_code") or data.get("error_code")
-        try:
-            error_code = ErrorCode(raw_code) if raw_code else None
-        except ValueError:
-            error_code = ErrorCode.AGENT_FAILED if not body.get("success") else None
+        success = bool(body.get("success"))
+        if success:
+            error_code = None
+        else:
+            try:
+                error_code = ErrorCode(raw_code) if raw_code else ErrorCode.AGENT_FAILED
+            except ValueError:
+                error_code = ErrorCode.AGENT_FAILED
         return AgentResponse(
             task_id=request_id,
             target=target,
             reply_from=reply.sender,
-            success=bool(body.get("success")),
+            success=success,
             data=data,
             error_code=error_code,
             error_message=str(body.get("error_msg") or ""),

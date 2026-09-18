@@ -11,6 +11,7 @@ from typing import Any
 from ecom_agent_matrix.config.constants import AGENT_MASTER
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.runtime.messaging.bus import message_bus
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
 from ecom_agent_matrix.runtime.messaging.replies import task_replies
@@ -23,11 +24,11 @@ from ecom_agent_matrix.orchestration.master.schemas import (
     StepResult,
 )
 
-DEPENDENCY_FAILED = "DEPENDENCY_FAILED"
-AGENT_UNAVAILABLE = "AGENT_UNAVAILABLE"
-STEP_TIMEOUT = "AGENT_TIMEOUT"
-AGENT_FAILED = "AGENT_FAILED"
-STEP_EXECUTION_ERROR = "STEP_EXECUTION_ERROR"
+DEPENDENCY_FAILED = ErrorCode.DEPENDENCY_FAILED.value
+AGENT_UNAVAILABLE = ErrorCode.AGENT_UNAVAILABLE.value
+STEP_TIMEOUT = ErrorCode.AGENT_TIMEOUT.value
+AGENT_FAILED = ErrorCode.AGENT_FAILED.value
+STEP_EXECUTION_ERROR = ErrorCode.STEP_EXECUTION_ERROR.value
 _TERMINAL = frozenset({"SUCCESS", "FAILED", "SKIPPED"})
 _FORBIDDEN_CONTEXT_KEYS = frozenset(
     {
@@ -79,12 +80,21 @@ def _compact_step_data(data: dict[str, Any]) -> dict[str, Any]:
 
 
 class MasterPlanExecutor:
-    def __init__(self, *, max_concurrent: int | None = None, timeout: float | None = None):
+    def __init__(
+        self,
+        *,
+        message_bus=message_bus,
+        reply_registry=task_replies,
+        max_concurrent: int | None = None,
+        timeout: float | None = None,
+    ):
         limit = int(
             max_concurrent if max_concurrent is not None else settings.MASTER_MAX_SUBTASKS_PER_PLAN
         )
         self._semaphore = asyncio.Semaphore(max(limit, 1))
         self.timeout = float(timeout if timeout is not None else settings.AGENT_REPLY_TIMEOUT)
+        self.message_bus = message_bus
+        self.reply_registry = reply_registry
 
     async def execute(
         self,
@@ -262,7 +272,7 @@ class MasterPlanExecutor:
                     "agent": step.agent,
                 },
             )
-            task_replies.create(correlation_id)
+            self.reply_registry.create(correlation_id)
             try:
                 payload = {
                     **dict(root_message.content or {}),
@@ -281,7 +291,7 @@ class MasterPlanExecutor:
                     security=root_message.security,
                     approval=root_message.approval,
                 )
-                delivered = await message_bus.send(child)
+                delivered = await self.message_bus.send(child)
                 if not delivered:
                     return StepResult(
                         step_id=step.step_id,
@@ -294,7 +304,7 @@ class MasterPlanExecutor:
                         correlation_id=correlation_id,
                         latency_ms=round((time.perf_counter() - started) * 1000, 2),
                     )
-                reply = await task_replies.wait(correlation_id, timeout=self.timeout)
+                reply = await self.reply_registry.wait(correlation_id, timeout=self.timeout)
                 if reply is None:
                     return StepResult(
                         step_id=step.step_id,
@@ -344,7 +354,7 @@ class MasterPlanExecutor:
                     latency_ms=round((time.perf_counter() - started) * 1000, 2),
                 )
             finally:
-                task_replies.discard(correlation_id)
+                self.reply_registry.discard(correlation_id)
                 logger.info(
                     "master_plan_step_finished",
                     extra={

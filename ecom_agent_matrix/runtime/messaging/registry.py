@@ -23,10 +23,16 @@ class AgentRegistry:
 
         return decorator
 
-    async def serve(self, bus: MessageBus = message_bus) -> None:
+    async def serve(
+        self,
+        bus: MessageBus = message_bus,
+        *,
+        worker_overrides: dict[str, AgentWorker] | None = None,
+    ) -> None:
         workers: list[tuple[str, asyncio.Queue, asyncio.Task]] = []
         try:
             for agent_id, worker in self.definitions.items():
+                worker = (worker_overrides or {}).get(agent_id, worker)
                 queue = bus.register(agent_id)
                 task = asyncio.create_task(worker(queue), name=f"agent:{agent_id}")
                 workers.append((agent_id, queue, task))

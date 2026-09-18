@@ -7,6 +7,7 @@ from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_Q
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
 from ecom_agent_matrix.runtime.messaging.reply import build_reply
 from ecom_agent_matrix.runtime.messaging.replies import resolve_task_reply, task_replies
+from ecom_agent_matrix.runtime.messaging.reply_registry import ReplyRegistry
 from ecom_agent_matrix.orchestration.master.executor import MasterPlanExecutor
 from ecom_agent_matrix.orchestration.master.schemas import MasterPlan, PlanStep
 
@@ -155,3 +156,32 @@ def test_timeout_is_propagated_and_waiter_is_cleaned():
     assert step.status == "FAILED"
     assert step.error_code == "AGENT_TIMEOUT"
     assert not task_replies.contains(step.correlation_id)
+
+
+def test_executor_uses_injected_bus_and_reply_registry():
+    async def scenario():
+        local_replies = ReplyRegistry()
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+            local_replies.resolve(
+                message.correlation_id,
+                build_reply(message, sender=message.target, success=True, data={"ok": True}),
+            )
+            return True
+
+        local_bus = type("LocalBus", (), {"send": staticmethod(send)})()
+        plan = _plan().model_copy(update={"steps": [_plan().steps[0]]})
+        before = task_replies.pending_count
+        result = await MasterPlanExecutor(
+            message_bus=local_bus,
+            reply_registry=local_replies,
+            timeout=0.2,
+        ).execute(plan, _root())
+        return result, sent, local_replies.pending_count, before
+
+    result, sent, local_pending, global_before = asyncio.run(scenario())
+    assert result.all_success and len(sent) == 1
+    assert local_pending == 0
+    assert task_replies.pending_count == global_before

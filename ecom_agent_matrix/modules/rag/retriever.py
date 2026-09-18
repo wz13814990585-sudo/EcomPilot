@@ -316,19 +316,6 @@ async def _hybrid_retrieve_detailed_uncached(
     )
 
 
-async def _hybrid_retrieve_uncached(
-    query: str,
-    lang: str,
-    price_max: float = None,
-    top_k: int = 8,
-    scope: TenantScope | None = None,
-) -> List[Dict]:
-    result = await _hybrid_retrieve_detailed_uncached(query, lang, price_max, top_k, scope)
-    if not result.success:
-        raise RuntimeError("all retrieval channels failed")
-    return result.raw_documents
-
-
 async def hybrid_retrieve_detailed(
     query: str,
     lang: str,
@@ -389,50 +376,14 @@ async def hybrid_retrieve(
     混合检索统一入口。
     返回: (文档列表, 是否命中缓存, 耗时毫秒)
     """
-    start = time.perf_counter()
-    cache_key = _cache_key(query, lang, price_max, top_k, scope)
-
-    cached_entry = await _load_cache(cache_key)
-    if cached_entry is not None:
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        logger.info(
-            "rag_cache_hit",
-            extra={
-                "event": "rag_cache_hit",
-                "task_id": task_id,
-                **_query_log_fields(query),
-                "lang": lang,
-                "recall_count": len(cached_entry.documents),
-                "latency_ms": round(elapsed_ms, 2),
-                "cached": True,
-            },
-        )
-        return cached_entry.documents, True, elapsed_ms
-
-    sem = get_rag_semaphore()
-    async with sem:
-        docs = await _hybrid_retrieve_uncached(query, lang, price_max, top_k, scope)
-
-    await _save_cache(
-        cache_key,
-        HybridRetrievalResult(
-            success=True,
-            raw_documents=docs,
-            mode="hybrid",
-            candidate_counts={"reranked": len(docs)},
-        ),
+    result = await hybrid_retrieve_detailed(
+        query,
+        lang,
+        price_max,
+        top_k,
+        task_id=task_id,
+        scope=scope,
     )
-    elapsed_ms = (time.perf_counter() - start) * 1000
-    logger.info(
-        "rag_retrieve_done",
-        extra={
-            "event": "rag_retrieve_done",
-            "task_id": task_id,
-            **_query_log_fields(query),
-            "lang": lang,
-            "recall_count": len(docs),
-            "latency_ms": round(elapsed_ms, 2),
-            "cached": False,
-        },
-    )
-    return docs, False, elapsed_ms
+    if not result.success:
+        raise RuntimeError("all retrieval channels failed")
+    return result.raw_documents, result.cached, result.latency_ms

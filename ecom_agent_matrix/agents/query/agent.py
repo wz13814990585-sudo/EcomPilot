@@ -9,6 +9,7 @@ from copy import deepcopy
 from ecom_agent_matrix.config.constants import AGENT_QUERY
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.runtime.messaging.bus import message_bus
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
 from ecom_agent_matrix.runtime.messaging.registry import register_agent
@@ -28,7 +29,7 @@ from ecom_agent_matrix.workflows.goods import run_goods_workflow
 from ecom_agent_matrix.workflows.competitor import run_competitor_workflow
 from ecom_agent_matrix.workflows.stock import run_stock_workflow
 from ecom_agent_matrix.modules.parsers.stock import extract_stock_sku
-from ecom_agent_matrix.agents.legacy_routing import infer_query_kind
+from ecom_agent_matrix.agents.legacy_routing import infer_query_kind  # noqa: F401
 from ecom_agent_matrix.platform.observability.context import TraceContext, set_trace_context
 from ecom_agent_matrix.platform.observability.metrics import metrics
 
@@ -54,7 +55,7 @@ async def _ensure_sku(ctx: TaskContext) -> tuple[TaskContext, WorkflowResult | N
     if not goods.success or not goods_data.get("best_sku"):
         return ctx, WorkflowResult(
             success=False,
-            error_code=goods.error_code or "SKILL_FAILED",
+            error_code=goods.error_code or ErrorCode.SKILL_FAILED.value,
             error_msg=goods.error_msg or "未找到匹配商品，无法继续查询",
             data={**goods_data, "query_kind": goods_data.get("query_kind") or "goods"},
             metadata=goods.metadata,
@@ -92,7 +93,7 @@ async def run_query(
         AGENT_QUERY, task_context=ctx, security=security, approval=approval
     ):
         typed = await execute_query(ctx)
-        result = typed.as_legacy_tuple()
+        result = typed.as_legacy_tuple()  # Deprecated compatibility API; workers stay typed.
     metrics.observe_agent(AGENT_QUERY, result[0], time.perf_counter() - started)
     return result
 
@@ -109,12 +110,10 @@ async def execute_query(ctx: TaskContext) -> WorkflowResult:
         "order_query": "data_check",
         "ad_query": "data_check",
     }.get(task_type)
-    if kind is None and not task_type:
-        kind = infer_query_kind(ctx)
     if kind is None:
         return WorkflowResult(
             success=False,
-            error_code="UNSUPPORTED_TASK",
+            error_code=ErrorCode.UNSUPPORTED_TASK.value,
             error_msg="Unsupported query task",
         )
     if kind == "goods":
@@ -140,7 +139,7 @@ async def execute_query(ctx: TaskContext) -> WorkflowResult:
 
 
 @register_agent(AGENT_QUERY)
-async def query_agent(msg_queue: asyncio.Queue):
+async def query_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
     """数据查询：广告/订单/库存/竞品/商品目录，只调只读 Skill。"""
     logger.info(
         "query_agent_started",
@@ -193,7 +192,7 @@ async def query_agent(msg_queue: asyncio.Queue):
                     error_msg=err or "",
                     data=data,
                 )
-                await message_bus.send(reply)
+                await bus.send(reply)
                 logger.info(
                     "query_task_done",
                     extra={
@@ -210,9 +209,9 @@ async def query_agent(msg_queue: asyncio.Queue):
                 sender=AGENT_QUERY,
                 success=False,
                 error_msg=f"data_query 超时（>{settings.QUERY_SKILL_TIMEOUT}s）",
-                data={},
+                data={"error_code": ErrorCode.AGENT_TIMEOUT.value},
             )
-            await message_bus.send(reply)
+            await bus.send(reply)
         except Exception as exc:
             logger.exception(
                 "query_task_failed",
@@ -228,8 +227,8 @@ async def query_agent(msg_queue: asyncio.Queue):
                 sender=AGENT_QUERY,
                 success=False,
                 error_msg="data_query 内部执行失败",
-                data={"error_code": "QUERY_EXECUTION_ERROR"},
+                data={"error_code": ErrorCode.SKILL_EXECUTION_ERROR.value},
             )
-            await message_bus.send(reply)
+            await bus.send(reply)
         finally:
             msg_queue.task_done()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import ValidationError
 
 from ecom_agent_matrix.config.settings import settings
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.core.llm import is_llm_configured, llm_chat_structured, resolve_mode
 from ecom_agent_matrix.orchestration.master.prompts import RECOVERY_SYSTEM_PROMPT
 from ecom_agent_matrix.orchestration.master.schemas import (
@@ -14,7 +15,13 @@ from ecom_agent_matrix.orchestration.master.schemas import (
 from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
 from ecom_agent_matrix.platform.observability.context import trace_context
 
-_RECOVERABLE = frozenset({"AGENT_TIMEOUT", "AGENT_FAILED", "STEP_EXECUTION_ERROR"})
+_RECOVERABLE = frozenset(
+    {
+        ErrorCode.AGENT_TIMEOUT.value,
+        ErrorCode.AGENT_FAILED.value,
+        ErrorCode.STEP_EXECUTION_ERROR.value,
+    }
+)
 
 
 class RecoveryController:

@@ -25,11 +25,10 @@ from ecom_agent_matrix.api.route_warn import router as warn_router
 from ecom_agent_matrix.api.route_approval import router as approval_router
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.core.llm import close_http_session
-from ecom_agent_matrix.runtime.messaging.bus import message_bus
 from ecom_agent_matrix.runtime.messaging.registry import agent_map, agent_registry
 from ecom_agent_matrix.runtime.container import AppRuntime
-from ecom_agent_matrix.application import AgentApplicationService
 from ecom_agent_matrix.core.skill.skill_registry import skill_container
 from ecom_agent_matrix.orchestration.master.orchestrator import cancel_master_tasks
 from ecom_agent_matrix.db.base import AsyncPGClient
@@ -74,15 +73,11 @@ async def lifespan(_app: FastAPI):
     )
     if not agent_map:
         raise RuntimeError("agent_map 为空：侧载注册失败")
-    _runtime = AppRuntime.build(settings, message_bus=message_bus, agent_registry=agent_registry)
+    _runtime = AppRuntime.build(settings, agent_registry=agent_registry)
     await _runtime.start()
     _agent_task = _runtime._agent_task
     _app.state.runtime = _runtime
-    set_application_service(
-        AgentApplicationService(
-            message_bus=_runtime.message_bus, agent_registry=_runtime.agent_registry
-        )
-    )
+    set_application_service(_runtime.application_service)
     yield
     _accepting_requests = False
     await shutdown_runtime(_runtime)
@@ -114,7 +109,11 @@ async def shutdown_runtime(runtime_or_task: AppRuntime | asyncio.Task | None) ->
     except asyncio.TimeoutError:
         logger.error(
             "shutdown_timeout",
-            extra={"event": "shutdown_timeout", "error_code": "TIMEOUT", "component": "runtime"},
+            extra={
+                "event": "shutdown_timeout",
+                "error_code": ErrorCode.INTERNAL_ERROR.value,
+                "component": "runtime",
+            },
         )
 
 

@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ecom_agent_matrix.core.errors import ErrorCode
+
 RESERVED_SECURITY_FIELDS = frozenset(
     {
         "tenant_id",
@@ -157,6 +159,7 @@ class ApiResult(BaseModel):
     reply_from: str
     success: bool
     data: dict[str, Any] = Field(default_factory=dict)
+    error_code: ErrorCode | None = None
     error_msg: str = ""
     msg_type: str = ""
     summary: str = Field(

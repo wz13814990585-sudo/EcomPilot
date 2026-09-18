@@ -17,6 +17,7 @@ from .skill_registry import (
     list_skills,
     lookup_skill,
     register_skill,
+    skill_executor_context,
     skill_execution_context,
 )
 
@@ -32,6 +33,7 @@ __all__ = [
     "lookup_skill",
     "list_skills",
     "register_skill",
+    "skill_executor_context",
     "skill_execution_context",
     "SKILL_NOT_FOUND",
     "PERMISSION_DENIED",

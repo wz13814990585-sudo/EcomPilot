@@ -4,7 +4,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterator, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Type
 
 from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
 from ecom_agent_matrix.core.security import ApprovalGrant, SecurityContext
@@ -35,6 +35,7 @@ _execution_context: ContextVar[SkillExecutionContext | None] = ContextVar(
     "skill_execution_context",
     default=None,
 )
+_executor_context: ContextVar[Any | None] = ContextVar("skill_executor_context", default=None)
 
 
 @contextmanager
@@ -65,8 +66,9 @@ def skill_execution_context(
         ),
         roles=security.roles if security else frozenset(),
         scopes=security.scopes if security else frozenset(),
-        identity_trusted=bool(security and security.authenticated)
-        or bool(task_context and task_context.identity_trusted),
+        # TaskContext is business/tracing data and must never authenticate itself.
+        # Protected skill authorization trusts only the API/runtime SecurityContext.
+        identity_trusted=bool(security is not None and security.authenticated),
         approval=approval,
     )
     token = _execution_context.set(context)
@@ -79,6 +81,16 @@ def skill_execution_context(
 def current_skill_execution_context() -> SkillExecutionContext | None:
     """返回当前异步调用链继承的 Skill 身份。"""
     return _execution_context.get()
+
+
+@contextmanager
+def skill_executor_context(executor: Any) -> Iterator[None]:
+    """Bind the runtime-owned SkillExecutor to the current worker task."""
+    token = _executor_context.set(executor)
+    try:
+        yield
+    finally:
+        _executor_context.reset(token)
 
 
 def register_skill(skill_cls: Type[BaseSkill]) -> Type[BaseSkill]:
@@ -108,6 +120,10 @@ def list_skills() -> list[str]:
 
 async def exec_skill(skill_name: str, params: dict) -> SkillResult:
     """向后兼容入口；实际执行统一委托给 SkillExecutor。"""
-    from ecom_agent_matrix.core.skill.executor import skill_executor
+    executor = _executor_context.get()
+    if executor is None:
+        from ecom_agent_matrix.core.skill.executor import skill_executor
 
-    return await skill_executor.execute(skill_name, params)
+        executor = skill_executor
+
+    return await executor.execute(skill_name, params)

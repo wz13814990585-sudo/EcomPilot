@@ -16,7 +16,8 @@ from ecom_agent_matrix.modules.rag.formatter import format_rag_context, normaliz
 from ecom_agent_matrix.modules.rag.policy import should_retrieve_knowledge
 from ecom_agent_matrix.modules.rag.schemas import RAGRequest
 from ecom_agent_matrix.modules.rag.service import rag_service
-from ecom_agent_matrix.core.security import tenant_scope_from_task_context
+from ecom_agent_matrix.core.security import tenant_scope_from_skill_context
+from ecom_agent_matrix.core.skill.skill_registry import current_skill_execution_context
 
 
 def _metadata(started: float, **extra) -> dict:
@@ -118,9 +119,16 @@ async def run_crm_workflow(
     history: list = []
     short_memory: AgentShortMemory | None = None
     try:
+        execution_context = current_skill_execution_context()
         memory_identity = (
-            {"tenant_id": ctx.tenant_id, "user_id": ctx.user_id}
-            if ctx.identity_trusted and ctx.tenant_id and ctx.user_id
+            {
+                "tenant_id": execution_context.tenant_id,
+                "user_id": execution_context.user_id,
+            }
+            if execution_context
+            and execution_context.identity_trusted
+            and execution_context.tenant_id
+            and execution_context.user_id
             else {}
         )
         short_memory = AgentShortMemory(
@@ -157,7 +165,7 @@ async def run_crm_workflow(
                 top_k=5,
                 task_id=request.task_id,
             ),
-            scope=tenant_scope_from_task_context(ctx),
+            scope=tenant_scope_from_skill_context(),
         )
         if retrieval.success:
             knowledge_context = format_rag_context(retrieval.documents)

@@ -10,8 +10,10 @@ from ecom_agent_matrix.core.tasking.requests import (
     AdOptimizeRequest,
     CRMReplyRequest,
     CompetitorWatchRequest,
+    DataCheckRequest,
     GoodsSearchRequest,
     OrderQueryRequest,
+    ProfitInputs,
     RiskOperationRequest,
 )
 
@@ -23,7 +25,9 @@ __all__ = [
     "AdOptimizeRequest",
     "CRMReplyRequest",
     "CompetitorWatchRequest",
+    "DataCheckRequest",
     "GoodsSearchRequest",
     "OrderQueryRequest",
+    "ProfitInputs",
     "RiskOperationRequest",
 ]

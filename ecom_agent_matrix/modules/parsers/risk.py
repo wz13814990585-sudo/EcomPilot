@@ -4,19 +4,12 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from ecom_agent_matrix.core.tasking import TaskContext
+from ecom_agent_matrix.core.tasking import RiskOperationRequest, TaskContext
 
 _ORDER_PATTERN = re.compile(r"\b(?:ORD[-_][A-Z0-9_-]+|\d{10,20})\b", re.IGNORECASE)
 
 
-class RiskRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
-
-    order_no: str = Field(min_length=1)
-    total_amount: float = Field(ge=0)
-    buy_count: int = Field(ge=1)
+RiskRequest = RiskOperationRequest
 
 
 def parse_risk_request(task: TaskContext) -> RiskRequest:

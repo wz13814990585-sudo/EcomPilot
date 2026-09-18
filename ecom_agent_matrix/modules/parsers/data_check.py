@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
-
-from ecom_agent_matrix.core.tasking import TaskContext
+from ecom_agent_matrix.core.tasking import DataCheckRequest, TaskContext
 from ecom_agent_matrix.core.sql import nl_to_readonly_sql
 
 _ORDER_PATTERN = re.compile(r"\b(?:ORD[-_][A-Z0-9_-]+|\d{10,20})\b", re.IGNORECASE)
@@ -16,19 +12,6 @@ _DB_QUERY_HINT = re.compile(
     r"查询数据库|查库|有多少|统计|有哪些表|跑sql|执行sql|select\s|count\(",
     re.I,
 )
-
-
-class DataCheckRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-
-    scope: Literal["goods", "order", "full"] = "full"
-    sku: str | None = None
-    order_no: str | None = None
-    limit: int = Field(default=50, ge=1, le=500)
-    custom_sql: str | None = None
-    sql_params: list[Any] | dict[str, Any] = Field(default_factory=list)
-    run_nl_sql: bool = False
-    query: str = ""
 
 
 def extract_order_no(task: TaskContext) -> str | None:

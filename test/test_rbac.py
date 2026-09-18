@@ -70,6 +70,26 @@ def test_direct_query_route_cannot_bypass_rbac():
     dispatch.assert_not_awaited()
 
 
+def test_direct_competitor_route_sets_explicit_task_type_without_query():
+    body = CompetitorWarnRequest(sku="SKU-BAG-001", competitor="Temu", via_master=False)
+    response = {
+        "task_id": "task-1",
+        "target": "data_query",
+        "reply_from": "data_query",
+        "success": True,
+        "data": {},
+        "error_code": None,
+    }
+    with patch(
+        "ecom_agent_matrix.api.route_warn.dispatch_and_wait",
+        new=AsyncMock(return_value=response),
+    ) as dispatch:
+        result = asyncio.run(competitor_warn(body, security=_security("admin"), approval=None))
+
+    assert result.success
+    assert dispatch.await_args.kwargs["content"]["task_type"] == "competitor_watch"
+
+
 def test_master_fast_path_denies_before_agent_dispatch():
     viewer = _security("viewer")
     request = AgentMessage(

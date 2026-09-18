@@ -10,6 +10,7 @@ from ecom_agent_matrix.core.logging_config import setup_logger
 from ecom_agent_matrix.core.security import tenant_scope_from_security
 from ecom_agent_matrix.db.base import AsyncPGClient
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.runtime.messaging.reply_registry import ReplyRegistry
 from ecom_agent_matrix.runtime.messaging.replies import gateway_replies, task_replies
 
 logger = setup_logger("runtime.messaging")
@@ -20,11 +21,25 @@ _GATEWAY_TYPES = _REPLY_TYPES | {"master_task_result"}
 class MessageBus:
     """At-most-once in-process dispatch to a single consumer queue per agent."""
 
-    def __init__(self, *, queue_max: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        queue_max: int | None = None,
+        enqueue_timeout: float | None = None,
+        task_reply_registry: ReplyRegistry[AgentMessage] | None = None,
+        gateway_reply_registry: ReplyRegistry[AgentMessage] | None = None,
+    ) -> None:
         self.queue_max = int(queue_max or settings.MESSAGE_BUS_QUEUE_MAX_SIZE)
+        self.enqueue_timeout = float(
+            enqueue_timeout if enqueue_timeout is not None else settings.MESSAGE_BUS_ENQUEUE_TIMEOUT
+        )
+        self.task_reply_registry = task_reply_registry or task_replies
+        self.gateway_reply_registry = gateway_reply_registry or gateway_replies
         self._consumers: dict[str, asyncio.Queue[AgentMessage]] = {}
         self._audit_queue: asyncio.Queue[AgentMessage] = asyncio.Queue(maxsize=self.queue_max)
         self._audit_task: asyncio.Task | None = None
+        self._closed = False
+        self._accepting_audit = True
 
     @property
     def agent_subscribe(self) -> dict[str, list[asyncio.Queue[AgentMessage]]]:
@@ -40,6 +55,8 @@ class MessageBus:
             raise RuntimeError(f"agent already registered: {agent_id}")
         queue: asyncio.Queue[AgentMessage] = asyncio.Queue(maxsize=self.queue_max)
         self._consumers[agent_id] = queue
+        self._closed = False
+        self._accepting_audit = True
         return queue
 
     def unregister(self, agent_id: str, queue: asyncio.Queue[AgentMessage] | None = None) -> bool:
@@ -54,11 +71,24 @@ class MessageBus:
 
     async def send(self, message: AgentMessage) -> bool:
         """Dispatch first; enqueue ordinary trace persistence without blocking."""
+        if self._closed:
+            return False
         delivered = self._resolve_waiter(message)
         queue = self._consumers.get(message.target)
         if queue is not None:
-            await queue.put(message)
-            delivered = True
+            try:
+                await asyncio.wait_for(queue.put(message), timeout=self.enqueue_timeout)
+                delivered = True
+            except asyncio.TimeoutError:
+                logger.error(
+                    "message_queue_overloaded",
+                    extra={
+                        "event": "message_queue_overloaded",
+                        "task_id": message.task_id,
+                        "target": message.target,
+                        "sender": message.sender,
+                    },
+                )
         self._enqueue_audit(message)
         if not delivered:
             logger.error(
@@ -80,13 +110,15 @@ class MessageBus:
         msg_type = str(message.content.get("type") or "")
         resolved = False
         if msg_type in _REPLY_TYPES:
-            resolved = task_replies.resolve(message.correlation_id, message) or resolved
+            resolved = self.task_reply_registry.resolve(message.correlation_id, message) or resolved
         if message.target == settings.API_SENDER and msg_type in _GATEWAY_TYPES:
             key = str(message.content.get("ref_task_id") or message.task_id)
-            resolved = gateway_replies.resolve(key, message) or resolved
+            resolved = self.gateway_reply_registry.resolve(key, message) or resolved
         return resolved
 
     def _enqueue_audit(self, message: AgentMessage) -> None:
+        if not self._accepting_audit:
+            return
         if self._audit_task is None or self._audit_task.done():
             self._audit_task = asyncio.create_task(
                 self._audit_worker(), name="message-audit-writer"
@@ -140,9 +172,21 @@ class MessageBus:
         )
 
     async def close(self) -> None:
+        self._closed = True
+        self._accepting_audit = False
         self._consumers.clear()
-        await task_replies.close()
-        await gateway_replies.close()
+        await self.task_reply_registry.close()
+        await self.gateway_reply_registry.close()
+        if self._audit_task is not None and not self._audit_task.done():
+            try:
+                await asyncio.wait_for(
+                    self._audit_queue.join(), timeout=max(self.enqueue_timeout, 0.01)
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "message_audit_drain_timeout",
+                    extra={"event": "message_audit_drain_timeout"},
+                )
         if self._audit_task is not None and not self._audit_task.done():
             self._audit_task.cancel()
             await asyncio.gather(self._audit_task, return_exceptions=True)

@@ -9,7 +9,10 @@ from typing import Any, Dict, List, Optional
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.db.base import AsyncPGClient
 from ecom_agent_matrix.infrastructure.embedding.provider import get_text_embedding
-from ecom_agent_matrix.core.security import tenant_scope_from_task_context
+from ecom_agent_matrix.core.security import (
+    tenant_scope_from_security,
+    tenant_scope_from_skill_context,
+)
 
 logger = logging.getLogger("memory.long")
 
@@ -21,16 +24,15 @@ class AgentLongVectorMemory:
 
     @staticmethod
     def _trusted_scope(context: Any | None) -> dict[str, str]:
-        trusted = bool(
-            getattr(context, "authenticated", False) or getattr(context, "identity_trusted", False)
-        )
-        if not trusted:
+        scope = AgentLongVectorMemory._scope(context)
+        if not scope.usable:
             return {}
-        tenant_id = str(getattr(context, "tenant_id", "") or "").strip()
-        store_id = str(getattr(context, "store_id", "") or "").strip()
-        if not tenant_id or not store_id:
-            return {}
-        return {"tenant_id": tenant_id, "store_id": store_id}
+        return {"tenant_id": scope.tenant_id, "store_id": scope.store_id}
+
+    @staticmethod
+    def _scope(context: Any | None):
+        security_scope = tenant_scope_from_security(context)
+        return security_scope if security_scope.usable else tenant_scope_from_skill_context()
 
     async def save_memory(
         self,
@@ -43,7 +45,7 @@ class AgentLongVectorMemory:
         trusted_scope = self._trusted_scope(context)
         scoped_meta = {**dict(meta or {}), **trusted_scope}
         vec = await get_text_embedding(content)
-        scope = tenant_scope_from_task_context(context)
+        scope = self._scope(context)
         if scope.usable:
             sql = f"""
             INSERT INTO {self.TABLE}(tenant_id, store_id, agent_name, content, embedding, meta_json)
@@ -112,7 +114,7 @@ class AgentLongVectorMemory:
             else settings.MASTER_MEMORY_RECALL_MIN_CONFIDENCE
         )
         q_vec = await get_text_embedding(query_text)
-        scope = tenant_scope_from_task_context(context)
+        scope = self._scope(context)
 
         where_extra = ""
         params: list = [q_vec, agent_name, min_conf]
@@ -152,7 +154,7 @@ class AgentLongVectorMemory:
         SET meta_json = COALESCE(meta_json, '{{}}'::jsonb) || '{{"deprecated": true}}'::jsonb
         WHERE id = %s
         """
-        scope = tenant_scope_from_task_context(context)
+        scope = self._scope(context)
         params: list = [memory_id]
         if scope.usable:
             sql += " AND tenant_id = %s AND store_id = %s"

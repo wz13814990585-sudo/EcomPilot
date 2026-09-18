@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict, Field
-
-from ecom_agent_matrix.core.tasking import TaskContext
+from ecom_agent_matrix.core.tasking import AdOptimizeRequest, ProfitInputs, TaskContext
 
 _NUM = re.compile(
     r"(?:spend|消耗|花费)[:：\s]*([0-9]+(?:\.[0-9]+)?)"
@@ -43,33 +39,7 @@ class IncompleteProfitInputs(ValueError):
         super().__init__(", ".join(missing))
 
 
-class ProfitInputs(BaseModel):
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
-
-    cost: float = Field(ge=0)
-    shipping: float = Field(ge=0)
-    commission_rate: float = Field(ge=0, lt=1)
-    sell_price: float = Field(ge=0)
-
-
-class AdRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
-
-    query: str = ""
-    sku: str | None = None
-    campaign_id: str | None = None
-    platform: Literal["meta", "google", "tiktok", "amazon"] = "meta"
-    spend: float = Field(default=0, ge=0)
-    clicks: int = Field(default=0, ge=0)
-    conversions: int = Field(default=0, ge=0)
-    revenue: float = Field(default=0, ge=0)
-    daily_budget: float | None = Field(default=None, gt=0)
-    bid: float | None = Field(default=None, gt=0)
-    target_roas: float = Field(default=2.0, gt=0)
-    profit: ProfitInputs | None = None
-
-    def skill_params(self) -> dict:
-        return self.model_dump(exclude={"query", "profit"})
+AdRequest = AdOptimizeRequest
 
 
 def _query_metrics(query: str) -> dict:

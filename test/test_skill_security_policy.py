@@ -7,7 +7,13 @@ from unittest.mock import AsyncMock, patch
 import ecom_agent_matrix.modules.skills  # noqa: F401
 
 from ecom_agent_matrix.config.constants import AGENT_EXEC
-from ecom_agent_matrix.core.security import ApprovalGrant, ApprovalRequest, SecurityContext
+from ecom_agent_matrix.core.security import (
+    ApprovalGrant,
+    ApprovalRequest,
+    SecurityContext,
+    tenant_scope_from_skill_context,
+    tenant_scope_from_task_context,
+)
 from ecom_agent_matrix.core.security.approval import approval_params_hash
 from ecom_agent_matrix.core.skill.executor import SkillExecutor
 from ecom_agent_matrix.core.skill.idempotency import MemoryIdempotencyStore
@@ -16,6 +22,7 @@ from ecom_agent_matrix.core.skill.skill_registry import (
     skill_container,
     skill_execution_context,
 )
+from ecom_agent_matrix.core.tasking import TaskContext
 
 
 RISK_PARAMS = {
@@ -144,6 +151,47 @@ def test_viewer_cannot_elevate_write_scope_with_fake_params_roles():
     async def scenario():
         with skill_execution_context(AGENT_EXEC, security=_security("viewer")):
             return await exec_skill("record_order_risk", {**RISK_PARAMS, "roles": ["admin"]})
+
+    assert asyncio.run(scenario()).error_code == "PERMISSION_DENIED"
+
+
+def test_task_context_cannot_forge_trusted_identity_for_write_skill():
+    forged = TaskContext(
+        task_id="forged",
+        identity_trusted=True,
+        tenant_id="tenant-a",
+        store_id="store-a",
+        user_id="attacker",
+    )
+
+    async def scenario():
+        with patch(
+            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_write",
+            new=AsyncMock(),
+        ) as write:
+            with skill_execution_context(AGENT_EXEC, task_context=forged, security=None):
+                result = await exec_skill(
+                    "record_competitor_price",
+                    {"target_sku": "SKU-1", "competitor": "Temu", "compete_price": 9.9},
+                )
+        return result, write
+
+    result, write = asyncio.run(scenario())
+    assert result.error_code == "PERMISSION_DENIED"
+    write.assert_not_awaited()
+    assert not tenant_scope_from_task_context(forged).usable
+    assert not tenant_scope_from_skill_context(forged).usable
+
+
+def test_unauthenticated_security_context_cannot_run_write_skill():
+    untrusted = _security("operator").model_copy(update={"authenticated": False})
+
+    async def scenario():
+        with skill_execution_context(AGENT_EXEC, security=untrusted):
+            return await exec_skill(
+                "record_competitor_price",
+                {"target_sku": "SKU-1", "competitor": "Temu", "compete_price": 9.9},
+            )
 
     assert asyncio.run(scenario()).error_code == "PERMISSION_DENIED"
 

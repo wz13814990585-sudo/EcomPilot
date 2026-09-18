@@ -8,6 +8,7 @@ import time
 from ecom_agent_matrix.config.constants import AGENT_EXEC
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.runtime.messaging.bus import message_bus
 from ecom_agent_matrix.runtime.messaging.message import AgentMessage
 from ecom_agent_matrix.runtime.messaging.registry import register_agent
@@ -27,7 +28,7 @@ from ecom_agent_matrix.workflows.crm import run_crm_workflow
 from ecom_agent_matrix.workflows.report import run_report_workflow
 from ecom_agent_matrix.workflows.risk import run_risk_workflow
 from ecom_agent_matrix.workflows.social import run_social_workflow
-from ecom_agent_matrix.agents.legacy_routing import infer_exec_kind
+from ecom_agent_matrix.agents.legacy_routing import infer_exec_kind  # noqa: F401
 from ecom_agent_matrix.platform.observability.context import TraceContext, set_trace_context
 from ecom_agent_matrix.platform.observability.metrics import metrics
 
@@ -67,7 +68,7 @@ async def run_exec(
         AGENT_EXEC, task_context=ctx, security=security, approval=approval
     ):
         result = await execute_exec(ctx)
-    legacy = result.as_legacy_tuple()
+    legacy = result.as_legacy_tuple()  # Deprecated compatibility API; workers stay typed.
     metrics.observe_agent(AGENT_EXEC, result.success, time.perf_counter() - started)
     return legacy
 
@@ -81,12 +82,10 @@ async def execute_exec(ctx: TaskContext) -> WorkflowResult:
         "social_marketing": "social",
         "customer_service": "crm",
     }.get(task_type)
-    if kind is None and not task_type:
-        kind = infer_exec_kind(ctx)
     if kind is None:
         return WorkflowResult(
             success=False,
-            error_code="UNSUPPORTED_TASK",
+            error_code=ErrorCode.UNSUPPORTED_TASK.value,
             error_msg="Unsupported execution task",
         )
     if kind == "ad":
@@ -101,7 +100,7 @@ async def execute_exec(ctx: TaskContext) -> WorkflowResult:
 
 
 @register_agent(AGENT_EXEC)
-async def exec_agent(msg_queue: asyncio.Queue):
+async def exec_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
     """业务执行：调出价、出报表、触发风控、生成文案/客服答复。"""
     logger.info(
         "exec_agent_started",
@@ -154,7 +153,7 @@ async def exec_agent(msg_queue: asyncio.Queue):
                     error_msg=err or "",
                     data=data,
                 )
-                await message_bus.send(reply)
+                await bus.send(reply)
                 logger.info(
                     "exec_task_done",
                     extra={
@@ -171,9 +170,9 @@ async def exec_agent(msg_queue: asyncio.Queue):
                 sender=AGENT_EXEC,
                 success=False,
                 error_msg=f"biz_exec 超时（>{settings.EXEC_SKILL_TIMEOUT}s）",
-                data={},
+                data={"error_code": ErrorCode.AGENT_TIMEOUT.value},
             )
-            await message_bus.send(reply)
+            await bus.send(reply)
         except Exception as exc:
             logger.exception(
                 "exec_task_failed",
@@ -189,8 +188,8 @@ async def exec_agent(msg_queue: asyncio.Queue):
                 sender=AGENT_EXEC,
                 success=False,
                 error_msg="biz_exec 内部执行失败",
-                data={"error_code": "EXECUTION_ERROR"},
+                data={"error_code": ErrorCode.SKILL_EXECUTION_ERROR.value},
             )
-            await message_bus.send(reply)
+            await bus.send(reply)
         finally:
             msg_queue.task_done()

@@ -36,7 +36,7 @@ async def run_risk_workflow(task: dict | TaskContext) -> WorkflowResult:
             metadata=_metadata(started),
         )
 
-    risk_result = await exec_skill("evaluate_order_risk", request.model_dump())
+    risk_result = await exec_skill("evaluate_order_risk", request.skill_params())
     if not risk_result.success:
         return WorkflowResult(
             success=False,
