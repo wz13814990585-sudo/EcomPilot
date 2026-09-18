@@ -5,18 +5,18 @@ from __future__ import annotations
 import json
 from pydantic import ValidationError
 
-from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_QUERY, AGENT_RAG
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm import is_llm_configured, llm_chat_structured, resolve_mode
-from ecom_agent_matrix.orchestration.master.policy import (
+from ...config.constants import AGENT_EXEC, AGENT_QUERY, AGENT_RAG
+from ...config.settings import settings
+from ...core.llm import is_llm_configured, llm_chat_structured, resolve_mode
+from .policy import (
     MasterPlanValidationError,
     is_composite_customer_reply,
     validate_master_plan,
 )
-from ecom_agent_matrix.orchestration.master.prompts import PLANNER_SYSTEM_PROMPT
-from ecom_agent_matrix.orchestration.master.schemas import MasterPlan, PlanStep
-from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
-from ecom_agent_matrix.platform.observability.context import trace_context
+from .prompts import PLANNER_SYSTEM_PROMPT
+from .schemas import MasterPlan, PlanStep
+from .telemetry import MasterLLMTelemetry
+from ...platform.observability.context import trace_context
 
 
 def _query(task_input: dict) -> str:

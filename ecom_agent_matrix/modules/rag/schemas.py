@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ecom_agent_matrix.core.errors import ErrorCode
+from ...core.errors import ErrorCode
 
 
 class RAGRequest(BaseModel):

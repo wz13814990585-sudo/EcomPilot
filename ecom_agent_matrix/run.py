@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 
 # 侧载注册：@register_agent / @register_skill
-import ecom_agent_matrix.agents  # noqa: F401
-import ecom_agent_matrix.modules.skills  # noqa: F401
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.runtime.messaging.registry import agent_map, start_all_agents
-from ecom_agent_matrix.core.skill.skill_registry import skill_container
+from . import agents  # noqa: F401
+from .modules import skills  # noqa: F401
+from .core.logging_config import setup_logger
+from .runtime.messaging.registry import agent_map, start_all_agents
+from .core.skill.skill_registry import skill_container
 
 logger = setup_logger("run")
 

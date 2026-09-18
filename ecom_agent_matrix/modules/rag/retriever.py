@@ -8,22 +8,22 @@ import json
 import time
 from typing import Dict, List, Optional
 
-from ecom_agent_matrix.config.constants import TABLE_VECTOR_GOODS
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.db.redis_client import AsyncRedisClient
-from ecom_agent_matrix.infrastructure.embedding.provider import (
+from ...config.constants import TABLE_VECTOR_GOODS
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...db.base import AsyncPGClient
+from ...db.redis_client import AsyncRedisClient
+from ...infrastructure.embedding.provider import (
     get_text_embedding,
     resolve_embed_model_name,
 )
-from ecom_agent_matrix.modules.rag.formatter import stable_source_id
-from ecom_agent_matrix.modules.rag.lexical import lexical_search
-from ecom_agent_matrix.modules.rag.rate_limiter import get_rag_semaphore
-from ecom_agent_matrix.modules.rag.reranker import rerank_documents_detailed
-from ecom_agent_matrix.modules.rag.schemas import HybridRetrievalResult, RetrievalCacheEntry
+from .formatter import stable_source_id
+from .lexical import lexical_search
+from .rate_limiter import get_rag_semaphore
+from .reranker import rerank_documents_detailed
+from .schemas import HybridRetrievalResult, RetrievalCacheEntry
 from pydantic import ValidationError
-from ecom_agent_matrix.core.security import TenantScope
+from ...core.security import TenantScope
 
 logger = setup_logger("rag.retriever")
 

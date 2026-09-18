@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from ecom_agent_matrix.core.tasking import AdOptimizeRequest, ProfitInputs, TaskContext
+from ...core.tasking import AdOptimizeRequest, ProfitInputs, TaskContext
 
 _NUM = re.compile(
     r"(?:spend|消耗|花费)[:：\s]*([0-9]+(?:\.[0-9]+)?)"

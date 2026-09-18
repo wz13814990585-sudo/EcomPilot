@@ -8,9 +8,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.llm import current_provider_name, is_llm_configured, llm_chat
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
+from ...core.llm import current_provider_name, is_llm_configured, llm_chat
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
 
 SUPPORTED_AD_PLATFORMS = frozenset({"meta", "google", "tiktok", "amazon"})
 

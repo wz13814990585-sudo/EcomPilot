@@ -1,4 +1,4 @@
-from ecom_agent_matrix.db.redis_client import AsyncRedisClient
+from ...db.redis_client import AsyncRedisClient
 
 
 class RedisManager:

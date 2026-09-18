@@ -8,8 +8,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from ecom_agent_matrix.core.skill.spec import SkillSpec
-from ecom_agent_matrix.core.errors import ErrorCode
+from .spec import SkillSpec
+from ..errors import ErrorCode
 
 
 # 所有工具统一返回结果模型

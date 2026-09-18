@@ -6,10 +6,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.config.constants import TABLE_GOODS, TABLE_ORDER
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.db.base import AsyncPGClient
+from ...config.constants import TABLE_GOODS, TABLE_ORDER
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ...db.base import AsyncPGClient
 
 SUPPORTED_SCOPES = frozenset({"goods", "order", "full"})
 

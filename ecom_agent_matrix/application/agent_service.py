@@ -8,11 +8,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.core.security import ApprovalGrant, SecurityContext
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.replies import gateway_replies
+from ..config.settings import settings
+from ..core.errors import ErrorCode
+from ..core.security import ApprovalGrant, SecurityContext
+from ..runtime.messaging.message import AgentMessage
+from ..runtime.messaging.replies import gateway_replies
 
 
 class AgentResponse(BaseModel):

@@ -6,32 +6,32 @@ import asyncio
 import time
 from copy import deepcopy
 
-from ecom_agent_matrix.config.constants import AGENT_QUERY
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.runtime.messaging.bus import message_bus
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.registry import register_agent
-from ecom_agent_matrix.runtime.messaging.reply import build_reply
-from ecom_agent_matrix.core.skill.skill_registry import skill_execution_context
-from ecom_agent_matrix.core.tasking import (
+from ...config.constants import AGENT_QUERY
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...core.errors import ErrorCode
+from ...runtime.messaging.bus import message_bus
+from ...runtime.messaging.message import AgentMessage
+from ...runtime.messaging.registry import register_agent
+from ...runtime.messaging.reply import build_reply
+from ...core.skill.skill_registry import skill_execution_context
+from ...core.tasking import (
     TaskContext,
     ensure_task_context,
     normalize_task_context,
 )
-from ecom_agent_matrix.core.security import SecurityContext
-from ecom_agent_matrix.core.security import ApprovalGrant
-from ecom_agent_matrix.core.security import require_trusted_ingress
-from ecom_agent_matrix.core.tasking import WorkflowResult
-from ecom_agent_matrix.workflows.data_check import run_data_check_workflow
-from ecom_agent_matrix.workflows.goods import run_goods_workflow
-from ecom_agent_matrix.workflows.competitor import run_competitor_workflow
-from ecom_agent_matrix.workflows.stock import run_stock_workflow
-from ecom_agent_matrix.modules.parsers.stock import extract_stock_sku
-from ecom_agent_matrix.agents.legacy_routing import infer_query_kind  # noqa: F401
-from ecom_agent_matrix.platform.observability.context import TraceContext, set_trace_context
-from ecom_agent_matrix.platform.observability.metrics import metrics
+from ...core.security import SecurityContext
+from ...core.security import ApprovalGrant
+from ...core.security import require_trusted_ingress
+from ...core.tasking import WorkflowResult
+from ...workflows.data_check import run_data_check_workflow
+from ...workflows.goods import run_goods_workflow
+from ...workflows.competitor import run_competitor_workflow
+from ...workflows.stock import run_stock_workflow
+from ...modules.parsers.stock import extract_stock_sku
+from ..legacy_routing import infer_query_kind  # noqa: F401
+from ...platform.observability.context import TraceContext, set_trace_context
+from ...platform.observability.metrics import metrics
 
 logger = setup_logger("agent.query")
 

@@ -6,7 +6,7 @@ import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from ecom_agent_matrix.core.errors import ErrorCode
+from ...core.errors import ErrorCode
 
 AgentId = Literal["data_query", "biz_exec", "knowledge_rag"]
 StepStatus = Literal["PENDING", "RUNNING", "SUCCESS", "FAILED", "SKIPPED"]

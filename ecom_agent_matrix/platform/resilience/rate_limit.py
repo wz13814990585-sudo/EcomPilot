@@ -9,11 +9,11 @@ import time
 
 from fastapi import Depends, HTTPException, Request, status
 
-from ecom_agent_matrix.api.auth import get_current_security_context
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.security import SecurityContext
-from ecom_agent_matrix.platform.observability.context import identity_hash
-from ecom_agent_matrix.platform.observability.metrics import metrics
+from ...api.auth import get_current_security_context
+from ...config.settings import settings
+from ...core.security import SecurityContext
+from ..observability.context import identity_hash
+from ..observability.metrics import metrics
 
 
 class InProcessRateLimiter:

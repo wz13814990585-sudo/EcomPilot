@@ -2,7 +2,7 @@
 
 import redis.asyncio as redis
 
-from ecom_agent_matrix.config.settings import settings
+from ..config.settings import settings
 
 
 class AsyncRedisClient:

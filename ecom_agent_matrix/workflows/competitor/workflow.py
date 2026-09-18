@@ -6,14 +6,14 @@ import asyncio
 import time
 
 from pydantic import ValidationError
-from ecom_agent_matrix.platform.observability.metrics import observed_workflow
+from ...platform.observability.metrics import observed_workflow
 
-from ecom_agent_matrix.config.constants import AGENT_QUERY
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.memory.long_vector_memory import AgentLongVectorMemory
-from ecom_agent_matrix.core.skill.skill_registry import exec_skill
-from ecom_agent_matrix.core.tasking import TaskContext, WorkflowResult, ensure_task_context
-from ecom_agent_matrix.core.tasking.result import (
+from ...config.constants import AGENT_QUERY
+from ...config.settings import settings
+from ...core.memory.long_vector_memory import AgentLongVectorMemory
+from ...core.skill.skill_registry import exec_skill
+from ...core.tasking import TaskContext, WorkflowResult, ensure_task_context
+from ...core.tasking.result import (
     INVALID_REQUEST,
     MISSING_COMPETITOR,
     MISSING_SKU,
@@ -22,11 +22,11 @@ from ecom_agent_matrix.core.tasking.result import (
     SKILL_FAILED,
     WORKFLOW_TIMEOUT,
 )
-from ecom_agent_matrix.modules.parsers.competitor import (
+from ...modules.parsers.competitor import (
     CompetitorRequest,
     parse_competitor_request,
 )
-from ecom_agent_matrix.modules.utils.llm_explain import llm_explain
+from ...modules.utils.llm_explain import llm_explain
 
 _long_mem: AgentLongVectorMemory | None = None
 

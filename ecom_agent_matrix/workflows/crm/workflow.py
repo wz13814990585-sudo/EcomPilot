@@ -5,19 +5,19 @@ from __future__ import annotations
 import time
 
 from pydantic import ValidationError
-from ecom_agent_matrix.platform.observability.metrics import observed_workflow
+from ...platform.observability.metrics import observed_workflow
 
-from ecom_agent_matrix.core.memory.short_memory import AgentShortMemory
-from ecom_agent_matrix.core.skill.skill_registry import exec_skill
-from ecom_agent_matrix.core.tasking import TaskContext, WorkflowResult, ensure_task_context
-from ecom_agent_matrix.core.tasking.result import INVALID_REQUEST, PARTIAL_SUCCESS, SKILL_FAILED
-from ecom_agent_matrix.modules.parsers.crm import CRMRequest, parse_crm_request
-from ecom_agent_matrix.modules.rag.formatter import format_rag_context, normalize_documents
-from ecom_agent_matrix.modules.rag.policy import should_retrieve_knowledge
-from ecom_agent_matrix.modules.rag.schemas import RAGRequest
-from ecom_agent_matrix.modules.rag.service import rag_service
-from ecom_agent_matrix.core.security import tenant_scope_from_skill_context
-from ecom_agent_matrix.core.skill.skill_registry import current_skill_execution_context
+from ...core.memory.short_memory import AgentShortMemory
+from ...core.skill.skill_registry import exec_skill
+from ...core.tasking import TaskContext, WorkflowResult, ensure_task_context
+from ...core.tasking.result import INVALID_REQUEST, PARTIAL_SUCCESS, SKILL_FAILED
+from ...modules.parsers.crm import CRMRequest, parse_crm_request
+from ...modules.rag.formatter import format_rag_context, normalize_documents
+from ...modules.rag.policy import should_retrieve_knowledge
+from ...modules.rag.schemas import RAGRequest
+from ...modules.rag.service import rag_service
+from ...core.security import tenant_scope_from_skill_context
+from ...core.skill.skill_registry import current_skill_execution_context
 
 
 def _metadata(started: float, **extra) -> dict:

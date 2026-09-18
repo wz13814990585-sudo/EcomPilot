@@ -8,12 +8,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.security.approval_models import ApprovalGrant, ApprovalRequest
-from ecom_agent_matrix.core.security.audit import record_audit_event
-from ecom_agent_matrix.core.security.context import SecurityContext
-from ecom_agent_matrix.core.security.scope import TenantScope, tenant_scope_from_security
-from ecom_agent_matrix.db.base import AsyncPGClient
+from ...config.settings import settings
+from .approval_models import ApprovalGrant, ApprovalRequest
+from .audit import record_audit_event
+from .context import SecurityContext
+from .scope import TenantScope, tenant_scope_from_security
+from ...db.base import AsyncPGClient
 
 APPROVAL_REQUIRED = "APPROVAL_REQUIRED"
 APPROVAL_EXPIRED = "APPROVAL_EXPIRED"

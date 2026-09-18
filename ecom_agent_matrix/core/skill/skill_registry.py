@@ -6,11 +6,11 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterator, Type
 
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.security import ApprovalGrant, SecurityContext
+from .base_skill import BaseSkill, SkillResult
+from ..security import ApprovalGrant, SecurityContext
 
 if TYPE_CHECKING:
-    from ecom_agent_matrix.core.tasking import TaskContext
+    from ..tasking import TaskContext
 
 # 全局工具容器：key=skill_name，value=工具类
 skill_container: Dict[str, Type[BaseSkill]] = {}
@@ -122,7 +122,7 @@ async def exec_skill(skill_name: str, params: dict) -> SkillResult:
     """向后兼容入口；实际执行统一委托给 SkillExecutor。"""
     executor = _executor_context.get()
     if executor is None:
-        from ecom_agent_matrix.core.skill.executor import skill_executor
+        from .executor import skill_executor
 
         executor = skill_executor
 

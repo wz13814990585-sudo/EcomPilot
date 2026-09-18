@@ -16,10 +16,10 @@ import argparse
 import asyncio
 import json
 
-from ecom_agent_matrix.config.constants import TABLE_GOODS, TABLE_VECTOR_GOODS
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.infrastructure.embedding.provider import (
+from ..config.constants import TABLE_GOODS, TABLE_VECTOR_GOODS
+from ..config.settings import settings
+from ..db.base import AsyncPGClient
+from ..infrastructure.embedding.provider import (
     get_text_embeddings_batch,
     resolve_embed_model_name,
 )
@@ -161,7 +161,7 @@ async def smoke_vector_search() -> None:
         print("抽检跳过：无向量数据")
         return
     query = sample[0][0]
-    from ecom_agent_matrix.infrastructure.embedding.provider import get_text_embedding
+    from ..infrastructure.embedding.provider import get_text_embedding
 
     qvec = await get_text_embedding(query)
     rows = await AsyncPGClient.execute_sql(
@@ -213,7 +213,7 @@ async def main() -> None:
     print(f"\n📊 当前: vector_goods_kb={counts[0][0]} agent_long_memory={counts[0][1]}")
     await AsyncPGClient.close()
     try:
-        from ecom_agent_matrix.db.redis_client import AsyncRedisClient
+        from ..db.redis_client import AsyncRedisClient
 
         await AsyncRedisClient.close()
     except Exception:

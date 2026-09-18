@@ -8,12 +8,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.config.constants import TABLE_GOODS
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.core.security import tenant_scope_from_skill_context
+from ...config.constants import TABLE_GOODS
+from ...config.settings import settings
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ...db.base import AsyncPGClient
+from ...core.security import tenant_scope_from_skill_context
 
 # 单次最多返回条数，防止响应过大
 MAX_CATALOG_LIMIT = 500

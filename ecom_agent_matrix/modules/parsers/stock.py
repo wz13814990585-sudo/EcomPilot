@@ -6,7 +6,7 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.tasking import TaskContext
+from ...core.tasking import TaskContext
 
 _SKU_PATTERN = re.compile(r"\bSKU[-_][A-Z0-9_-]+\b", re.IGNORECASE)
 

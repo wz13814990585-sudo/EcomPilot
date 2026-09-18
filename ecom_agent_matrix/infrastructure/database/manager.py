@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ecom_agent_matrix.db.base import (
+from ...db.base import (
     AsyncPGClient,
     validate_database_runtime_roles,
     validate_database_security_configuration,

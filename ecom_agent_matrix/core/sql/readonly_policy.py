@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from ecom_agent_matrix.config.constants import (
+from ...config.constants import (
     TABLE_COMPETITOR,
     TABLE_GOODS,
     TABLE_ORDER,

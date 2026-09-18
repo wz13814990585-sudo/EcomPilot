@@ -6,10 +6,10 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.infrastructure.embedding.provider import get_text_embedding
-from ecom_agent_matrix.core.security import (
+from ...config.settings import settings
+from ...db.base import AsyncPGClient
+from ...infrastructure.embedding.provider import get_text_embedding
+from ..security import (
     tenant_scope_from_security,
     tenant_scope_from_skill_context,
 )

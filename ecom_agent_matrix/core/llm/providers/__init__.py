@@ -5,7 +5,7 @@
 2. 在 router.PROVIDER_REGISTRY 注册名称
 """
 
-from ecom_agent_matrix.core.llm.providers.deepseek import DeepSeekProvider
-from ecom_agent_matrix.core.llm.providers.openai import OpenAIProvider
+from .deepseek import DeepSeekProvider
+from .openai import OpenAIProvider
 
 __all__ = ["DeepSeekProvider", "OpenAIProvider"]

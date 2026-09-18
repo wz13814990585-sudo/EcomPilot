@@ -9,11 +9,11 @@ from typing import Any
 import jwt
 from fastapi import Depends, Header, HTTPException, status
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.security import SecurityConfigurationError, SecurityContext
-from ecom_agent_matrix.core.security import ApprovalGrant
-from ecom_agent_matrix.core.security.approval import approval_service
-from ecom_agent_matrix.platform.observability.context import identity_hash, update_trace_context
+from ..config.settings import settings
+from ..core.security import SecurityConfigurationError, SecurityContext
+from ..core.security import ApprovalGrant
+from ..core.security.approval import approval_service
+from ..platform.observability.context import identity_hash, update_trace_context
 
 
 def _items(value: Any) -> frozenset[str]:

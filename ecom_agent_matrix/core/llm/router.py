@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm.provider import LLMProvider
-from ecom_agent_matrix.core.llm.providers.deepseek import DeepSeekProvider
-from ecom_agent_matrix.core.llm.providers.openai import OpenAIProvider
-from ecom_agent_matrix.core.llm.types import ChatMode, ChatResult, LLMError
+from ...config.settings import settings
+from .provider import LLMProvider
+from .providers.deepseek import DeepSeekProvider
+from .providers.openai import OpenAIProvider
+from .types import ChatMode, ChatResult, LLMError
 
 # 新增供应商：实现 LLMProvider 后在此注册。
 PROVIDER_REGISTRY: dict[str, type[LLMProvider]] = {

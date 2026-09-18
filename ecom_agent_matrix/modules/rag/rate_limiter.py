@@ -2,7 +2,7 @@
 
 import asyncio
 
-from ecom_agent_matrix.config.settings import settings
+from ...config.settings import settings
 
 _rag_semaphore: asyncio.Semaphore | None = None
 

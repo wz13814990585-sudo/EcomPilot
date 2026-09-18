@@ -6,8 +6,8 @@ import math
 from functools import lru_cache
 from typing import Optional
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.modules.rag.lexicon import expand_synonyms, tokenize
+from ...config.settings import settings
+from .lexicon import expand_synonyms, tokenize
 
 KEYWORD_WEIGHT = 0.35
 SEMANTIC_WEIGHT = 0.65

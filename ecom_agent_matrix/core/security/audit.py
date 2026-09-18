@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ecom_agent_matrix.core.security.scope import TenantScope
-from ecom_agent_matrix.db.base import AsyncPGClient
+from .scope import TenantScope
+from ...db.base import AsyncPGClient
 
 AUDIT_EVENTS = frozenset(
     {

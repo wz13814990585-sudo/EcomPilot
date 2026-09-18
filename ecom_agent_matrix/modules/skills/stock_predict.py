@@ -4,9 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.db.base import AsyncPGClient
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ...db.base import AsyncPGClient
 
 
 class StockPredictInput(BaseModel):

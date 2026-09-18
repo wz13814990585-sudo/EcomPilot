@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from ecom_agent_matrix.core.tasking import CompetitorWatchRequest, TaskContext
+from ...core.tasking import CompetitorWatchRequest, TaskContext
 
 DEFAULT_COMPARE_PLATFORMS = ("Temu", "Amazon", "AliExpress", "Shein", "Walmart")
 

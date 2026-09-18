@@ -6,11 +6,11 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ecom_agent_matrix.core.sql import nl_to_readonly_sql, sanitize_readonly_sql
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.config.settings import settings
+from ...core.sql import nl_to_readonly_sql, sanitize_readonly_sql
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ...db.base import AsyncPGClient
+from ...config.settings import settings
 
 
 class SafeSqlQueryInput(BaseModel):

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm.provider import OpenAICompatProvider
+from ....config.settings import settings
+from ..provider import OpenAICompatProvider
 
 
 class DeepSeekProvider(OpenAICompatProvider):

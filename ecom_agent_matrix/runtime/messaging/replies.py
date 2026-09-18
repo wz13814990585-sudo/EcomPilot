@@ -1,7 +1,7 @@
 """Runtime-owned reply registries."""
 
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.reply_registry import ReplyRegistry
+from .message import AgentMessage
+from .reply_registry import ReplyRegistry
 
 task_replies: ReplyRegistry[AgentMessage] = ReplyRegistry()
 gateway_replies: ReplyRegistry[AgentMessage] = ReplyRegistry()

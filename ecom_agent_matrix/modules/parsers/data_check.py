@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import re
-from ecom_agent_matrix.core.tasking import DataCheckRequest, TaskContext
-from ecom_agent_matrix.core.sql import nl_to_readonly_sql
+from ...core.tasking import DataCheckRequest, TaskContext
+from ...core.sql import nl_to_readonly_sql
 
 _ORDER_PATTERN = re.compile(r"\b(?:ORD[-_][A-Z0-9_-]+|\d{10,20})\b", re.IGNORECASE)
 _SKU_PATTERN = re.compile(r"\bSKU[-_][A-Z0-9_-]+\b", re.IGNORECASE)

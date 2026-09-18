@@ -5,20 +5,20 @@ from __future__ import annotations
 import time
 
 from pydantic import ValidationError
-from ecom_agent_matrix.platform.observability.metrics import observed_workflow
+from ...platform.observability.metrics import observed_workflow
 
-from ecom_agent_matrix.core.skill.skill_registry import exec_skill
-from ecom_agent_matrix.core.tasking import TaskContext, WorkflowResult, ensure_task_context
-from ecom_agent_matrix.core.tasking.result import (
+from ...core.skill.skill_registry import exec_skill
+from ...core.tasking import TaskContext, WorkflowResult, ensure_task_context
+from ...core.tasking.result import (
     INVALID_REQUEST,
     SKILL_FAILED,
     UNSUPPORTED_REPORT_TYPE,
 )
-from ecom_agent_matrix.modules.parsers.report import (
+from ...modules.parsers.report import (
     UnsupportedReportType,
     parse_report_request,
 )
-from ecom_agent_matrix.modules.skills.ops_report import SUPPORTED_REPORT_TYPES
+from ...modules.skills.ops_report import SUPPORTED_REPORT_TYPES
 
 
 def _metadata(started: float, **extra) -> dict:

@@ -1,4 +1,4 @@
-from ecom_agent_matrix.core.llm import close_http_session, llm_chat
+from ...core.llm import close_http_session, llm_chat
 
 
 class LLMGateway:

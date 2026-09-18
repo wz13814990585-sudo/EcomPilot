@@ -1,4 +1,4 @@
-from ecom_agent_matrix.infrastructure.embedding.provider import (
+from .provider import (
     EmbeddingProvider,
     LocalEmbeddingProvider,
     get_embed_model,

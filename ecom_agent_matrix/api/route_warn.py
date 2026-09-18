@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ecom_agent_matrix.api.auth import get_current_approval_grant, get_current_security_context
-from ecom_agent_matrix.api.dispatch import dispatch_and_wait, dispatch_to_master
-from ecom_agent_matrix.api.schemas import ApiResult, CompetitorWarnRequest
-from ecom_agent_matrix.config.constants import AGENT_QUERY, MSG_PRIORITY_RISK
-from ecom_agent_matrix.core.security import SecurityContext, authorize_task
-from ecom_agent_matrix.core.security import ApprovalGrant
-from ecom_agent_matrix.core.security.errors import AuthorizationError
-from ecom_agent_matrix.platform.resilience.rate_limit import enforce_business_rate_limit
+from .auth import get_current_approval_grant, get_current_security_context
+from .dispatch import dispatch_and_wait, dispatch_to_master
+from .schemas import ApiResult, CompetitorWarnRequest
+from ..config.constants import AGENT_QUERY, MSG_PRIORITY_RISK
+from ..core.security import SecurityContext, authorize_task
+from ..core.security import ApprovalGrant
+from ..core.security.errors import AuthorizationError
+from ..platform.resilience.rate_limit import enforce_business_rate_limit
 
 router = APIRouter(prefix="/api/v1/warn", tags=["warn"])
 

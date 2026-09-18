@@ -7,10 +7,10 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.config.constants import LANG_LIST
-from ecom_agent_matrix.core.llm import current_provider_name, llm_chat
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
+from ...config.constants import LANG_LIST
+from ...core.llm import current_provider_name, llm_chat
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
 
 SUPPORTED_LANG = set(LANG_LIST)
 

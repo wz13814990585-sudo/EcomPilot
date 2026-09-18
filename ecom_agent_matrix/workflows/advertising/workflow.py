@@ -5,24 +5,24 @@ from __future__ import annotations
 import time
 
 from pydantic import ValidationError
-from ecom_agent_matrix.platform.observability.metrics import observed_workflow
+from ...platform.observability.metrics import observed_workflow
 
-from ecom_agent_matrix.config.constants import AGENT_EXEC
-from ecom_agent_matrix.core.memory.long_vector_memory import AgentLongVectorMemory
-from ecom_agent_matrix.core.skill.skill_registry import exec_skill
-from ecom_agent_matrix.core.tasking import TaskContext, WorkflowResult, ensure_task_context
-from ecom_agent_matrix.core.tasking.result import (
+from ...config.constants import AGENT_EXEC
+from ...core.memory.long_vector_memory import AgentLongVectorMemory
+from ...core.skill.skill_registry import exec_skill
+from ...core.tasking import TaskContext, WorkflowResult, ensure_task_context
+from ...core.tasking.result import (
     INVALID_REQUEST,
     PARTIAL_SUCCESS,
     SKILL_FAILED,
     UNSUPPORTED_PLATFORM,
 )
-from ecom_agent_matrix.modules.parsers.ad import (
+from ...modules.parsers.ad import (
     IncompleteProfitInputs,
     UnsupportedAdPlatform,
     parse_ad_request,
 )
-from ecom_agent_matrix.modules.skills.ad_optimize import SUPPORTED_AD_PLATFORMS
+from ...modules.skills.ad_optimize import SUPPORTED_AD_PLATFORMS
 
 _long_mem: AgentLongVectorMemory | None = None
 

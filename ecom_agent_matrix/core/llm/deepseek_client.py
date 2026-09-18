@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from ecom_agent_matrix.core.llm.http import close_http_session, get_http_session
-from ecom_agent_matrix.core.llm.providers.deepseek import DeepSeekProvider
-from ecom_agent_matrix.core.llm.types import (
+from .http import close_http_session, get_http_session
+from .providers.deepseek import DeepSeekProvider
+from .types import (
     ChatMode as DeepSeekMode,
     ChatResult as DeepSeekChatResult,
     LLMAuthError as DeepSeekAuthError,

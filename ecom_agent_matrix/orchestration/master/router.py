@@ -7,9 +7,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm import is_llm_configured
-from ecom_agent_matrix.orchestration.master.policy import (
+from ...config.settings import settings
+from ...core.llm import is_llm_configured
+from .policy import (
     TASK_ROUTE_MAP,
     is_composite_customer_reply,
 )

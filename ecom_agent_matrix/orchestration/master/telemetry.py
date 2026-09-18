@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm import ChatResult
-from ecom_agent_matrix.orchestration.master.schemas import (
+from ...config.settings import settings
+from ...core.llm import ChatResult
+from .schemas import (
     LLMUsage,
     MasterLLMUsage,
 )

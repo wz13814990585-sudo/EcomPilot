@@ -6,13 +6,13 @@ import asyncio
 import time
 
 from pydantic import ValidationError
-from ecom_agent_matrix.platform.observability.metrics import observed_workflow
+from ...platform.observability.metrics import observed_workflow
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.rate_limit import acquire_slot
-from ecom_agent_matrix.core.skill.skill_registry import exec_skill
-from ecom_agent_matrix.core.tasking import TaskContext, WorkflowResult, ensure_task_context
-from ecom_agent_matrix.core.tasking.result import (
+from ...config.settings import settings
+from ...core.rate_limit import acquire_slot
+from ...core.skill.skill_registry import exec_skill
+from ...core.tasking import TaskContext, WorkflowResult, ensure_task_context
+from ...core.tasking.result import (
     INVALID_REQUEST,
     MISSING_PRODUCT,
     PARTIAL_SUCCESS,
@@ -20,12 +20,12 @@ from ecom_agent_matrix.core.tasking.result import (
     UNSUPPORTED_PLATFORM,
     WORKFLOW_TIMEOUT,
 )
-from ecom_agent_matrix.modules.parsers.social import (
+from ...modules.parsers.social import (
     UnsupportedSocialPlatform,
     normalize_social_platform,
     parse_social_request,
 )
-from ecom_agent_matrix.modules.parsers.social import SUPPORTED_PLATFORMS
+from ...modules.parsers.social import SUPPORTED_PLATFORMS
 
 # 兼容此前可能使用的 public helper 名称；解析实现位于 domain parser。
 normalize_platform = normalize_social_platform

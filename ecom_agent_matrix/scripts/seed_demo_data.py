@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from ecom_agent_matrix.config.constants import (
+from ..config.constants import (
     AGENT_EXEC,
     AGENT_MASTER,
     AGENT_QUERY,
@@ -29,8 +29,8 @@ from ecom_agent_matrix.config.constants import (
     TABLE_RISK_LOG,
     TABLE_VECTOR_GOODS,
 )
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.db.base import AsyncPGClient
+from ..config.settings import settings
+from ..db.base import AsyncPGClient
 
 TARGET_DEFAULT = 100
 EMBED_DIM = 384

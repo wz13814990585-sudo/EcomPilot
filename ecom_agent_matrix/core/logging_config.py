@@ -6,8 +6,8 @@ import traceback
 from datetime import datetime, timezone
 from typing import Any
 
-from ecom_agent_matrix.platform.observability.context import get_trace_context
-from ecom_agent_matrix.platform.observability.logging import (
+from ..platform.observability.context import get_trace_context
+from ..platform.observability.logging import (
     sanitize_log_fields,
     sanitize_message,
 )

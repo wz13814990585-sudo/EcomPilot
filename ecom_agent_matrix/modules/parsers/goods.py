@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.tasking import TaskContext
+from ...core.tasking import TaskContext
 
 _CATALOG_HINT = re.compile(
     r"(有多少(?:个)?商品|多少(?:个)?商品|商品数量|商品总数|一共有?(?:多少)?商品|"

@@ -6,10 +6,10 @@ from typing import Any
 
 from rank_bm25 import BM25Okapi
 
-from ecom_agent_matrix.config.constants import TABLE_VECTOR_GOODS
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.modules.rag.lexicon import tokenize
-from ecom_agent_matrix.core.security import TenantScope
+from ...config.constants import TABLE_VECTOR_GOODS
+from ...db.base import AsyncPGClient
+from .lexicon import tokenize
+from ...core.security import TenantScope
 
 
 def _query_tokens(query: str, limit: int = 8) -> list[str]:

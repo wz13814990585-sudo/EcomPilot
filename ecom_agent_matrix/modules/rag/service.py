@@ -7,23 +7,23 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.modules.rag.formatter import (
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from .formatter import (
     citations_for_documents,
     format_rag_context,
     normalize_documents,
     validate_answer_citations,
 )
-from ecom_agent_matrix.modules.rag.retriever import hybrid_retrieve_detailed
-from ecom_agent_matrix.modules.rag.schemas import (
+from .retriever import hybrid_retrieve_detailed
+from .schemas import (
     RAGAnswerResult,
     RAGRequest,
     RAGRetrievalResult,
 )
-from ecom_agent_matrix.modules.utils.llm_explain import llm_explain
-from ecom_agent_matrix.core.security import TenantScope, require_tenant_scope
-from ecom_agent_matrix.platform.observability.context import trace_context
+from ..utils.llm_explain import llm_explain
+from ...core.security import TenantScope, require_tenant_scope
+from ...platform.observability.context import trace_context
 
 logger = setup_logger("rag.service")
 INVALID_REQUEST = "INVALID_REQUEST"

@@ -5,32 +5,32 @@ from __future__ import annotations
 import asyncio
 import time
 
-from ecom_agent_matrix.config.constants import AGENT_EXEC
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.runtime.messaging.bus import message_bus
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.registry import register_agent
-from ecom_agent_matrix.runtime.messaging.reply import build_reply
-from ecom_agent_matrix.core.skill.skill_registry import skill_execution_context
-from ecom_agent_matrix.core.tasking import (
+from ...config.constants import AGENT_EXEC
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...core.errors import ErrorCode
+from ...runtime.messaging.bus import message_bus
+from ...runtime.messaging.message import AgentMessage
+from ...runtime.messaging.registry import register_agent
+from ...runtime.messaging.reply import build_reply
+from ...core.skill.skill_registry import skill_execution_context
+from ...core.tasking import (
     TaskContext,
     ensure_task_context,
     normalize_task_context,
 )
-from ecom_agent_matrix.core.security import SecurityContext
-from ecom_agent_matrix.core.security import ApprovalGrant
-from ecom_agent_matrix.core.security import require_trusted_ingress
-from ecom_agent_matrix.core.tasking import WorkflowResult
-from ecom_agent_matrix.workflows.advertising import run_ad_workflow
-from ecom_agent_matrix.workflows.crm import run_crm_workflow
-from ecom_agent_matrix.workflows.report import run_report_workflow
-from ecom_agent_matrix.workflows.risk import run_risk_workflow
-from ecom_agent_matrix.workflows.social import run_social_workflow
-from ecom_agent_matrix.agents.legacy_routing import infer_exec_kind  # noqa: F401
-from ecom_agent_matrix.platform.observability.context import TraceContext, set_trace_context
-from ecom_agent_matrix.platform.observability.metrics import metrics
+from ...core.security import SecurityContext
+from ...core.security import ApprovalGrant
+from ...core.security import require_trusted_ingress
+from ...core.tasking import WorkflowResult
+from ...workflows.advertising import run_ad_workflow
+from ...workflows.crm import run_crm_workflow
+from ...workflows.report import run_report_workflow
+from ...workflows.risk import run_risk_workflow
+from ...workflows.social import run_social_workflow
+from ..legacy_routing import infer_exec_kind  # noqa: F401
+from ...platform.observability.context import TraceContext, set_trace_context
+from ...platform.observability.metrics import metrics
 
 logger = setup_logger("agent.exec")
 

@@ -10,32 +10,32 @@ import uuid
 import hashlib
 from typing import Any
 
-from ecom_agent_matrix.config.constants import AGENT_MASTER
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.core.memory.long_vector_memory import AgentLongVectorMemory
-from ecom_agent_matrix.runtime.messaging.bus import message_bus
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.reply import build_reply
-from ecom_agent_matrix.runtime.messaging.replies import task_replies
-from ecom_agent_matrix.core.llm.output_polish import polish_final_output
-from ecom_agent_matrix.core.security import (
+from ...config.constants import AGENT_MASTER
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...core.errors import ErrorCode
+from ...core.memory.long_vector_memory import AgentLongVectorMemory
+from ...runtime.messaging.bus import message_bus
+from ...runtime.messaging.message import AgentMessage
+from ...runtime.messaging.reply import build_reply
+from ...runtime.messaging.replies import task_replies
+from ...core.llm.output_polish import polish_final_output
+from ...core.security import (
     authorize_task,
     authorize_task_types,
     security_log_fields,
     require_trusted_ingress,
 )
-from ecom_agent_matrix.core.security.errors import AuthorizationError
-from ecom_agent_matrix.platform.observability.context import TraceContext, set_trace_context
-from ecom_agent_matrix.platform.observability.metrics import metrics
-from ecom_agent_matrix.orchestration.master.executor import MasterPlanExecutor
-from ecom_agent_matrix.orchestration.master.planner import typed_master_planner
-from ecom_agent_matrix.orchestration.master.recovery_controller import recovery_controller
-from ecom_agent_matrix.orchestration.master.recovery import apply_recovery_decision
-from ecom_agent_matrix.orchestration.master.schemas import PlanExecutionResult
-from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
-from ecom_agent_matrix.orchestration.master.router import (
+from ...core.security.errors import AuthorizationError
+from ...platform.observability.context import TraceContext, set_trace_context
+from ...platform.observability.metrics import metrics
+from .executor import MasterPlanExecutor
+from .planner import typed_master_planner
+from .recovery_controller import recovery_controller
+from .recovery import apply_recovery_decision
+from .schemas import PlanExecutionResult
+from .telemetry import MasterLLMTelemetry
+from .router import (
     MasterRouteDecision,
     route_master_task,
 )

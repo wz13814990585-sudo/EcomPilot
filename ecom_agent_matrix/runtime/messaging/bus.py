@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import json
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.security import tenant_scope_from_security
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.reply_registry import ReplyRegistry
-from ecom_agent_matrix.runtime.messaging.replies import gateway_replies, task_replies
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...core.security import tenant_scope_from_security
+from ...db.base import AsyncPGClient
+from .message import AgentMessage
+from .reply_registry import ReplyRegistry
+from .replies import gateway_replies, task_replies
 
 logger = setup_logger("runtime.messaging")
 _REPLY_TYPES = frozenset({"agent_reply", "rag_retrieve_result", "sub_agent_reply"})

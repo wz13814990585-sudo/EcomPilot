@@ -7,9 +7,9 @@ from typing import Any, Literal
 
 import aiopg
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.security import TenantScope, require_tenant_scope
-from ecom_agent_matrix.core.security import tenant_scope_from_skill_context
+from ..config.settings import settings
+from ..core.security import TenantScope, require_tenant_scope
+from ..core.security import tenant_scope_from_skill_context
 
 
 class AsyncPGClient:

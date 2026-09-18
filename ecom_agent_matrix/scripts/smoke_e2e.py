@@ -17,19 +17,19 @@ import argparse
 import asyncio
 import json
 
-import ecom_agent_matrix.agents  # noqa: F401
-import ecom_agent_matrix.modules.skills  # noqa: F401
-from ecom_agent_matrix.api.health import readiness_report
-from ecom_agent_matrix.api.dispatch import application_service
-from ecom_agent_matrix.config.constants import (
+from .. import agents  # noqa: F401
+from ..modules import skills  # noqa: F401
+from ..api.health import readiness_report
+from ..api.dispatch import application_service
+from ..config.constants import (
     AGENT_MASTER,
     MSG_PRIORITY_CUSTOMER,
     MSG_PRIORITY_NORMAL,
     MSG_PRIORITY_RISK,
 )
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.runtime.messaging.registry import agent_map, start_all_agents
+from ..config.settings import settings
+from ..core.logging_config import setup_logger
+from ..runtime.messaging.registry import agent_map, start_all_agents
 
 logger = setup_logger("smoke_e2e")
 
@@ -319,8 +319,8 @@ async def main() -> None:
         report = await readiness_report()
         print(json.dumps(report, ensure_ascii=False, indent=2))
         try:
-            from ecom_agent_matrix.db.base import AsyncPGClient
-            from ecom_agent_matrix.db.redis_client import AsyncRedisClient
+            from ..db.base import AsyncPGClient
+            from ..db.redis_client import AsyncRedisClient
 
             await AsyncPGClient.close()
             await AsyncRedisClient.close()
@@ -358,8 +358,8 @@ async def main() -> None:
         except asyncio.CancelledError:
             pass
         try:
-            from ecom_agent_matrix.db.base import AsyncPGClient
-            from ecom_agent_matrix.db.redis_client import AsyncRedisClient
+            from ..db.base import AsyncPGClient
+            from ..db.redis_client import AsyncRedisClient
 
             await AsyncPGClient.close()
             await AsyncRedisClient.close()

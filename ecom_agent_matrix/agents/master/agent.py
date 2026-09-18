@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 
-from ecom_agent_matrix.config.constants import AGENT_MASTER
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.orchestration.master.orchestrator import MasterOrchestrator
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.registry import register_agent
+from ...config.constants import AGENT_MASTER
+from ...core.logging_config import setup_logger
+from ...orchestration.master.orchestrator import MasterOrchestrator
+from ...runtime.messaging.message import AgentMessage
+from ...runtime.messaging.registry import register_agent
 
 logger = setup_logger("agent.master")
 

@@ -1,6 +1,6 @@
 """Agent reply envelope builders."""
 
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from .message import AgentMessage
 
 
 def build_reply(
@@ -58,7 +58,7 @@ def build_rag_reply(
     channel_errors: dict[str, str] | None = None,
     candidate_counts: dict[str, int] | None = None,
 ) -> AgentMessage:
-    from ecom_agent_matrix.config.constants import AGENT_RAG
+    from ...config.constants import AGENT_RAG
 
     return build_reply(
         request,

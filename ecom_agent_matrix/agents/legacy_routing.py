@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import warnings
 
-from ecom_agent_matrix.core.tasking import TaskContext, ensure_task_context
-from ecom_agent_matrix.modules.parsers.goods import is_catalog_query
+from ..core.tasking import TaskContext, ensure_task_context
+from ..modules.parsers.goods import is_catalog_query
 
 
 def infer_query_kind(task: dict | TaskContext) -> str:

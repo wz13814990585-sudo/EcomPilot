@@ -7,32 +7,32 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Any
 
-from ecom_agent_matrix.application import AgentApplicationService
-from ecom_agent_matrix.agents.exec.agent import exec_agent
-from ecom_agent_matrix.agents.master.agent import MasterAgent
-from ecom_agent_matrix.agents.query.agent import query_agent
-from ecom_agent_matrix.agents.rag.agent import rag_agent
-from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
-from ecom_agent_matrix.config.settings import Settings
-from ecom_agent_matrix.core.security.approval import ApprovalService
-from ecom_agent_matrix.core.skill.executor import SkillExecutor
-from ecom_agent_matrix.core.skill.skill_registry import skill_executor_context
-from ecom_agent_matrix.infrastructure.database import DatabaseManager
-from ecom_agent_matrix.infrastructure.llm import LLMGateway
-from ecom_agent_matrix.infrastructure.redis import RedisManager
-from ecom_agent_matrix.orchestration.master.orchestrator import (
+from ..application import AgentApplicationService
+from ..agents.exec.agent import exec_agent
+from ..agents.master.agent import MasterAgent
+from ..agents.query.agent import query_agent
+from ..agents.rag.agent import rag_agent
+from ..config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
+from ..config.settings import Settings
+from ..core.security.approval import ApprovalService
+from ..core.skill.executor import SkillExecutor
+from ..core.skill.skill_registry import skill_executor_context
+from ..infrastructure.database import DatabaseManager
+from ..infrastructure.llm import LLMGateway
+from ..infrastructure.redis import RedisManager
+from ..orchestration.master.orchestrator import (
     MasterOrchestrator,
     cancel_master_tasks,
 )
-from ecom_agent_matrix.orchestration.master.planner import TypedMasterPlanner, typed_master_planner
-from ecom_agent_matrix.orchestration.master.recovery_controller import (
+from ..orchestration.master.planner import TypedMasterPlanner, typed_master_planner
+from ..orchestration.master.recovery_controller import (
     RecoveryController,
     recovery_controller,
 )
-from ecom_agent_matrix.runtime.messaging.bus import MessageBus
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.reply_registry import ReplyRegistry
-from ecom_agent_matrix.runtime.messaging.registry import AgentRegistry
+from .messaging.bus import MessageBus
+from .messaging.message import AgentMessage
+from .messaging.reply_registry import ReplyRegistry
+from .messaging.registry import AgentRegistry
 
 
 @dataclass

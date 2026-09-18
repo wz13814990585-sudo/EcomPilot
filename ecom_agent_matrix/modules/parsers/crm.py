@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.config.constants import LANG_LIST
-from ecom_agent_matrix.core.tasking import TaskContext
+from ...config.constants import LANG_LIST
+from ...core.tasking import TaskContext
 
 _ORDER_PATTERN = re.compile(r"\b(?:ORD[-_][A-Z0-9_-]+|\d{10,20})\b", re.IGNORECASE)
 _CJK = re.compile(r"[\u4e00-\u9fff]")

@@ -8,17 +8,17 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.config.constants import (
+from ...config.constants import (
     TABLE_COMPETITOR,
     TABLE_GOODS,
     TABLE_ORDER,
     TABLE_RISK_LOG,
 )
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm import current_provider_name, is_llm_configured, llm_chat
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.db.base import AsyncPGClient
+from ...config.settings import settings
+from ...core.llm import current_provider_name, is_llm_configured, llm_chat
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ...db.base import AsyncPGClient
 
 SUPPORTED_REPORT_TYPES = frozenset({"daily_ops", "sales", "stock", "risk", "full"})
 

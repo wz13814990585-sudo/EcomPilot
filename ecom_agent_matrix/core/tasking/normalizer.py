@@ -5,8 +5,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from ecom_agent_matrix.core.tasking.context import TaskContext
-from ecom_agent_matrix.core.security import SecurityContext
+from .context import TaskContext
+from ..security import SecurityContext
 
 _ENVELOPE_FIELDS = ("task_id", "correlation_id", "source_agent")
 _SECURITY_FIELDS = frozenset(

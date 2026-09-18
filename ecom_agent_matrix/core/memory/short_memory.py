@@ -6,8 +6,8 @@ import json
 import hashlib
 from typing import Any
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.db.redis_client import AsyncRedisClient
+from ...config.settings import settings
+from ...db.redis_client import AsyncRedisClient
 
 # RPUSH + LTRIM + EXPIRE 原子执行，避免 get→set 并发覆盖
 _APPEND_LUA = """

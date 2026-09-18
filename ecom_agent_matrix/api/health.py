@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
+from ..config.settings import settings
+from ..core.logging_config import setup_logger
 
 logger = setup_logger("api.health")
 
 
 async def check_postgres() -> dict[str, Any]:
     try:
-        from ecom_agent_matrix.db.base import AsyncPGClient
+        from ..db.base import AsyncPGClient
 
         read_rows = await AsyncPGClient.execute_health("read")
         write_rows = await AsyncPGClient.execute_health("write")
@@ -35,7 +35,7 @@ async def check_postgres() -> dict[str, Any]:
 
 async def check_redis() -> dict[str, Any]:
     try:
-        from ecom_agent_matrix.db.redis_client import AsyncRedisClient
+        from ..db.redis_client import AsyncRedisClient
 
         client = await AsyncRedisClient.get_client()
         pong = await client.ping()
@@ -49,7 +49,7 @@ async def check_redis() -> dict[str, Any]:
 
 
 async def readiness_report(*, agents_alive: bool = True) -> dict[str, Any]:
-    from ecom_agent_matrix.core.llm.router import is_llm_configured
+    from ..core.llm.router import is_llm_configured
 
     pg = await check_postgres()
     redis = await check_redis()

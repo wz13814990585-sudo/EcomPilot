@@ -1,12 +1,12 @@
 """Trusted identity and authorization boundary."""
 
-from ecom_agent_matrix.core.security.context import SecurityContext, security_log_fields
-from ecom_agent_matrix.core.security.errors import (
+from .context import SecurityContext, security_log_fields
+from .errors import (
     AuthenticationError,
     AuthorizationError,
     SecurityConfigurationError,
 )
-from ecom_agent_matrix.core.security.policy import (
+from .policy import (
     authorize_task,
     authorize_task_types,
     effective_scopes,
@@ -14,14 +14,14 @@ from ecom_agent_matrix.core.security.policy import (
     required_scopes_for_task,
     require_trusted_ingress,
 )
-from ecom_agent_matrix.core.security.scope import (
+from .scope import (
     TenantScope,
     require_tenant_scope,
     tenant_scope_from_security,
     tenant_scope_from_skill_context,
     tenant_scope_from_task_context,
 )
-from ecom_agent_matrix.core.security.approval_models import ApprovalGrant, ApprovalRequest
+from .approval_models import ApprovalGrant, ApprovalRequest
 
 __all__ = [
     "AuthenticationError",

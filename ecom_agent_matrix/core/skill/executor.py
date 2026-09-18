@@ -9,21 +9,21 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_QUERY
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.core.skill.base_skill import SkillResult
-from ecom_agent_matrix.core.skill.idempotency import (
+from ...config.constants import AGENT_EXEC, AGENT_QUERY
+from ..errors import ErrorCode
+from .base_skill import SkillResult
+from .idempotency import (
     IdempotencyStore,
     default_idempotency_store,
     idempotency_key,
 )
-from ecom_agent_matrix.core.skill.skill_registry import (
+from .skill_registry import (
     SkillExecutionContext,
     current_skill_execution_context,
     lookup_skill,
 )
-from ecom_agent_matrix.core.security.policy import effective_scopes
-from ecom_agent_matrix.core.security.approval import (
+from ..security.policy import effective_scopes
+from ..security.approval import (
     APPROVAL_ALREADY_USED,
     APPROVAL_EXPIRED,
     APPROVAL_INVALID,
@@ -31,10 +31,10 @@ from ecom_agent_matrix.core.security.approval import (
     approval_params_hash,
     approval_service,
 )
-from ecom_agent_matrix.core.security.audit import record_audit_event
-from ecom_agent_matrix.core.security.scope import TenantScope
-from ecom_agent_matrix.platform.observability.context import update_trace_context
-from ecom_agent_matrix.platform.observability.metrics import metrics
+from ..security.audit import record_audit_event
+from ..security.scope import TenantScope
+from ...platform.observability.context import update_trace_context
+from ...platform.observability.metrics import metrics
 
 SKILL_NOT_FOUND = ErrorCode.SKILL_NOT_FOUND.value
 PERMISSION_DENIED = ErrorCode.PERMISSION_DENIED.value

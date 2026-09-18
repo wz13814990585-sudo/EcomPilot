@@ -42,7 +42,7 @@ def tenant_scope_from_task_context(context: Any | None) -> TenantScope:
 
 def tenant_scope_from_skill_context(context: Any | None = None) -> TenantScope:
     try:
-        from ecom_agent_matrix.core.skill.skill_registry import (
+        from ..skill.skill_registry import (
             SkillExecutionContext,
             current_skill_execution_context,
         )

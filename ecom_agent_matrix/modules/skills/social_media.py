@@ -6,11 +6,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.config.constants import LANG_LIST
-from ecom_agent_matrix.core.llm import current_provider_name, is_llm_configured, llm_chat
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.modules.parsers.social import SUPPORTED_PLATFORMS
+from ...config.constants import LANG_LIST
+from ...core.llm import current_provider_name, is_llm_configured, llm_chat
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ..parsers.social import SUPPORTED_PLATFORMS
 
 LANG_NAME = {
     "en": "English",

@@ -1,17 +1,17 @@
 """确定性的领域请求解析器。"""
 
-from ecom_agent_matrix.modules.parsers.goods import GoodsRequest, parse_goods_request
-from ecom_agent_matrix.modules.parsers.social import SocialRequest, parse_social_request
-from ecom_agent_matrix.modules.parsers.stock import StockRequest, parse_stock_request
-from ecom_agent_matrix.modules.parsers.ad import AdRequest, ProfitInputs, parse_ad_request
-from ecom_agent_matrix.modules.parsers.crm import CRMRequest, parse_crm_request
-from ecom_agent_matrix.modules.parsers.report import ReportRequest, parse_report_request
-from ecom_agent_matrix.modules.parsers.risk import RiskRequest, parse_risk_request
-from ecom_agent_matrix.modules.parsers.competitor import (
+from .goods import GoodsRequest, parse_goods_request
+from .social import SocialRequest, parse_social_request
+from .stock import StockRequest, parse_stock_request
+from .ad import AdRequest, ProfitInputs, parse_ad_request
+from .crm import CRMRequest, parse_crm_request
+from .report import ReportRequest, parse_report_request
+from .risk import RiskRequest, parse_risk_request
+from .competitor import (
     CompetitorRequest,
     parse_competitor_request,
 )
-from ecom_agent_matrix.modules.parsers.data_check import (
+from .data_check import (
     DataCheckRequest,
     parse_data_check_request,
 )

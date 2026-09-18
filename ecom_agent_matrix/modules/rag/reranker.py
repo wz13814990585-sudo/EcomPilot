@@ -5,9 +5,9 @@ from __future__ import annotations
 import asyncio
 import math
 from typing import Any
-from ecom_agent_matrix.config.settings import settings
+from ...config.settings import settings
 
-from ecom_agent_matrix.modules.rag.hallucination_check import (
+from .hallucination_check import (
     KEYWORD_WEIGHT,
     SEMANTIC_WEIGHT,
     _get_cross_encoder,

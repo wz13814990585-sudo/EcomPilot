@@ -3,8 +3,8 @@
 # modules/skills/calc_tool.py
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
 
 
 class ProfitCalcInput(BaseModel):

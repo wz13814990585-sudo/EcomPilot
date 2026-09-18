@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm import current_provider_name, is_llm_configured, llm_chat
+from ...config.settings import settings
+from ...core.llm import current_provider_name, is_llm_configured, llm_chat
 
 
 async def llm_explain(

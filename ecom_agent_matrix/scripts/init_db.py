@@ -1,17 +1,12 @@
 """一键初始化所有数据库表。"""
 
 import asyncio
-import sys
 from pathlib import Path
 
-# 允许直接运行脚本：python ecom_agent_matrix/scripts/init_db.py
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+import psycopg2
 
-import psycopg2  # noqa: E402
-from ecom_agent_matrix.config.settings import settings  # noqa: E402
-from ecom_agent_matrix.db.base import AsyncPGClient  # noqa: E402
+from ..config.settings import settings
+from ..db.base import AsyncPGClient
 
 
 def split_sql_statements(sql_text: str) -> list[str]:

@@ -9,9 +9,9 @@ from typing import Any
 
 import aiohttp
 
-from ecom_agent_matrix.core.llm.http import get_http_session, with_retry
-from ecom_agent_matrix.core.llm.http import is_retryable
-from ecom_agent_matrix.core.llm.types import (
+from .http import get_http_session, with_retry
+from .http import is_retryable
+from .types import (
     ChatMode,
     ChatResult,
     LLMAuthError,
@@ -21,14 +21,14 @@ from ecom_agent_matrix.core.llm.types import (
     LLMServerError,
     normalize_mode,
 )
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.platform.observability.context import (
+from ..logging_config import setup_logger
+from ...config.settings import settings
+from ...platform.observability.context import (
     get_trace_context,
     record_llm_usage,
 )
-from ecom_agent_matrix.platform.observability.metrics import estimate_llm_cost, metrics
-from ecom_agent_matrix.platform.resilience.circuit_breaker import get_circuit_breaker
+from ...platform.observability.metrics import estimate_llm_cost, metrics
+from ...platform.resilience.circuit_breaker import get_circuit_breaker
 
 logger = setup_logger("llm.provider")
 

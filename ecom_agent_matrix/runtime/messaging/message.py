@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
-from ecom_agent_matrix.config.constants import MSG_PRIORITY_NORMAL
-from ecom_agent_matrix.core.security import ApprovalGrant, SecurityContext
+from ...config.constants import MSG_PRIORITY_NORMAL
+from ...core.security import ApprovalGrant, SecurityContext
 
 
 class AgentMessage(BaseModel):

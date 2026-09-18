@@ -6,10 +6,10 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.core.security import tenant_scope_from_skill_context
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ...db.base import AsyncPGClient
+from ...core.security import tenant_scope_from_skill_context
 
 
 class PriceMonitorInput(BaseModel):

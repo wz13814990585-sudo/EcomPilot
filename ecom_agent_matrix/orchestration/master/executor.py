@@ -8,16 +8,16 @@ import time
 import uuid
 from typing import Any
 
-from ecom_agent_matrix.config.constants import AGENT_MASTER
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.runtime.messaging.bus import message_bus
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.replies import task_replies
-from ecom_agent_matrix.core.security import authorize_task_types
-from ecom_agent_matrix.orchestration.master.policy import validate_master_plan
-from ecom_agent_matrix.orchestration.master.schemas import (
+from ...config.constants import AGENT_MASTER
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...core.errors import ErrorCode
+from ...runtime.messaging.bus import message_bus
+from ...runtime.messaging.message import AgentMessage
+from ...runtime.messaging.replies import task_replies
+from ...core.security import authorize_task_types
+from .policy import validate_master_plan
+from .schemas import (
     MasterPlan,
     PlanExecutionResult,
     PlanStep,

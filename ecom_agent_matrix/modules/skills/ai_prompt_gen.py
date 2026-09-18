@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.llm import current_provider_name, is_llm_configured, llm_chat
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
+from ...core.llm import current_provider_name, is_llm_configured, llm_chat
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
 
 PROMPT_SYSTEM = """You are an expert ecommerce product photography prompt engineer for AI image models.
 Return ONLY one English positive prompt suitable for Stable Diffusion / Midjourney style models.

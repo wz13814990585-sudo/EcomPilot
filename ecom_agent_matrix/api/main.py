@@ -11,37 +11,37 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, 
 from fastapi.responses import PlainTextResponse
 
 # 侧载注册 Agent / Skill
-import ecom_agent_matrix.agents  # noqa: F401
-import ecom_agent_matrix.modules.skills  # noqa: F401
-from ecom_agent_matrix.api.auth import (
+from .. import agents  # noqa: F401
+from ..modules import skills  # noqa: F401
+from .auth import (
     get_current_security_context,
     validate_security_configuration,
 )
-from ecom_agent_matrix.api.health import readiness_report
-from ecom_agent_matrix.api.dispatch import set_application_service
-from ecom_agent_matrix.api.route_customer import router as customer_router
-from ecom_agent_matrix.api.route_task import router as task_router
-from ecom_agent_matrix.api.route_warn import router as warn_router
-from ecom_agent_matrix.api.route_approval import router as approval_router
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.core.llm import close_http_session
-from ecom_agent_matrix.runtime.messaging.registry import agent_map, agent_registry
-from ecom_agent_matrix.runtime.container import AppRuntime
-from ecom_agent_matrix.core.skill.skill_registry import skill_container
-from ecom_agent_matrix.orchestration.master.orchestrator import cancel_master_tasks
-from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.db.redis_client import AsyncRedisClient
-from ecom_agent_matrix.platform.observability.context import (
+from .health import readiness_report
+from .dispatch import set_application_service
+from .route_customer import router as customer_router
+from .route_task import router as task_router
+from .route_warn import router as warn_router
+from .route_approval import router as approval_router
+from ..config.settings import settings
+from ..core.logging_config import setup_logger
+from ..core.errors import ErrorCode
+from ..core.llm import close_http_session
+from ..runtime.messaging.registry import agent_map, agent_registry
+from ..runtime.container import AppRuntime
+from ..core.skill.skill_registry import skill_container
+from ..orchestration.master.orchestrator import cancel_master_tasks
+from ..db.base import AsyncPGClient
+from ..db.redis_client import AsyncRedisClient
+from ..platform.observability.context import (
     TraceContext,
     begin_request_performance,
     finish_request_performance,
     get_trace_context,
     trace_context,
 )
-from ecom_agent_matrix.platform.observability.metrics import metrics
-from ecom_agent_matrix.core.security import effective_scopes
+from ..platform.observability.metrics import metrics
+from ..core.security import effective_scopes
 
 logger = setup_logger("api.main")
 

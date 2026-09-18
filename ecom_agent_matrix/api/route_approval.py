@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ecom_agent_matrix.api.auth import get_current_security_context
-from ecom_agent_matrix.core.security import (
+from .auth import get_current_security_context
+from ..core.security import (
     SecurityContext,
     effective_scopes,
     tenant_scope_from_security,
 )
-from ecom_agent_matrix.core.security.approval import approval_service
-from ecom_agent_matrix.core.security.audit import record_audit_event
-from ecom_agent_matrix.platform.resilience.rate_limit import enforce_business_rate_limit
+from ..core.security.approval import approval_service
+from ..core.security.audit import record_audit_event
+from ..platform.resilience.rate_limit import enforce_business_rate_limit
 
 router = APIRouter(prefix="/api/v1/approvals", tags=["approvals"])
 

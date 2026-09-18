@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ecom_agent_matrix.core.tasking import TaskContext
+from ...core.tasking import TaskContext
 
 _DAYS_PATTERN = re.compile(r"(?:近|最近|last)\s*(\d+)\s*(?:天|日|days?)", re.IGNORECASE)
 _SUPPORTED = {"daily_ops", "sales", "stock", "risk", "full"}

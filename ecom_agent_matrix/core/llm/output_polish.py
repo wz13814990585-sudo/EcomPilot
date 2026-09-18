@@ -6,12 +6,12 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from ecom_agent_matrix.core.llm.types import ChatResult
+from .types import ChatResult
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm.router import is_llm_configured, llm_chat
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.platform.observability.context import trace_context
+from ...config.settings import settings
+from .router import is_llm_configured, llm_chat
+from ..logging_config import setup_logger
+from ...platform.observability.context import trace_context
 
 logger = setup_logger("llm.output_polish")
 

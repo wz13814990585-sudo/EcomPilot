@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from ecom_agent_matrix.core.tasking import RiskOperationRequest, TaskContext
+from ...core.tasking import RiskOperationRequest, TaskContext
 
 _ORDER_PATTERN = re.compile(r"\b(?:ORD[-_][A-Z0-9_-]+|\d{10,20})\b", re.IGNORECASE)
 

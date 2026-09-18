@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 
-from ecom_agent_matrix.runtime.messaging.bus import MessageBus, message_bus
+from .bus import MessageBus, message_bus
 
 AgentWorker = Callable[[asyncio.Queue], object]
 

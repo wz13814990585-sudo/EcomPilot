@@ -8,9 +8,9 @@ import json
 from pathlib import Path
 from typing import Any, Protocol
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.db.redis_client import AsyncRedisClient
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...db.redis_client import AsyncRedisClient
 
 _embed_model = None
 _CACHE_TTL = 3600

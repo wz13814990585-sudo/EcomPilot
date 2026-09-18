@@ -9,8 +9,8 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from ecom_agent_matrix.core.llm.router import llm_chat
-from ecom_agent_matrix.core.llm.types import ChatResult
+from .router import llm_chat
+from .types import ChatResult
 
 T = TypeVar("T", bound=BaseModel)
 

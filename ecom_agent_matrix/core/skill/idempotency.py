@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.security.scope import TenantScope
-from ecom_agent_matrix.db.base import AsyncPGClient
+from ...config.settings import settings
+from ..security.scope import TenantScope
+from ...db.base import AsyncPGClient
 
 
 @dataclass(frozen=True)

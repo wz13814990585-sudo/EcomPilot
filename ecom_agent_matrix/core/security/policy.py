@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from ecom_agent_matrix.core.security.context import SecurityContext
-from ecom_agent_matrix.core.security.errors import AuthorizationError
-from ecom_agent_matrix.core.security.errors import AuthenticationError
+from .context import SecurityContext
+from .errors import AuthorizationError
+from .errors import AuthenticationError
 
 KNOWLEDGE_READ = "knowledge:read"
 COMMERCE_READ = "commerce:read"

@@ -11,10 +11,10 @@ from urllib.parse import urlencode
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.platform.resilience.circuit_breaker import (
+from ...config.settings import settings
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ...platform.resilience.circuit_breaker import (
     CircuitOpenError,
     get_circuit_breaker,
 )

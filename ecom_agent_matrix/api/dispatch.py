@@ -8,17 +8,17 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from ecom_agent_matrix.config.constants import AGENT_MASTER
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.llm.output_polish import polish_final_output
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.application import AgentApplicationService
-from ecom_agent_matrix.runtime.messaging.bus import message_bus
-from ecom_agent_matrix.runtime.messaging.registry import agent_registry
-from ecom_agent_matrix.core.security import SecurityContext
-from ecom_agent_matrix.core.security import ApprovalGrant
-from ecom_agent_matrix.platform.observability.context import get_trace_context, update_trace_context
-from ecom_agent_matrix.platform.observability.context import get_performance_summary
+from ..config.constants import AGENT_MASTER
+from ..config.settings import settings
+from ..core.llm.output_polish import polish_final_output
+from ..core.errors import ErrorCode
+from ..application import AgentApplicationService
+from ..runtime.messaging.bus import message_bus
+from ..runtime.messaging.registry import agent_registry
+from ..core.security import SecurityContext
+from ..core.security import ApprovalGrant
+from ..platform.observability.context import get_trace_context, update_trace_context
+from ..platform.observability.context import get_performance_summary
 
 application_service = AgentApplicationService(
     message_bus=message_bus, agent_registry=agent_registry

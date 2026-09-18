@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.core.llm import is_llm_configured, llm_chat_structured, resolve_mode
-from ecom_agent_matrix.orchestration.master.prompts import RECOVERY_SYSTEM_PROMPT
-from ecom_agent_matrix.orchestration.master.schemas import (
+from ...config.settings import settings
+from ...core.errors import ErrorCode
+from ...core.llm import is_llm_configured, llm_chat_structured, resolve_mode
+from .prompts import RECOVERY_SYSTEM_PROMPT
+from .schemas import (
     PlanExecutionResult,
     RecoveryDecision,
 )
-from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
-from ecom_agent_matrix.platform.observability.context import trace_context
+from .telemetry import MasterLLMTelemetry
+from ...platform.observability.context import trace_context
 
 _RECOVERABLE = frozenset(
     {

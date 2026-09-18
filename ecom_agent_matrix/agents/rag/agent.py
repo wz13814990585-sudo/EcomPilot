@@ -7,20 +7,20 @@ import time
 
 from pydantic import ValidationError
 
-from ecom_agent_matrix.config.constants import AGENT_RAG
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.errors import ErrorCode
-from ecom_agent_matrix.runtime.messaging.bus import message_bus
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.runtime.messaging.registry import register_agent
-from ecom_agent_matrix.runtime.messaging.reply import build_rag_reply
-from ecom_agent_matrix.modules.rag.schemas import RAGRequest
-from ecom_agent_matrix.modules.rag.service import rag_service
-from ecom_agent_matrix.core.security import require_trusted_ingress
-from ecom_agent_matrix.core.security import tenant_scope_from_security
-from ecom_agent_matrix.platform.observability.context import TraceContext, set_trace_context
-from ecom_agent_matrix.platform.observability.metrics import metrics
+from ...config.constants import AGENT_RAG
+from ...config.settings import settings
+from ...core.logging_config import setup_logger
+from ...core.errors import ErrorCode
+from ...runtime.messaging.bus import message_bus
+from ...runtime.messaging.message import AgentMessage
+from ...runtime.messaging.registry import register_agent
+from ...runtime.messaging.reply import build_rag_reply
+from ...modules.rag.schemas import RAGRequest
+from ...modules.rag.service import rag_service
+from ...core.security import require_trusted_ingress
+from ...core.security import tenant_scope_from_security
+from ...platform.observability.context import TraceContext, set_trace_context
+from ...platform.observability.metrics import metrics
 
 logger = setup_logger("rag.agent")
 

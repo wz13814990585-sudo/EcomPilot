@@ -7,11 +7,11 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ecom_agent_matrix.config.constants import LANG_LIST
-from ecom_agent_matrix.core.llm import is_llm_configured, llm_chat
-from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
-from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.modules.rag.policy import should_retrieve_knowledge
+from ...config.constants import LANG_LIST
+from ...core.llm import is_llm_configured, llm_chat
+from ...core.skill.base_skill import BaseSkill, SkillResult
+from ...core.skill.skill_registry import register_skill
+from ..rag.policy import should_retrieve_knowledge
 
 CRM_SYSTEM_PROMPT = (
     "你是跨境独立站电商客服助手。用简洁、礼貌的中文或用户指定语种回答。"

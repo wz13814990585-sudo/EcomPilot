@@ -6,22 +6,22 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_QUERY, AGENT_RAG
-from ecom_agent_matrix.runtime.messaging.message import AgentMessage
-from ecom_agent_matrix.core.security import authorize_task_types
-from ecom_agent_matrix.core.security.errors import AuthorizationError
-from ecom_agent_matrix.orchestration.master.executor import MasterPlanExecutor
-from ecom_agent_matrix.orchestration.master.planner import TypedMasterPlanner
-from ecom_agent_matrix.orchestration.master.policy import (
+from ...config.constants import AGENT_EXEC, AGENT_QUERY, AGENT_RAG
+from ...runtime.messaging.message import AgentMessage
+from ...core.security import authorize_task_types
+from ...core.security.errors import AuthorizationError
+from .executor import MasterPlanExecutor
+from .planner import TypedMasterPlanner
+from .policy import (
     MasterPlanValidationError,
     validate_master_plan,
 )
-from ecom_agent_matrix.orchestration.master.schemas import (
+from .schemas import (
     MasterPlan,
     PlanExecutionResult,
     RecoveryDecision,
 )
-from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
+from .telemetry import MasterLLMTelemetry
 
 _SAFE_RETRY_AGENTS = frozenset({AGENT_QUERY, AGENT_RAG})
 _EXEC_MAY_HAVE_RUN = frozenset({"RUNNING", "SUCCESS", "FAILED"})

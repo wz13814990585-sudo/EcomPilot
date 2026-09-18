@@ -6,7 +6,7 @@ import argparse
 import statistics
 import time
 
-from ecom_agent_matrix.orchestration.master.router import route_master_task
+from ..orchestration.master.router import route_master_task
 
 CASES = [
     {"query": "退款规则是什么"},

@@ -7,7 +7,7 @@ import json
 import re
 from typing import Any
 
-from ecom_agent_matrix.modules.rag.schemas import RAGCitation, RAGDocument
+from .schemas import RAGCitation, RAGDocument
 
 _SOURCE_KEYS = ("source_id", "document_id", "doc_id", "chunk_id")
 _KNOWN_KEYS = {

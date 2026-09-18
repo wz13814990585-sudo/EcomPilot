@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from ecom_agent_matrix.config.constants import (
+from ...config.constants import (
     AGENT_AD,
     AGENT_CRM,
     AGENT_DATA_CHECK,
@@ -17,8 +17,8 @@ from ecom_agent_matrix.config.constants import (
     AGENT_SOCIAL,
     AGENT_STOCK,
 )
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.orchestration.master.schemas import MasterPlan
+from ...config.settings import settings
+from .schemas import MasterPlan
 
 AVAILABLE_AGENTS: dict[str, str] = {
     AGENT_QUERY: "只读数据查询：广告、订单、库存、竞品、商品目录。",

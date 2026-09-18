@@ -7,10 +7,10 @@ from typing import Any
 
 import aiohttp
 
-from ecom_agent_matrix.core.llm.types import LLMRateLimitError, LLMServerError
-from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.platform.observability.metrics import metrics
-from ecom_agent_matrix.platform.resilience.retry import RetryPolicy
+from .types import LLMRateLimitError, LLMServerError
+from ..logging_config import setup_logger
+from ...platform.observability.metrics import metrics
+from ...platform.resilience.retry import RetryPolicy
 
 logger = setup_logger("llm.http")
 

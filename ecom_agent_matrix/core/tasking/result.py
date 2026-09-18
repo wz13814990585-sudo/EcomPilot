@@ -6,7 +6,7 @@ from copy import deepcopy
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-from ecom_agent_matrix.core.errors import ErrorCode
+from ..errors import ErrorCode
 
 INVALID_REQUEST = ErrorCode.INVALID_REQUEST.value
 MISSING_PRODUCT = ErrorCode.MISSING_PRODUCT.value
