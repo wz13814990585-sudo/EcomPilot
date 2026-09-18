@@ -1,4 +1,5 @@
 """多语种电商翻译 Skill（LLM）。"""
+
 from __future__ import annotations
 
 import re
@@ -82,13 +83,15 @@ async def translate_text(
     if src == lang:
         return text
 
-    return (await llm_chat(
-        user_prompt=build_translate_prompt(text, lang, src),
-        system_prompt=TRANSLATE_SYSTEM_PROMPT,
-        temperature=0.1,
-        max_tokens=256,
-        mode="chat",
-    )).content
+    return (
+        await llm_chat(
+            user_prompt=build_translate_prompt(text, lang, src),
+            system_prompt=TRANSLATE_SYSTEM_PROMPT,
+            temperature=0.1,
+            max_tokens=256,
+            mode="chat",
+        )
+    ).content
 
 
 @register_skill

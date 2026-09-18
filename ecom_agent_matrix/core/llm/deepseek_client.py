@@ -3,6 +3,7 @@
 新代码请使用 ecom_agent_matrix.core.llm（llm_chat / ChatResult / LLMError）。
 本模块固定走 DeepSeek 供应商，不受 LLM_PROVIDER 切换影响。
 """
+
 from __future__ import annotations
 
 from ecom_agent_matrix.core.llm.http import close_http_session, get_http_session

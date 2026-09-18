@@ -1,4 +1,5 @@
 """LLM Provider 抽象：业务只依赖本接口，不依赖具体供应商。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -150,9 +151,7 @@ class OpenAICompatProvider(LLMProvider):
             "stream": False,
         }
         token_key = (
-            "max_completion_tokens"
-            if self.use_max_completion_tokens(mode)
-            else "max_tokens"
+            "max_completion_tokens" if self.use_max_completion_tokens(mode) else "max_tokens"
         )
         payload[token_key] = max_tokens
         if mode == "chat":
@@ -169,9 +168,7 @@ class OpenAICompatProvider(LLMProvider):
             raise LLMServerError(msg, status=status, body=body)
         raise LLMError(msg, status=status, body=body)
 
-    def parse_result(
-        self, body: dict[str, Any], fallback_model: str, mode: ChatMode
-    ) -> ChatResult:
+    def parse_result(self, body: dict[str, Any], fallback_model: str, mode: ChatMode) -> ChatResult:
         try:
             choice0 = body["choices"][0]
             message = choice0["message"]
@@ -215,9 +212,7 @@ class OpenAICompatProvider(LLMProvider):
         except LLMResponseError:
             raise
         except (KeyError, IndexError, TypeError, AttributeError, ValueError) as exc:
-            raise LLMResponseError(
-                f"{self.name} response format is invalid", body=body
-            ) from exc
+            raise LLMResponseError(f"{self.name} response format is invalid", body=body) from exc
 
     async def chat(
         self,
@@ -233,17 +228,22 @@ class OpenAICompatProvider(LLMProvider):
             failure_threshold=int(settings.CIRCUIT_FAILURE_THRESHOLD),
             reset_seconds=float(settings.CIRCUIT_RESET_SECONDS),
         )
-        return await with_retry(
-            lambda: breaker.call(lambda: self._chat_once(
-                user_prompt=user_prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                mode=resolved,
-            ), is_transient=is_retryable),
-            max_retries=int(self.max_retries()),
-            base_delay=float(self.retry_base_delay()),
-            extra={"provider": self.name, "mode": resolved},
+        # The breaker observes one logical user request. Transport retries happen
+        # inside that boundary and therefore count as one final failure.
+        return await breaker.call(
+            lambda: with_retry(
+                lambda: self._chat_once(
+                    user_prompt=user_prompt,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    mode=resolved,
+                ),
+                max_retries=int(self.max_retries()),
+                base_delay=float(self.retry_base_delay()),
+                extra={"provider": self.name, "mode": resolved},
+            ),
+            is_transient=is_retryable,
         )
 
     async def _chat_once(
@@ -256,9 +256,7 @@ class OpenAICompatProvider(LLMProvider):
         mode: ChatMode,
     ) -> ChatResult:
         if not self.is_configured():
-            raise LLMAuthError(
-                f"未配置 {self.key_env_name()}，请在项目根目录 .env 中设置"
-            )
+            raise LLMAuthError(f"未配置 {self.key_env_name()}，请在项目根目录 .env 中设置")
 
         model = self.resolve_model(mode)
         max_tokens = self.clamp_max_tokens(mode, max_tokens)
@@ -279,16 +277,24 @@ class OpenAICompatProvider(LLMProvider):
         started = time.perf_counter()
         trace = get_trace_context()
         purpose = trace.workflow or {
-            "crm_reply": "crm_reply", "ad_optimize": "ad", "ops_report": "report"
+            "crm_reply": "crm_reply",
+            "ad_optimize": "ad",
+            "ops_report": "report",
         }.get(trace.skill_name, "other")
-        if purpose not in {"planner", "recovery", "polish", "rag_answer", "crm_reply", "ad", "report"}:
+        if purpose not in {
+            "planner",
+            "recovery",
+            "polish",
+            "rag_answer",
+            "crm_reply",
+            "ad",
+            "report",
+        }:
             purpose = "other"
         session = await get_http_session()
         timeout = aiohttp.ClientTimeout(total=float(self.timeout()))
         try:
-            async with session.post(
-                url, headers=headers, json=payload, timeout=timeout
-            ) as resp:
+            async with session.post(url, headers=headers, json=payload, timeout=timeout) as resp:
                 try:
                     body = await resp.json(content_type=None)
                 except Exception as exc:
@@ -300,9 +306,7 @@ class OpenAICompatProvider(LLMProvider):
                     ) from exc
                 if resp.status >= 400:
                     self.raise_for_status(resp.status, body)
-                result = self.parse_result(
-                    body if isinstance(body, dict) else {}, model, mode
-                )
+                result = self.parse_result(body if isinstance(body, dict) else {}, model, mode)
         except asyncio.CancelledError:
             raise
         except (asyncio.TimeoutError, TimeoutError) as exc:
@@ -320,12 +324,20 @@ class OpenAICompatProvider(LLMProvider):
 
         latency_ms = (time.perf_counter() - started) * 1000
         estimated_cost = estimate_llm_cost(
-            self.name, result.model, result.prompt_tokens, result.completion_tokens,
+            self.name,
+            result.model,
+            result.prompt_tokens,
+            result.completion_tokens,
             settings.LLM_PRICE_TABLE,
         )
         metrics.observe_llm(
-            self.name, purpose, True, latency_ms / 1000,
-            result.prompt_tokens, result.completion_tokens, estimated_cost,
+            self.name,
+            purpose,
+            True,
+            latency_ms / 1000,
+            result.prompt_tokens,
+            result.completion_tokens,
+            estimated_cost,
         )
         record_llm_usage(
             result.prompt_tokens, result.completion_tokens, result.total_tokens, estimated_cost
@@ -337,12 +349,14 @@ class OpenAICompatProvider(LLMProvider):
                 "provider": self.name,
                 "model": result.model,
                 "mode": mode,
+                "purpose": purpose,
                 "prompt_tokens": result.prompt_tokens,
                 "completion_tokens": result.completion_tokens,
                 "total_tokens": result.total_tokens,
                 "latency_ms": round(latency_ms, 2),
                 "has_reasoning": bool(result.reasoning_content),
                 "estimated_cost_usd": estimated_cost,
+                "success": True,
             },
         )
         return result

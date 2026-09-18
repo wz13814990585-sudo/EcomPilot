@@ -1,4 +1,5 @@
 """Phase 2A：SkillSpec / SkillExecutor / Contract 回归测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -125,13 +126,21 @@ def test_permission_matrix_and_explicit_executor_context():
             query_result = await exec_skill("record_competitor_price", params)
 
         with patch(
-            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_sql",
+            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_write",
             new=AsyncMock(return_value=[[9]]),
         ):
             exec_result = await skill_executor.execute(
                 "record_competitor_price",
                 params,
-                context=SkillExecutionContext(agent_id=AGENT_EXEC),
+                context=SkillExecutionContext(
+                    agent_id=AGENT_EXEC,
+                    task_id="skill-executor-write",
+                    tenant_id="tenant",
+                    store_id="store",
+                    user_id="user",
+                    roles=frozenset({"operator"}),
+                    identity_trusted=True,
+                ),
             )
 
         assert no_context.error_code == PERMISSION_DENIED

@@ -1,4 +1,5 @@
 """竞品领域 TaskContext → CompetitorRequest 解析。"""
+
 from __future__ import annotations
 
 import re
@@ -27,13 +28,18 @@ _KNOWN_ALIASES = {
 }
 _SKU_PATTERN = re.compile(r"\bSKU[-_][A-Z0-9_-]+\b", re.IGNORECASE)
 _COMPETITOR_PATTERNS = (
-    re.compile(r"(?:监控|关注|查看|比价)\s*([A-Za-z0-9][\w.&-]{1,40})\s*(?:上|的|里|店铺|平台)?", re.I),
+    re.compile(
+        r"(?:监控|关注|查看|比价)\s*([A-Za-z0-9][\w.&-]{1,40})\s*(?:上|的|里|店铺|平台)?", re.I
+    ),
     re.compile(r"(?:on|from|at)\s+([A-Za-z0-9][\w.&-]{1,40})\b", re.I),
     re.compile(r"(?:竞品|对手|店铺|平台|站点|渠道)[:：\s]+([^\s,，。；;]{2,40})", re.I),
     re.compile(r"([A-Za-z][\w.&-]{1,30})\s*(?:上的|上该|上此|平台|店铺)", re.I),
 )
 _PRICE_PATTERNS = (
-    re.compile(r"(?:compete[_ ]?price|竞品价|现价|售价|报价|单价|价格)[:：\s]*\$?\s*([0-9]+(?:\.[0-9]+)?)", re.I),
+    re.compile(
+        r"(?:compete[_ ]?price|竞品价|现价|售价|报价|单价|价格)[:：\s]*\$?\s*([0-9]+(?:\.[0-9]+)?)",
+        re.I,
+    ),
     re.compile(r"(?<![A-Za-z])price[:：\s]*\$?\s*([0-9]+(?:\.[0-9]+)?)", re.I),
     re.compile(r"\$\s*([0-9]+(?:\.[0-9]+)?)\s*(?:USD|usd)?"),
 )
@@ -117,7 +123,11 @@ def parse_competitor_request(task: TaskContext) -> CompetitorRequest:
     compete_price = raw_price if raw_price not in (None, "") else _query_price(task.query)
 
     explicit_multi = bool(params.get("multi_compare") or params.get("compare_all"))
-    mode = "multi" if explicit_multi or (not competitor and _MULTI_HINT.search(task.query)) else "single"
+    mode = (
+        "multi"
+        if explicit_multi or (not competitor and _MULTI_HINT.search(task.query))
+        else "single"
+    )
     raw_platforms = params.get("platforms") or DEFAULT_COMPARE_PLATFORMS
     if isinstance(raw_platforms, str):
         raw_platforms = [item.strip() for item in raw_platforms.split(",") if item.strip()]

@@ -1,4 +1,5 @@
 """订单风险评估与风险记录原子 Skill。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -102,7 +103,7 @@ class RecordOrderRiskTool(BaseSkill):
     side_effect = True
     risk_level = "high"
     timeout_seconds = 10.0
-    idempotent = False
+    idempotent = True
     required_scopes = frozenset({"risk:write"})
     approval_required = True
     input_model = RecordOrderRiskInput
@@ -111,9 +112,7 @@ class RecordOrderRiskTool(BaseSkill):
     skill_desc = "写入已评估的订单风险，参数 order_no、risk_type、risk_desc"
 
     async def run(self, params: dict) -> SkillResult:
-        record_id = await _insert_risk(
-            params["order_no"], params["risk_type"], params["risk_desc"]
-        )
+        record_id = await _insert_risk(params["order_no"], params["risk_type"], params["risk_desc"])
         return SkillResult(success=True, data={"record_id": record_id, **params})
 
 
@@ -125,7 +124,7 @@ class OrderRiskControlTool(BaseSkill):
     side_effect = True
     risk_level = "high"
     timeout_seconds = 15.0
-    idempotent = False
+    idempotent = True
     required_scopes = frozenset({"risk:write"})
     approval_required = True
     input_model = EvaluateOrderRiskInput

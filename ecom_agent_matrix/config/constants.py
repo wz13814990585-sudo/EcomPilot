@@ -1,9 +1,9 @@
-# MCP消息优先级
-MSG_PRIORITY_RISK = 0      # 风控预警（最高）
+# Agent message priority
+MSG_PRIORITY_RISK = 0  # 风控预警（最高）
 MSG_PRIORITY_CUSTOMER = 1  # 客服工单
-MSG_PRIORITY_AD = 2        # 广告优化
-MSG_PRIORITY_NORMAL = 3    # 日常上新、报表
-MSG_PRIORITY_SOCIAL = 4    # 社媒生成（最低，大促可丢弃）
+MSG_PRIORITY_AD = 2  # 广告优化
+MSG_PRIORITY_NORMAL = 3  # 日常上新、报表
+MSG_PRIORITY_SOCIAL = 4  # 社媒生成（最低，大促可丢弃）
 
 # 支持语种
 LANG_LIST = ["en", "zh", "es", "fr"]

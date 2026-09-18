@@ -1,4 +1,5 @@
 """Authenticated human approval endpoint for high-risk writes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -34,14 +35,22 @@ async def approve_request(
     try:
         grant = await approval_service.approve(approval_id, security)
     except LookupError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Approval not found") from None
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Approval not found"
+        ) from None
     except PermissionError as exc:
         code = str(exc)
-        safe_code = code if code in {
-            "SELF_APPROVAL_DENIED", "APPROVAL_EXPIRED", "APPROVAL_INVALID"
-        } else "APPROVAL_INVALID"
+        safe_code = (
+            code
+            if code in {"SELF_APPROVAL_DENIED", "APPROVAL_EXPIRED", "APPROVAL_INVALID"}
+            else "APPROVAL_INVALID"
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=safe_code) from None
-    return {"approval_id": grant.approval_id, "status": grant.status, "skill_name": grant.skill_name}
+    return {
+        "approval_id": grant.approval_id,
+        "status": grant.status,
+        "skill_name": grant.skill_name,
+    }
 
 
 __all__ = ["router"]

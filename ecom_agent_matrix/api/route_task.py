@@ -1,4 +1,5 @@
 """自动化运营任务接口（经 Master Fast Path / Typed DAG / Recovery）。"""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -31,7 +32,9 @@ async def create_task(
         try:
             authorize_task(security, body.task_type)
         except AuthorizationError:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="PERMISSION_DENIED") from None
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="PERMISSION_DENIED"
+            ) from None
     priority = body.priority if body.priority is not None else MSG_PRIORITY_NORMAL
     result = await dispatch_to_master(
         content, priority=priority, timeout=body.timeout, security=security, approval=approval

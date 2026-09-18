@@ -1,4 +1,5 @@
 """Phase 2C-2A Competitor parser / workflow 测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +13,7 @@ from ecom_agent_matrix.core.tasking.result import (
     SKILL_FAILED,
     WORKFLOW_TIMEOUT,
 )
-from ecom_agent_matrix.modules.agent_cluster.handlers.competitor import (
+from ecom_agent_matrix.workflows.competitor.workflow import (
     handle_price_warn,
     run_competitor_workflow,
 )
@@ -40,18 +41,14 @@ def _memory(*hits):
 
 def test_competitor_canonical_sku_wins_over_query():
     request = parse_competitor_request(
-        normalize_task_context(
-            {"sku": "SKU-CANON", "query": "监控 Temu SKU-OTHER 价格"}
-        )
+        normalize_task_context({"sku": "SKU-CANON", "query": "监控 Temu SKU-OTHER 价格"})
     )
     assert request.sku == "SKU-CANON"
 
 
 def test_explicit_competitor_wins_over_query():
     request = parse_competitor_request(
-        normalize_task_context(
-            {"query": "监控 Temu 价格", "competitor": "Amazon", "sku": "SKU-1"}
-        )
+        normalize_task_context({"query": "监控 Temu 价格", "competitor": "Amazon", "sku": "SKU-1"})
     )
     assert request.competitor == "Amazon"
 
@@ -97,12 +94,15 @@ def test_multi_platform_prices_are_fetched_concurrently():
         )
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.exec_skill",
-            side_effect=concurrent_skill,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.llm_explain",
-            new=AsyncMock(return_value=("advice", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.exec_skill",
+                side_effect=concurrent_skill,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.llm_explain",
+                new=AsyncMock(return_value=("advice", "template", "")),
+            ),
         ):
             return await run_competitor_workflow(
                 {
@@ -120,16 +120,19 @@ def test_multi_platform_prices_are_fetched_concurrently():
 def test_multi_platform_partial_failure_preserves_successful_rows():
     async def mixed(skill_name: str, params: dict):
         if params["competitor"] == "Temu":
-            return SkillResult(success=False, error_code="TIMEOUT", error_msg="timeout")
+            return SkillResult(success=False, error_code="SKILL_TIMEOUT", error_msg="timeout")
         return SkillResult(success=True, data={"compete_price": 60})
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.exec_skill",
-            side_effect=mixed,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.llm_explain",
-            new=AsyncMock(return_value=("advice", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.exec_skill",
+                side_effect=mixed,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.llm_explain",
+                new=AsyncMock(return_value=("advice", "template", "")),
+            ),
         ):
             return await run_competitor_workflow(
                 {"sku": "SKU-1", "multi_compare": True, "platforms": ["Temu", "Amazon"]}
@@ -140,16 +143,16 @@ def test_multi_platform_partial_failure_preserves_successful_rows():
     assert result.partial_success is True
     assert result.error_code == PARTIAL_SUCCESS
     assert result.data["comparisons"][1]["compete_price"] == 60
-    assert result.metadata["skill_error_codes"]["Temu"] == "TIMEOUT"
+    assert result.metadata["skill_error_codes"]["Temu"] == "SKILL_TIMEOUT"
 
 
 def test_multi_platform_all_fail_is_structured_failure():
     async def failed(skill_name: str, params: dict):
-        return SkillResult(success=False, error_code="EXECUTION_ERROR", error_msg="failed")
+        return SkillResult(success=False, error_code="SKILL_EXECUTION_ERROR", error_msg="failed")
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.exec_skill",
+            "ecom_agent_matrix.workflows.competitor.workflow.exec_skill",
             side_effect=failed,
         ):
             return await run_competitor_workflow(
@@ -168,9 +171,12 @@ def test_multi_platform_workflow_deadline_is_structured():
         return SkillResult(success=True)
 
     async def scenario():
-        with patch.object(settings, "QUERY_SKILL_TIMEOUT", 0.01), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.exec_skill",
-            side_effect=blocked,
+        with (
+            patch.object(settings, "QUERY_SKILL_TIMEOUT", 0.01),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.exec_skill",
+                side_effect=blocked,
+            ),
         ):
             return await run_competitor_workflow(
                 {"sku": "SKU-1", "multi_compare": True, "platforms": ["Temu", "Amazon"]}
@@ -189,12 +195,15 @@ def test_price_monitor_skill_error_code_is_preserved():
     )
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.exec_skill",
-            new=AsyncMock(return_value=failure),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor._mem",
-            return_value=_memory(),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.exec_skill",
+                new=AsyncMock(return_value=failure),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow._mem",
+                return_value=_memory(),
+            ),
         ):
             return await run_competitor_workflow(
                 {
@@ -220,15 +229,19 @@ def test_long_memory_price_is_never_used_as_current_price():
 
     async def scenario():
         old_price = {"meta": {"compete_price": 1}, "content": "old price 1"}
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.exec_skill",
-            side_effect=skills,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor._mem",
-            return_value=_memory(old_price),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.llm_explain",
-            new=AsyncMock(return_value=("advice", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.exec_skill",
+                side_effect=skills,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow._mem",
+                return_value=_memory(old_price),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.llm_explain",
+                new=AsyncMock(return_value=("advice", "template", "")),
+            ),
         ):
             return await run_competitor_workflow({"sku": "SKU-1", "competitor": "Temu"})
 
@@ -240,15 +253,19 @@ def test_long_memory_price_is_never_used_as_current_price():
 
 def test_competitor_legacy_tuple_compatibility():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.exec_skill",
-            new=AsyncMock(return_value=_monitor_success()),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor._mem",
-            return_value=_memory(),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.llm_explain",
-            new=AsyncMock(return_value=("advice", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.exec_skill",
+                new=AsyncMock(return_value=_monitor_success()),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow._mem",
+                return_value=_memory(),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.llm_explain",
+                new=AsyncMock(return_value=("advice", "template", "")),
+            ),
         ):
             return await handle_price_warn(
                 {"sku": "SKU-1", "competitor": "Temu", "compete_price": 50}

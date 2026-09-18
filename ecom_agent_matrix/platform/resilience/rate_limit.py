@@ -1,4 +1,5 @@
 """Single-process demo API limiter keyed by hashed authenticated principal."""
+
 from __future__ import annotations
 
 import asyncio
@@ -20,7 +21,9 @@ class InProcessRateLimiter:
         self._buckets: dict[str, deque[float]] = {}
         self._lock = asyncio.Lock()
 
-    async def check(self, key: str, *, limit: int, window_seconds: float, now: float | None = None) -> tuple[bool, int]:
+    async def check(
+        self, key: str, *, limit: int, window_seconds: float, now: float | None = None
+    ) -> tuple[bool, int]:
         current = time.monotonic() if now is None else float(now)
         window = max(0.01, float(window_seconds))
         async with self._lock:

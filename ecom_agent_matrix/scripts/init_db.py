@@ -1,4 +1,5 @@
 """一键初始化所有数据库表。"""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -8,9 +9,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import psycopg2
-from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.db.base import AsyncPGClient
+import psycopg2  # noqa: E402
+from ecom_agent_matrix.config.settings import settings  # noqa: E402
+from ecom_agent_matrix.db.base import AsyncPGClient  # noqa: E402
 
 
 def split_sql_statements(sql_text: str) -> list[str]:
@@ -25,7 +26,7 @@ def split_sql_statements(sql_text: str) -> list[str]:
     length = len(sql_text)
     while index < length:
         char = sql_text[index]
-        pair = sql_text[index:index + 2]
+        pair = sql_text[index : index + 2]
         if line_comment:
             if char == "\n":
                 line_comment = False
@@ -74,7 +75,7 @@ def split_sql_statements(sql_text: str) -> list[str]:
         if char == "$":
             end = sql_text.find("$", index + 1)
             if end != -1:
-                candidate = sql_text[index:end + 1]
+                candidate = sql_text[index : end + 1]
                 tag_body = candidate[1:-1]
                 if not tag_body or tag_body.replace("_", "a").isalnum():
                     dollar_tag = candidate

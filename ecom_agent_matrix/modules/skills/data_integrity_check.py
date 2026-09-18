@@ -1,4 +1,5 @@
 """业务数据完整性校验 Skill。"""
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -76,7 +77,9 @@ async def _check_goods(sku: str | None = None, limit: int = 50) -> list[dict]:
     return issues
 
 
-async def _check_orders(order_no: str | None = None, sku: str | None = None, limit: int = 50) -> list[dict]:
+async def _check_orders(
+    order_no: str | None = None, sku: str | None = None, limit: int = 50
+) -> list[dict]:
     issues: list[dict] = []
     params: list = []
     where = "WHERE 1=1"
@@ -144,10 +147,7 @@ class DataIntegrityCheckTool(BaseSkill):
     input_model = DataIntegrityCheckInput
     output_model = DataIntegrityCheckOutput
     skill_name = "data_integrity_check"
-    skill_desc = (
-        "电商数据完整性校验，参数 scope=goods|order|full、"
-        "可选 sku / order_no / limit"
-    )
+    skill_desc = "电商数据完整性校验，参数 scope=goods|order|full、可选 sku / order_no / limit"
 
     async def run(self, params: dict) -> SkillResult:
         try:

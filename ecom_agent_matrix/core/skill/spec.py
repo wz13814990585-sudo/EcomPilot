@@ -1,4 +1,5 @@
 """Skill 的业务契约元数据。"""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -34,6 +35,10 @@ class SkillSpec(BaseModel):
             raise ValueError("read_only=True 时 side_effect 必须=False")
         if self.deprecated and not (self.replacement or "").strip():
             raise ValueError("deprecated Skill 必须声明 replacement")
-        if self.side_effect and self.risk_level in {"high", "critical"} and not self.approval_required:
+        if (
+            self.side_effect
+            and self.risk_level in {"high", "critical"}
+            and not self.approval_required
+        ):
             raise ValueError("high/critical side-effect Skill 必须 approval_required=True")
         return self

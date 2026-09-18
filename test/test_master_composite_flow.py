@@ -4,14 +4,13 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.core.mcp.reply import build_reply
-from ecom_agent_matrix.core.mcp.task_waiter import TaskReplyWaiter
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.runtime.messaging.reply import build_reply
+from ecom_agent_matrix.runtime.messaging.replies import resolve_task_reply
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
-from ecom_agent_matrix.modules.agent_cluster.handlers.crm import run_crm_workflow
-from ecom_agent_matrix.modules.agent_cluster.master.planner import build_composite_plan
-from ecom_agent_matrix.modules.agent_cluster.master.telemetry import MasterLLMTelemetry
-from ecom_agent_matrix.modules.agent_cluster.master_agent import process_master_task
+from ecom_agent_matrix.workflows.crm.workflow import run_crm_workflow
+from ecom_agent_matrix.orchestration.master.planner import build_composite_plan
+from ecom_agent_matrix.orchestration.master.orchestrator import process_master_task
 
 QUERY = "根据 ORD-123 的订单状态和退款规则帮我回复客户"
 
@@ -29,17 +28,17 @@ def test_composite_template_has_parallel_context_and_dependent_crm():
 
 def test_composite_master_flow_passes_context_and_uses_final_answer():
     async def scenario():
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-composite",
             correlation_id="gateway-correlation",
             sender="api_gateway",
             target=AGENT_MASTER,
             content={"query": QUERY},
         )
-        sent_children: list[MCPMessage] = []
-        final_replies: list[MCPMessage] = []
+        sent_children: list[AgentMessage] = []
+        final_replies: list[AgentMessage] = []
 
-        async def send(message: MCPMessage):
+        async def send(message: AgentMessage):
             if message.sender == AGENT_MASTER and message.target in {
                 AGENT_QUERY,
                 AGENT_RAG,
@@ -56,7 +55,7 @@ def test_composite_master_flow_passes_context_and_uses_final_answer():
                     data = {"order_no": "ORD-123", "status": "shipped"}
                 else:
                     data = {"answer": "符合条件可退款", "docs": [{"title": "refund"}]}
-                TaskReplyWaiter.submit_reply(
+                resolve_task_reply(
                     build_reply(message, sender=message.target, success=True, data=data)
                 )
             else:
@@ -64,19 +63,24 @@ def test_composite_master_flow_passes_context_and_uses_final_answer():
             return True
 
         memory = AsyncMock()
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.mcp_bus.send_msg",
-            new=AsyncMock(side_effect=send),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.mcp_bus.send_msg",
-            new=AsyncMock(side_effect=send),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.polish_final_output",
-            new=AsyncMock(),
-        ) as polish, patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.recovery_controller.run",
-            new=AsyncMock(),
-        ) as recovery:
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.executor.message_bus.send",
+                new=AsyncMock(side_effect=send),
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.message_bus.send",
+                new=AsyncMock(side_effect=send),
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.polish_final_output",
+                new=AsyncMock(),
+            ) as polish,
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.recovery_controller.run",
+                new=AsyncMock(),
+            ) as recovery,
+        ):
             await process_master_task(request, memory)
         return sent_children, final_replies[-1], polish, recovery
 
@@ -124,12 +128,15 @@ def test_crm_upstream_policy_disables_duplicate_rag():
                 },
             },
         }
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.exec_skill",
-            new=AsyncMock(side_effect=exec_skill),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.AgentShortMemory",
-            side_effect=RuntimeError("memory unavailable"),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.exec_skill",
+                new=AsyncMock(side_effect=exec_skill),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.AgentShortMemory",
+                side_effect=RuntimeError("memory unavailable"),
+            ),
         ):
             result = await run_crm_workflow(task)
         return result, calls

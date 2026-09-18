@@ -1,4 +1,5 @@
 """第一轮 P0 企业级重构回归测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,28 +9,26 @@ from unittest.mock import AsyncMock, patch
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
 from ecom_agent_matrix.core.llm import ChatResult, available_providers, get_llm_provider
 from ecom_agent_matrix.core.llm.providers.openai import OpenAIProvider
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.core.mcp.reply import build_reply
-from ecom_agent_matrix.core.mcp.task_waiter import TaskReplyWaiter
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.runtime.messaging.reply import build_reply
+from ecom_agent_matrix.runtime.messaging.replies import resolve_task_reply, task_replies
 from ecom_agent_matrix.core.skill.skill_registry import exec_skill, skill_execution_context
-from ecom_agent_matrix.modules.agent_cluster.master_agent import _react_call_one, process_master_task
-from ecom_agent_matrix.modules.agent_cluster.master.schemas import (
+from ecom_agent_matrix.core.security import SecurityContext
+from ecom_agent_matrix.orchestration.master.orchestrator import _react_call_one, process_master_task
+from ecom_agent_matrix.orchestration.master.schemas import (
     MasterPlan,
     PlanExecutionResult,
     PlanStep,
     StepResult,
 )
-from ecom_agent_matrix.modules.agent_cluster.master_planner import (
-    PlanResult,
-    ReactDecision,
-    plan_sub_tasks_keyword,
-    plan_sub_tasks_llm,
-)
-from ecom_agent_matrix.modules.agent_cluster.query_agent import run_query
+from ecom_agent_matrix.orchestration.master.planner import TypedMasterPlanner
+from ecom_agent_matrix.orchestration.master.router import route_master_task
+from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
+from ecom_agent_matrix.agents.query.agent import run_query
 
 
-def _request(root_id: str, correlation_id: str) -> MCPMessage:
-    return MCPMessage(
+def _request(root_id: str, correlation_id: str) -> AgentMessage:
+    return AgentMessage(
         task_id=root_id,
         correlation_id=correlation_id,
         sender=AGENT_MASTER,
@@ -41,23 +40,23 @@ def _request(root_id: str, correlation_id: str) -> MCPMessage:
 def test_same_root_task_different_correlations_do_not_cross_replies():
     async def scenario():
         root_id = "root-shared"
-        TaskReplyWaiter.begin("corr-a", 1)
-        TaskReplyWaiter.begin("corr-b", 1)
+        task_replies.create("corr-a")
+        task_replies.create("corr-b")
 
         reply_b = build_reply(_request(root_id, "corr-b"), AGENT_QUERY, success=True)
         reply_a = build_reply(_request(root_id, "corr-a"), AGENT_QUERY, success=True)
-        assert TaskReplyWaiter.submit_reply(reply_b) is True
-        assert TaskReplyWaiter.submit_reply(reply_a) is True
+        assert resolve_task_reply(reply_b) is True
+        assert resolve_task_reply(reply_a) is True
 
         got_a, got_b = await asyncio.gather(
-            TaskReplyWaiter.wait("corr-a", 0.1),
-            TaskReplyWaiter.wait("corr-b", 0.1),
+            task_replies.wait("corr-a", 0.1),
+            task_replies.wait("corr-b", 0.1),
         )
-        assert [m.correlation_id for m in got_a] == ["corr-a"]
-        assert [m.correlation_id for m in got_b] == ["corr-b"]
-        assert all(m.task_id == root_id for m in got_a + got_b)
-        assert TaskReplyWaiter.pending_count("corr-a") == 0
-        assert TaskReplyWaiter.pending_count("corr-b") == 0
+        assert got_a and got_a.correlation_id == "corr-a"
+        assert got_b and got_b.correlation_id == "corr-b"
+        assert got_a.task_id == root_id and got_b.task_id == root_id
+        assert not task_replies.contains("corr-a")
+        assert not task_replies.contains("corr-b")
 
     asyncio.run(scenario())
 
@@ -65,17 +64,17 @@ def test_same_root_task_different_correlations_do_not_cross_replies():
 def test_late_timed_out_reply_is_not_consumed_by_next_react_step():
     async def scenario():
         root_id = "root-timeout"
-        TaskReplyWaiter.begin("corr-old", 1)
-        assert await TaskReplyWaiter.wait("corr-old", 0.001) == []
-        assert TaskReplyWaiter.pending_count("corr-old") == 0
+        task_replies.create("corr-old")
+        assert await task_replies.wait("corr-old", 0.001) is None
+        assert not task_replies.contains("corr-old")
 
-        TaskReplyWaiter.begin("corr-new", 1)
+        task_replies.create("corr-new")
         late = build_reply(_request(root_id, "corr-old"), AGENT_QUERY, success=True)
         current = build_reply(_request(root_id, "corr-new"), AGENT_QUERY, success=True)
-        assert TaskReplyWaiter.submit_reply(late) is False
-        assert TaskReplyWaiter.submit_reply(current) is True
-        replies = await TaskReplyWaiter.wait("corr-new", 0.1)
-        assert [m.correlation_id for m in replies] == ["corr-new"]
+        assert resolve_task_reply(late) is False
+        assert resolve_task_reply(current) is True
+        reply = await task_replies.wait("corr-new", 0.1)
+        assert reply and reply.correlation_id == "corr-new"
 
     asyncio.run(scenario())
 
@@ -83,8 +82,8 @@ def test_late_timed_out_reply_is_not_consumed_by_next_react_step():
 def test_waiter_cleans_pending_when_wait_is_cancelled():
     async def scenario():
         correlation_id = "corr-cancelled-wait"
-        TaskReplyWaiter.begin(correlation_id, 1)
-        task = asyncio.create_task(TaskReplyWaiter.wait(correlation_id, 60))
+        task_replies.create(correlation_id)
+        task = asyncio.create_task(task_replies.wait(correlation_id, 60))
         await asyncio.sleep(0)
         task.cancel()
         try:
@@ -92,38 +91,44 @@ def test_waiter_cleans_pending_when_wait_is_cancelled():
             raise AssertionError("CancelledError expected")
         except asyncio.CancelledError:
             pass
-        assert TaskReplyWaiter.pending_count(correlation_id) == 0
+        assert not task_replies.contains(correlation_id)
 
     asyncio.run(scenario())
 
 
 def test_react_call_cleans_pending_on_dispatch_exception_and_cancellation():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.uuid.uuid4",
-            return_value="corr-dispatch-error",
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent._dispatch_subtask",
-            new=AsyncMock(side_effect=RuntimeError("dispatch failed")),
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.uuid.uuid4",
+                return_value="corr-dispatch-error",
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator._dispatch_subtask",
+                new=AsyncMock(side_effect=RuntimeError("dispatch failed")),
+            ),
         ):
             try:
                 await _react_call_one("root", AGENT_QUERY, {}, 1)
                 raise AssertionError("RuntimeError expected")
             except RuntimeError as exc:
                 assert str(exc) == "dispatch failed"
-        assert TaskReplyWaiter.pending_count("corr-dispatch-error") == 0
+        assert not task_replies.contains("corr-dispatch-error")
 
         blocker = asyncio.Event()
 
         async def blocked_dispatch(*args, **kwargs):
             await blocker.wait()
 
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.uuid.uuid4",
-            return_value="corr-react-cancelled",
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent._dispatch_subtask",
-            new=AsyncMock(side_effect=blocked_dispatch),
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.uuid.uuid4",
+                return_value="corr-react-cancelled",
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator._dispatch_subtask",
+                new=AsyncMock(side_effect=blocked_dispatch),
+            ),
         ):
             task = asyncio.create_task(_react_call_one("root", AGENT_QUERY, {}, 1))
             await asyncio.sleep(0)
@@ -133,7 +138,7 @@ def test_react_call_cleans_pending_on_dispatch_exception_and_cancellation():
                 raise AssertionError("CancelledError expected")
             except asyncio.CancelledError:
                 pass
-        assert TaskReplyWaiter.pending_count("corr-react-cancelled") == 0
+        assert not task_replies.contains("corr-react-cancelled")
 
     asyncio.run(scenario())
 
@@ -150,29 +155,32 @@ def test_each_react_call_agent_creates_new_correlation_id():
                 success=True,
                 data={"answer": "ok"},
             )
-            TaskReplyWaiter.submit_reply(reply)
+            resolve_task_reply(reply)
 
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent._dispatch_subtask",
+            "ecom_agent_matrix.orchestration.master.orchestrator._dispatch_subtask",
             new=AsyncMock(side_effect=fake_dispatch),
         ):
             await _react_call_one("root", AGENT_QUERY, {}, 1)
             await _react_call_one("root", AGENT_QUERY, {}, 1)
         assert len(seen) == 2
         assert seen[0] != seen[1]
-        assert all(TaskReplyWaiter.pending_count(correlation_id) == 0 for correlation_id in seen)
+        assert all(not task_replies.contains(correlation_id) for correlation_id in seen)
 
     asyncio.run(scenario())
 
 
 def test_unknown_request_returns_clarify_without_rag_dispatch():
-    plan = plan_sub_tasks_keyword({"query": "随便说点什么 xyz"}, [])
-    assert plan.decision == "clarify"
-    assert plan.sub_tasks == []
-    assert plan.planner == "clarify"
+    with patch(
+        "ecom_agent_matrix.orchestration.master.router.is_llm_configured",
+        return_value=False,
+    ):
+        route = route_master_task({"query": "随便说点什么 xyz"})
+    assert route.mode == "clarify"
+    assert route.target_agents == []
 
     async def scenario():
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-clarify",
             sender="api_gateway",
             target=AGENT_MASTER,
@@ -188,16 +196,20 @@ def test_unknown_request_returns_clarify_without_rag_dispatch():
             clarification_question="请补充具体需求。",
             planner_source="test",
         )
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.typed_master_planner.plan",
-            new=AsyncMock(return_value=clarify),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent._dispatch_subtask",
-            new=AsyncMock(),
-        ) as dispatch, patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.mcp_bus.send_msg",
-            new=AsyncMock(return_value=True),
-        ) as send:
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.typed_master_planner.plan",
+                new=AsyncMock(return_value=clarify),
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator._dispatch_subtask",
+                new=AsyncMock(),
+            ) as dispatch,
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.message_bus.send",
+                new=AsyncMock(return_value=True),
+            ) as send,
+        ):
             await process_master_task(request, long_mem)
         dispatch.assert_not_awaited()
         sent = send.await_args.args[0]
@@ -207,31 +219,24 @@ def test_unknown_request_returns_clarify_without_rag_dispatch():
     asyncio.run(scenario())
 
 
-def test_unknown_request_does_not_call_llm_or_rag_when_llm_is_configured():
-    async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_planner.is_llm_configured",
-            return_value=True,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_planner.llm_chat",
-            new=AsyncMock(),
-        ) as llm:
-            plan = await plan_sub_tasks_llm({"query": "??? xyz"}, [])
-        llm.assert_not_awaited()
-        assert plan.decision == "clarify"
-        assert plan.sub_tasks == []
-
-    asyncio.run(scenario())
+def test_unknown_request_uses_planner_only_when_llm_is_configured():
+    with patch(
+        "ecom_agent_matrix.orchestration.master.router.is_llm_configured",
+        return_value=True,
+    ):
+        route = route_master_task({"query": "??? xyz"})
+    assert route.mode == "planner"
+    assert route.target_agents == []
 
 
 def test_refund_rules_route_rag_and_refund_reply_routes_exec_crm():
-    rules = plan_sub_tasks_keyword({"query": "退款规则是什么"}, [])
-    reply = plan_sub_tasks_keyword({"query": "帮我回复退款客户"}, [])
-    order = plan_sub_tasks_keyword({"query": "查询订单数据"}, [])
-    assert [x["target_agent"] for x in rules.sub_tasks] == [AGENT_RAG]
-    assert [x["target_agent"] for x in reply.sub_tasks] == [AGENT_EXEC]
-    assert [x["target_agent"] for x in order.sub_tasks] == [AGENT_QUERY]
-    assert reply.sub_tasks[0]["payload"]["_inferred_task_type"] == "customer_service"
+    rules = route_master_task({"query": "退款规则是什么"})
+    reply = route_master_task({"query": "帮我回复退款客户"})
+    order = route_master_task({"query": "查询订单数据"})
+    assert rules.target_agents == [AGENT_RAG]
+    assert reply.target_agents == [AGENT_EXEC]
+    assert order.target_agents == [AGENT_QUERY]
+    assert reply.task_type == "customer_service"
 
 
 def test_query_context_rejects_write_skill():
@@ -255,12 +260,12 @@ def test_skill_execution_context_is_fail_closed_and_exec_can_write():
             "compete_price": 80,
         }
         with patch(
-            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_sql",
+            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_write",
             new=AsyncMock(return_value=[[123]]),
-        ) as execute_sql:
+        ) as execute_write:
             no_context_write = await exec_skill("record_competitor_price", write_params)
             assert no_context_write.success is False
-            execute_sql.assert_not_awaited()
+            execute_write.assert_not_awaited()
 
             no_context_read = await exec_skill(
                 "profit_calc",
@@ -276,12 +281,21 @@ def test_skill_execution_context_is_fail_closed_and_exec_can_write():
             assert unknown_agent.success is False
             assert "未授权" in unknown_agent.error_msg
 
-            with skill_execution_context(AGENT_EXEC):
+            security = SecurityContext(
+                subject="subject",
+                user_id="user",
+                tenant_id="tenant",
+                store_id="store",
+                roles=frozenset({"operator"}),
+                auth_type="jwt",
+                authenticated=True,
+            )
+            with skill_execution_context(AGENT_EXEC, security=security, task_id="write-price-p0"):
                 exec_write = await exec_skill("record_competitor_price", write_params)
             assert exec_write.success is True
             assert exec_write.data["record_id"] == 123
-            assert execute_sql.await_count == 1
-            assert "INSERT INTO competitor_price" in execute_sql.await_args.args[0]
+            assert execute_write.await_count == 1
+            assert "INSERT INTO competitor_price" in execute_write.await_args.args[0]
 
     asyncio.run(scenario())
 
@@ -309,16 +323,20 @@ def test_query_competitor_workflow_is_read_only_and_calculates_warning():
     async def scenario():
         long_mem = AsyncMock()
         long_mem.recall.return_value = []
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor._mem",
-            return_value=long_mem,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.competitor.llm_explain",
-            new=AsyncMock(return_value=("建议关注", "rules", "")),
-        ), patch(
-            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_sql",
-            new=AsyncMock(return_value=[[100]]),
-        ) as execute_sql:
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow._mem",
+                return_value=long_mem,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.competitor.workflow.llm_explain",
+                new=AsyncMock(return_value=("建议关注", "rules", "")),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_read",
+                new=AsyncMock(return_value=[[100]]),
+            ) as execute_read,
+        ):
             ok, err, data = await run_query(
                 {
                     "task_type": "competitor_watch",
@@ -336,8 +354,8 @@ def test_query_competitor_workflow_is_read_only_and_calculates_warning():
         assert data["monitor_data"]["history_min_compete_price"] == 100
         assert data["monitor_data"]["current_price_offset"] == -20
         assert data["is_trigger_warn"] is True
-        assert execute_sql.await_count == 1
-        sql = execute_sql.await_args.args[0].strip().upper()
+        assert execute_read.await_count == 1
+        sql = execute_read.await_args.args[0].strip().upper()
         assert sql.startswith("SELECT")
         assert "INSERT" not in sql and "UPDATE" not in sql and "DELETE" not in sql
         long_mem.safe_save_memory.assert_not_awaited()
@@ -350,31 +368,40 @@ def test_plan_reason_never_contains_internal_reasoning_content():
         model_result = ChatResult(
             content=json.dumps(
                 {
-                    "decision": "dispatch",
-                    "agents": [AGENT_EXEC],
+                    "decision": "execute",
+                    "steps": [
+                        {
+                            "step_id": "ad_optimize",
+                            "agent": AGENT_EXEC,
+                            "task_type": "ad_optimize",
+                        }
+                    ],
                     "confidence": 0.95,
-                    "reasoning": "用户明确要求优化广告",
+                    "reason_code": "AD_OPTIMIZE",
                 }
             ),
             reasoning_content="TOP SECRET INTERNAL CHAIN",
         )
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_planner.is_llm_configured",
-            return_value=True,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_planner.llm_chat",
-            new=AsyncMock(return_value=model_result),
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.planner.is_llm_configured",
+                return_value=True,
+            ),
+            patch(
+                "ecom_agent_matrix.core.llm.structured.llm_chat",
+                new=AsyncMock(return_value=model_result),
+            ),
         ):
-            plan = await plan_sub_tasks_llm({"query": "优化广告投放"}, [])
-        assert plan.reasoning == "用户明确要求优化广告"
-        assert "TOP SECRET" not in plan.reasoning
+            plan = await TypedMasterPlanner().plan({"query": "优化广告投放"}, MasterLLMTelemetry())
+        assert plan.reason_code == "AD_OPTIMIZE"
+        assert "TOP SECRET" not in plan.model_dump_json()
 
     asyncio.run(scenario())
 
 
 def test_master_react_trace_does_not_persist_reasoning_content():
     async def scenario():
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-reasoning",
             sender="api_gateway",
             target=AGENT_MASTER,
@@ -404,22 +431,27 @@ def test_master_react_trace_does_not_persist_reasoning_content():
         )
         long_mem = AsyncMock()
         long_mem.recall.return_value = []
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.typed_master_planner.plan",
-            new=AsyncMock(return_value=plan),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.MasterPlanExecutor.execute",
-            new=AsyncMock(return_value=execution),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.polish_final_output",
-            new=AsyncMock(return_value="完成"),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master_agent.mcp_bus.send_msg",
-            new=AsyncMock(return_value=True),
-        ) as send:
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.typed_master_planner.plan",
+                new=AsyncMock(return_value=plan),
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.MasterPlanExecutor.execute",
+                new=AsyncMock(return_value=execution),
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.polish_final_output",
+                new=AsyncMock(return_value="完成"),
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.message_bus.send",
+                new=AsyncMock(return_value=True),
+            ) as send,
+        ):
             await process_master_task(request, long_mem)
 
-        persisted_reply = send.await_args_list[0].args[0].model_dump()
+        persisted_reply = send.await_args_list[0].args[0].model_dump(mode="json")
         assert "reasoning_content" not in json.dumps(persisted_reply, ensure_ascii=False)
         if long_mem.safe_save_memory.await_count:
             saved_content = long_mem.safe_save_memory.await_args.kwargs["content"]

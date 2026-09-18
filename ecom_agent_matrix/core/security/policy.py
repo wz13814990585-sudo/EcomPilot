@@ -1,4 +1,5 @@
 """Central task-level RBAC policy, independent from planners and payload params."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -78,7 +79,7 @@ def require_trusted_ingress(
     *,
     app_env: str,
 ) -> None:
-    """Production MCP ingress is fail-closed; legacy direct calls remain compatible."""
+    """Production agent ingress is fail-closed; direct tests remain compatible."""
     if str(app_env or "").strip().lower() == "production" and (
         security is None or not security.authenticated
     ):

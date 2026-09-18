@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.modules.agent_cluster.master.policy import (
+from ecom_agent_matrix.orchestration.master.policy import (
     INVALID_DEPENDENCY,
     INVALID_TASK_TYPE,
     PLAN_CYCLE,
@@ -13,7 +13,7 @@ from ecom_agent_matrix.modules.agent_cluster.master.policy import (
     MasterPlanValidationError,
     validate_master_plan,
 )
-from ecom_agent_matrix.modules.agent_cluster.master.schemas import MasterPlan, PlanStep
+from ecom_agent_matrix.orchestration.master.schemas import MasterPlan, PlanStep
 
 
 def _plan(steps: list[PlanStep]) -> MasterPlan:

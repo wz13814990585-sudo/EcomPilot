@@ -1,4 +1,5 @@
 """批量注册全部电商 Skill 模块。"""
+
 from . import (
     ad_optimize,
     ai_prompt_gen,

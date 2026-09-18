@@ -1,4 +1,5 @@
 """商品目录查询：统计数量 / 列表（支持「全部」拉全量，有上限保护）。"""
+
 from __future__ import annotations
 
 import re
@@ -17,6 +18,7 @@ from ecom_agent_matrix.core.security import tenant_scope_from_skill_context
 # 单次最多返回条数，防止响应过大
 MAX_CATALOG_LIMIT = 500
 DEFAULT_PAGE_LIMIT = 20
+
 
 def resolve_catalog_scope(text: str = "", store_id: str | None = None) -> tuple[str, str]:
     """
@@ -103,8 +105,7 @@ class GoodsCatalogTool(BaseSkill):
     output_model = GoodsCatalogOutput
     skill_name = "goods_catalog"
     skill_desc = (
-        "商品目录查询：统计 ecom_goods 数量并列出；"
-        "参数 limit、offset、category、order_by、list_all"
+        "商品目录查询：统计 ecom_goods 数量并列出；参数 limit、offset、category、order_by、list_all"
     )
 
     async def run(self, params: dict) -> SkillResult:
@@ -114,10 +115,7 @@ class GoodsCatalogTool(BaseSkill):
             order_by = str(params.get("order_by") or "id").strip().lower()
             list_all = bool(params.get("list_all"))
             query_text = str(
-                params.get("query")
-                or params.get("user_query")
-                or params.get("product_name")
-                or ""
+                params.get("query") or params.get("user_query") or params.get("product_name") or ""
             )
             if "limit" in params and params.get("limit") is not None:
                 limit = int(params.get("limit"))
@@ -176,9 +174,7 @@ class GoodsCatalogTool(BaseSkill):
                 args.append(category)
 
             count_sql = f"SELECT COUNT(*) FROM {TABLE_GOODS} {where}"
-            count_rows = await AsyncPGClient.execute_read(
-                count_sql, list(args), scope=db_scope
-            )
+            count_rows = await AsyncPGClient.execute_read(count_sql, list(args), scope=db_scope)
             total = int(count_rows[0][0] or 0) if count_rows else 0
 
             # 要全部时：一次取 min(total, MAX)，从 offset=0
@@ -195,9 +191,7 @@ class GoodsCatalogTool(BaseSkill):
             LIMIT %s OFFSET %s
             """
             list_args = list(args) + [limit, offset]
-            rows = await AsyncPGClient.execute_read(
-                list_sql, list_args, scope=db_scope
-            )
+            rows = await AsyncPGClient.execute_read(list_sql, list_args, scope=db_scope)
             items = [
                 {
                     "sku": r[0],
@@ -235,8 +229,7 @@ class GoodsCatalogTool(BaseSkill):
                     )
                 else:
                     preview = "、".join(
-                        (it.get("title_zh") or it.get("title_en") or it["sku"])
-                        for it in items[:5]
+                        (it.get("title_zh") or it.get("title_en") or it["sku"]) for it in items[:5]
                     )
                     summary += f"；本页展示 {len(items)} 件（默认分页），例如：{preview}"
             else:

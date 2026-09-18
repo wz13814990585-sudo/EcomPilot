@@ -1,4 +1,5 @@
 """客服答复 Skill：对话 + 已验证业务/知识上下文 + LLM 生成。"""
+
 from __future__ import annotations
 
 import json
@@ -10,7 +11,6 @@ from ecom_agent_matrix.config.constants import LANG_LIST
 from ecom_agent_matrix.core.llm import is_llm_configured, llm_chat
 from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
 from ecom_agent_matrix.core.skill.skill_registry import register_skill
-from ecom_agent_matrix.modules.rag.formatter import format_rag_docs
 from ecom_agent_matrix.modules.rag.policy import should_retrieve_knowledge
 
 CRM_SYSTEM_PROMPT = (
@@ -24,6 +24,7 @@ CRM_SYSTEM_PROMPT = (
     "不要编造物流单号或退款到账时间。"
     "若提供「已验证业务上下文」，优先使用其中订单事实与政策内容，不要编造缺失字段。"
 )
+
 
 class CrmReplyInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)

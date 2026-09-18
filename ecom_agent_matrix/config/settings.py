@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     DB_READ_STATEMENT_TIMEOUT_MS: int = 5000
     DB_WRITE_STATEMENT_TIMEOUT_MS: int = 10000
     DB_READ_MAX_ROWS: int = 500
+    DB_POOL_MIN_SIZE: int = 1
+    DB_POOL_MAX_SIZE: int = 10
+    DB_ACQUIRE_TIMEOUT: float = 10.0
+    DB_CONNECT_TIMEOUT: float = 10.0
 
     # 模拟店铺标识（seed / 目录查询默认归属本店货盘）
     DEMO_STORE_ID: str = "demo_store"
@@ -87,10 +91,9 @@ class Settings(BaseSettings):
     TAOBAO_SESSION_KEY: str = ""  # 用户授权 session；查订单等需登录态的接口必填
     TAOBAO_API_URL: str = "https://eco.taobao.com/router/rest"
 
-    # MCP消息总线配置
-    MCP_QUEUE_MAX_SIZE: int = 200
-    MCP_TIMEOUT: int = 30
-    MCP_RETRY_TIMES: int = 2  # 目标 Agent 尚未订阅时的额外重试次数
+    # 进程内 Agent message bus
+    MESSAGE_BUS_QUEUE_MAX_SIZE: int = 200
+    AGENT_REPLY_TIMEOUT: int = 30
 
     # vLLM推理端口（预留）
     VLLM_PORT: int = 8001
@@ -144,7 +147,7 @@ class Settings(BaseSettings):
 
     # Master Agent 配置
     MASTER_MAX_CONCURRENT: int = 8  # 用户级 Master 总任务并发上限
-    MASTER_MAX_SUBTASK_CONCURRENT: int = 3  # ReAct 逐步下发时的并发上限
+    MASTER_MAX_SUBTASKS_PER_PLAN: int = 3  # 每个 DAG plan 的并发 step 上限
     MASTER_FAST_PATH_ENABLED: bool = True
     MASTER_MAX_PLAN_STEPS: int = 5
     MASTER_RECOVERY_MAX_STEPS: int = 2

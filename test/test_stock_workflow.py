@@ -1,4 +1,5 @@
 """Phase 2C-2A Stock parser / workflow 测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,8 +13,8 @@ from pydantic import ValidationError
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
 from ecom_agent_matrix.core.tasking import normalize_task_context
 from ecom_agent_matrix.core.tasking.result import MISSING_SKU
-from ecom_agent_matrix.modules.agent_cluster.handlers import stock as stock_handler
-from ecom_agent_matrix.modules.agent_cluster.handlers.stock import handle_stock, run_stock_workflow
+from ecom_agent_matrix.workflows.stock import workflow as stock_handler
+from ecom_agent_matrix.workflows.stock.workflow import handle_stock, run_stock_workflow
 from ecom_agent_matrix.modules.parsers.stock import parse_stock_request
 from ecom_agent_matrix.modules.skills.stock_predict import StockPredictTool
 
@@ -49,12 +50,15 @@ def test_stock_predict_receives_only_current_fact_parameters():
     )
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.stock.exec_skill",
-            new=AsyncMock(return_value=success),
-        ) as execute, patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.stock.llm_explain",
-            new=AsyncMock(return_value=("advice", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.stock.workflow.exec_skill",
+                new=AsyncMock(return_value=success),
+            ) as execute,
+            patch(
+                "ecom_agent_matrix.workflows.stock.workflow.llm_explain",
+                new=AsyncMock(return_value=("advice", "template", "")),
+            ),
         ):
             result = await run_stock_workflow({"sku": "SKU-1", "predict_days": 14})
         return result, execute.await_args.args
@@ -74,7 +78,7 @@ def test_stock_workflow_no_long_memory_read_or_write():
 def test_historical_suggestion_does_not_change_stock_prediction():
     async def run(history):
         with patch(
-            "ecom_agent_matrix.modules.skills.stock_predict.AsyncPGClient.execute_sql",
+            "ecom_agent_matrix.modules.skills.stock_predict.AsyncPGClient.execute_read",
             new=AsyncMock(return_value=[[300]]),
         ):
             return await StockPredictTool().run(
@@ -82,9 +86,7 @@ def test_historical_suggestion_does_not_change_stock_prediction():
             )
 
     without_history = asyncio.run(run([]))
-    with_history = asyncio.run(
-        run([{"meta": {"suggest_stock_amount": 999999}}])
-    )
+    with_history = asyncio.run(run([{"meta": {"suggest_stock_amount": 999999}}]))
     assert without_history.data["suggest_stock_amount"] == 84
     assert with_history.data["suggest_stock_amount"] == 84
     assert with_history.data["history_used"] == 0
@@ -98,17 +100,20 @@ def test_stock_legacy_tuple_contains_workflow_status():
     )
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.stock.exec_skill",
-            new=AsyncMock(return_value=success),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.stock.llm_explain",
-            new=AsyncMock(return_value=("advice", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.stock.workflow.exec_skill",
+                new=AsyncMock(return_value=success),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.stock.workflow.llm_explain",
+                new=AsyncMock(return_value=("advice", "template", "")),
+            ),
         ):
             return await handle_stock(normalize_task_context({"sku": "SKU-1"}))
 
     ok, error, data = asyncio.run(scenario())
     assert ok is True
     assert error == ""
-    assert data["_workflow"]["error_code"] == ""
+    assert data["_workflow"]["error_code"] is None
     assert data["_workflow"]["metadata"]["workflow"] == "stock"

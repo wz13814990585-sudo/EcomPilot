@@ -1,12 +1,22 @@
 """Central structured-log redaction."""
+
 from __future__ import annotations
 
 import re
 from typing import Any
 
 SENSITIVE_MARKERS = (
-    "token", "secret", "password", "api_key", "authorization", "cookie",
-    "session_key", "jwt", "payload", "prompt", "query",
+    "token",
+    "secret",
+    "password",
+    "api_key",
+    "authorization",
+    "cookie",
+    "session_key",
+    "jwt",
+    "payload",
+    "prompt",
+    "query",
 )
 _BEARER = re.compile(r"(?i)bearer\s+[a-z0-9._~+/=-]+")
 _ASSIGNMENT = re.compile(
@@ -25,7 +35,11 @@ def sanitize_log_fields(fields: dict[str, Any]) -> dict[str, Any]:
     for key, value in fields.items():
         lowered = str(key).lower()
         explicitly_safe = lowered in {
-            "query_hash", "query_length", "prompt_tokens", "completion_tokens", "total_tokens"
+            "query_hash",
+            "query_length",
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
         }
         if not explicitly_safe and any(marker in lowered for marker in SENSITIVE_MARKERS):
             safe[key] = "[REDACTED]"

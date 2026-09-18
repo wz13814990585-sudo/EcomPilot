@@ -7,6 +7,7 @@
      ├── OpenAI
      └── Future Provider（实现 LLMProvider 后注册到 router）
 """
+
 from ecom_agent_matrix.core.llm.http import close_http_session, get_http_session
 from ecom_agent_matrix.core.llm.provider import LLMProvider, OpenAICompatProvider
 from ecom_agent_matrix.core.llm.router import (
@@ -28,6 +29,7 @@ from ecom_agent_matrix.core.llm.types import (
     LLMResponseError,
     LLMServerError,
 )
+from ecom_agent_matrix.core.llm.structured import llm_chat_structured
 
 __all__ = [
     "ChatMode",
@@ -46,6 +48,7 @@ __all__ = [
     "get_llm_provider",
     "is_llm_configured",
     "llm_chat",
+    "llm_chat_structured",
     "llm_reasoner",
     "resolve_mode",
     "resolve_model",

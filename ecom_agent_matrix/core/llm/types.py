@@ -1,4 +1,5 @@
 """LLM 供应商无关的结果、模式与异常。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

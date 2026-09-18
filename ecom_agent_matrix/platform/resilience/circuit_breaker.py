@@ -1,4 +1,5 @@
 """Small process-local circuit breaker for bounded external components."""
+
 from __future__ import annotations
 
 import asyncio
@@ -85,7 +86,9 @@ class CircuitBreaker:
 _BREAKERS: dict[str, CircuitBreaker] = {}
 
 
-def get_circuit_breaker(name: str, *, failure_threshold: int = 5, reset_seconds: float = 30.0) -> CircuitBreaker:
+def get_circuit_breaker(
+    name: str, *, failure_threshold: int = 5, reset_seconds: float = 30.0
+) -> CircuitBreaker:
     if name not in _BREAKERS:
         _BREAKERS[name] = CircuitBreaker(
             name, failure_threshold=failure_threshold, reset_seconds=reset_seconds
@@ -94,4 +97,3 @@ def get_circuit_breaker(name: str, *, failure_threshold: int = 5, reset_seconds:
 
 
 __all__ = ["CircuitBreaker", "CircuitOpenError", "CircuitState", "get_circuit_breaker"]
-

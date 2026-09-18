@@ -1,4 +1,5 @@
 """广告领域 TaskContext → AdRequest 解析。"""
+
 from __future__ import annotations
 
 import re
@@ -114,7 +115,8 @@ def parse_ad_request(task: TaskContext) -> AdRequest:
     from_query = _query_metrics(task.query)
     profit_fields = ("cost", "shipping", "commission_rate", "sell_price")
     supplied = {
-        name for name in profit_fields
+        name
+        for name in profit_fields
         if name in params and params[name] is not None and str(params[name]).strip() != ""
     }
     if supplied and len(supplied) != len(profit_fields):
@@ -131,7 +133,9 @@ def parse_ad_request(task: TaskContext) -> AdRequest:
         platform=_platform(task),
         spend=_explicit(params, ("spend", "ad_spend"), from_query.get("spend", 0)),
         clicks=_explicit(params, ("clicks", "click"), from_query.get("clicks", 0)),
-        conversions=_explicit(params, ("conversions", "orders", "cv"), from_query.get("conversions", 0)),
+        conversions=_explicit(
+            params, ("conversions", "orders", "cv"), from_query.get("conversions", 0)
+        ),
         revenue=_explicit(params, ("revenue", "gmv", "sales"), from_query.get("revenue", 0)),
         daily_budget=_explicit(params, ("daily_budget", "budget"), None),
         bid=_explicit(params, ("bid", "cpc_bid"), None),

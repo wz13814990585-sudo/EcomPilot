@@ -1,4 +1,5 @@
 """统一 Skill 执行器。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,7 +10,13 @@ from typing import Any
 from pydantic import ValidationError
 
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_QUERY
+from ecom_agent_matrix.core.errors import ErrorCode
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
+from ecom_agent_matrix.core.skill.idempotency import (
+    IdempotencyStore,
+    default_idempotency_store,
+    idempotency_key,
+)
 from ecom_agent_matrix.core.skill.skill_registry import (
     SkillExecutionContext,
     current_skill_execution_context,
@@ -29,12 +36,12 @@ from ecom_agent_matrix.core.security.scope import TenantScope
 from ecom_agent_matrix.platform.observability.context import update_trace_context
 from ecom_agent_matrix.platform.observability.metrics import metrics
 
-SKILL_NOT_FOUND = "SKILL_NOT_FOUND"
-PERMISSION_DENIED = "PERMISSION_DENIED"
-VALIDATION_ERROR = "VALIDATION_ERROR"
-TIMEOUT = "TIMEOUT"
-EXECUTION_ERROR = "EXECUTION_ERROR"
-OUTPUT_VALIDATION_ERROR = "OUTPUT_VALIDATION_ERROR"
+SKILL_NOT_FOUND = ErrorCode.SKILL_NOT_FOUND.value
+PERMISSION_DENIED = ErrorCode.PERMISSION_DENIED.value
+VALIDATION_ERROR = ErrorCode.VALIDATION_ERROR.value
+TIMEOUT = ErrorCode.SKILL_TIMEOUT.value
+EXECUTION_ERROR = ErrorCode.SKILL_EXECUTION_ERROR.value
+OUTPUT_VALIDATION_ERROR = ErrorCode.OUTPUT_VALIDATION_ERROR.value
 SKILL_FAILED = "SKILL_FAILED"
 
 logger = logging.getLogger("skill.executor")
@@ -42,6 +49,9 @@ logger = logging.getLogger("skill.executor")
 
 class SkillExecutor:
     """完成查找、鉴权、契约校验、超时控制和结果标准化。"""
+
+    def __init__(self, idempotency_store: IdempotencyStore | None = None) -> None:
+        self.idempotency_store = idempotency_store or default_idempotency_store
 
     async def execute(
         self,
@@ -87,7 +97,9 @@ class SkillExecutor:
 
         # Authorization precedes parameter parsing so an unauthorized caller
         # cannot probe a write Skill's input contract.
-        if effective_context is not None and effective_context.identity_trusted:
+        if self._requires_trusted_identity(spec):
+            # _permission_denied_reason already proved this context exists and
+            # carries a verified, complete identity.
             granted_scopes = effective_scopes(effective_context)  # type: ignore[arg-type]
             if spec.required_scopes and not spec.required_scopes.issubset(granted_scopes):
                 return self._error(
@@ -113,11 +125,36 @@ class SkillExecutor:
 
         params_hash = ""
         approval_id = ""
-        if (
-            spec.approval_required
-            and effective_context is not None
-            and effective_context.identity_trusted
-        ):
+        idempotency_token = ""
+        idempotency_scope = None
+        if spec.idempotent and self._requires_trusted_identity(spec):
+            idempotency_scope = TenantScope(
+                tenant_id=effective_context.tenant_id,
+                store_id=effective_context.store_id,
+                identity_trusted=True,
+            )
+            idempotency_token = idempotency_key(
+                tenant_id=effective_context.tenant_id,
+                store_id=effective_context.store_id,
+                task_id=effective_context.task_id,
+                skill_name=skill_name,
+                params=validated_params,
+            )
+            existing = await self.idempotency_store.get(idempotency_token, scope=idempotency_scope)
+            if existing is not None:
+                if existing.status == "succeeded" and existing.result:
+                    replay = SkillResult.model_validate(existing.result)
+                    replay.metadata = {**replay.metadata, "idempotent_replay": True}
+                    return replay
+                return self._error(
+                    ErrorCode.ALREADY_EXECUTED.value,
+                    "Identical side effect already started or completed",
+                    skill_name,
+                    started,
+                    effective_context,
+                    spec=spec,
+                )
+        if spec.approval_required:
             params_hash = approval_params_hash(skill_name, validated_params)
             if effective_context.approval is None:
                 try:
@@ -128,8 +165,12 @@ class SkillExecutor:
                     )
                 except Exception:
                     return self._error(
-                        EXECUTION_ERROR, "Approval service unavailable", skill_name,
-                        started, effective_context, spec=spec,
+                        EXECUTION_ERROR,
+                        "Approval service unavailable",
+                        skill_name,
+                        started,
+                        effective_context,
+                        spec=spec,
                     )
                 return self._error(
                     APPROVAL_REQUIRED,
@@ -153,17 +194,43 @@ class SkillExecutor:
                     params_hash=params_hash,
                 )
             except PermissionError as exc:
-                code = str(exc) if str(exc) in {
-                    APPROVAL_EXPIRED, APPROVAL_ALREADY_USED, APPROVAL_INVALID
-                } else APPROVAL_INVALID
+                code = (
+                    str(exc)
+                    if str(exc) in {APPROVAL_EXPIRED, APPROVAL_ALREADY_USED, APPROVAL_INVALID}
+                    else APPROVAL_INVALID
+                )
                 return self._error(
-                    code, "Approval is invalid or unavailable", skill_name,
-                    started, effective_context, spec=spec,
+                    code,
+                    "Approval is invalid or unavailable",
+                    skill_name,
+                    started,
+                    effective_context,
+                    spec=spec,
                 )
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_STARTED", effective_context, skill_name,
-                approval_id, "started",
+                "HIGH_RISK_EXECUTION_STARTED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "started",
             )
+
+        if idempotency_token and idempotency_scope is not None:
+            acquired = await self.idempotency_store.begin(
+                idempotency_token,
+                scope=idempotency_scope,
+                task_id=effective_context.task_id,
+                skill_name=skill_name,
+            )
+            if not acquired:
+                return self._error(
+                    ErrorCode.ALREADY_EXECUTED.value,
+                    "Identical side effect already started or completed",
+                    skill_name,
+                    started,
+                    effective_context,
+                    spec=spec,
+                )
 
         try:
             raw_result = await asyncio.wait_for(
@@ -171,9 +238,15 @@ class SkillExecutor:
                 timeout=spec.timeout_seconds,
             )
         except asyncio.TimeoutError:
+            await self._mark_idempotency_failed(
+                idempotency_token, idempotency_scope, ErrorCode.SKILL_TIMEOUT.value
+            )
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                approval_id, "timeout",
+                "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "timeout",
             )
             return self._error(
                 TIMEOUT,
@@ -184,6 +257,11 @@ class SkillExecutor:
                 spec=spec,
             )
         except Exception as exc:
+            await self._mark_idempotency_failed(
+                idempotency_token,
+                idempotency_scope,
+                ErrorCode.SKILL_EXECUTION_ERROR.value,
+            )
             logger.exception(
                 "skill_execution_exception",
                 extra={
@@ -194,8 +272,11 @@ class SkillExecutor:
                 },
             )
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                approval_id, "failed",
+                "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "failed",
             )
             return self._error(
                 EXECUTION_ERROR,
@@ -207,9 +288,17 @@ class SkillExecutor:
             )
 
         if not isinstance(raw_result, SkillResult):
+            await self._mark_idempotency_failed(
+                idempotency_token,
+                idempotency_scope,
+                ErrorCode.OUTPUT_VALIDATION_ERROR.value,
+            )
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                approval_id, "output_validation_failed",
+                "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
+                "output_validation_failed",
             )
             return self._error(
                 OUTPUT_VALIDATION_ERROR,
@@ -225,9 +314,17 @@ class SkillExecutor:
                 validated_output = spec.output_model.model_validate(raw_result.data)
                 raw_result.data = validated_output.model_dump()
             except (ValidationError, TypeError, ValueError) as exc:
+                await self._mark_idempotency_failed(
+                    idempotency_token,
+                    idempotency_scope,
+                    ErrorCode.OUTPUT_VALIDATION_ERROR.value,
+                )
                 await self._audit_high_risk(
-                    "HIGH_RISK_EXECUTION_FAILED", effective_context, skill_name,
-                    approval_id, "output_validation_failed",
+                    "HIGH_RISK_EXECUTION_FAILED",
+                    effective_context,
+                    skill_name,
+                    approval_id,
+                    "output_validation_failed",
                 )
                 return self._error(
                     OUTPUT_VALIDATION_ERROR,
@@ -253,13 +350,34 @@ class SkillExecutor:
             **self._metadata(skill_name, started, effective_context),
         }
         self._log_result(raw_result)
+        if idempotency_token and idempotency_scope is not None:
+            if raw_result.success:
+                await self.idempotency_store.complete(
+                    idempotency_token,
+                    scope=idempotency_scope,
+                    result=raw_result.model_dump(mode="json"),
+                )
+            else:
+                await self._mark_idempotency_failed(
+                    idempotency_token,
+                    idempotency_scope,
+                    str(raw_result.error_code or SKILL_FAILED),
+                )
         if spec.approval_required and effective_context and effective_context.identity_trusted:
             await self._audit_high_risk(
-                "HIGH_RISK_EXECUTION_SUCCEEDED" if raw_result.success else "HIGH_RISK_EXECUTION_FAILED",
-                effective_context, skill_name, approval_id,
+                "HIGH_RISK_EXECUTION_SUCCEEDED"
+                if raw_result.success
+                else "HIGH_RISK_EXECUTION_FAILED",
+                effective_context,
+                skill_name,
+                approval_id,
                 "succeeded" if raw_result.success else "failed",
             )
         return raw_result
+
+    async def _mark_idempotency_failed(self, key, scope, error_code: str) -> None:
+        if key and scope is not None:
+            await self.idempotency_store.fail(key, scope=scope, error_code=error_code)
 
     @staticmethod
     async def _audit_high_risk(event, context, skill_name, approval_id, outcome) -> None:
@@ -268,12 +386,16 @@ class SkillExecutor:
         await record_audit_event(
             event,
             scope=TenantScope(
-                tenant_id=context.tenant_id, store_id=context.store_id,
+                tenant_id=context.tenant_id,
+                store_id=context.store_id,
                 identity_trusted=context.identity_trusted,
             ),
-            task_id=context.task_id, user_id=context.user_id,
-            agent_id=context.agent_id, skill_name=skill_name,
-            approval_id=approval_id, outcome=outcome,
+            task_id=context.task_id,
+            user_id=context.user_id,
+            agent_id=context.agent_id,
+            skill_name=skill_name,
+            approval_id=approval_id,
+            outcome=outcome,
         )
 
     @staticmethod
@@ -286,14 +408,32 @@ class SkillExecutor:
 
     @staticmethod
     def _permission_denied_reason(spec, context: SkillExecutionContext | None) -> str:
-        pure_read = spec.read_only is True and spec.side_effect is False
+        protected = SkillExecutor._requires_trusted_identity(spec)
+        if not protected:
+            if context is None or context.agent_id in {AGENT_QUERY, AGENT_EXEC}:
+                return ""
+            return f"未授权的 Skill execution context：{context.agent_id}"
         if context is None:
-            return "" if pure_read else f"缺少 SkillExecutionContext，拒绝执行 write Skill：{spec.name}"
+            return f"缺少 SkillExecutionContext，拒绝执行 write Skill：{spec.name}"
         if context.agent_id == AGENT_QUERY:
-            return "" if pure_read else f"data_query 无权执行非只读 Skill：{spec.name}"
+            return f"data_query 无权执行非只读 Skill：{spec.name}"
+        if not context.identity_trusted:
+            return f"身份未验证，拒绝执行 write Skill：{spec.name}"
+        if not all((context.tenant_id, context.store_id, context.user_id)):
+            return f"身份作用域不完整，拒绝执行 write Skill：{spec.name}"
         if context.agent_id == AGENT_EXEC:
             return ""
         return f"未授权的 Skill execution context：{context.agent_id}"
+
+    @staticmethod
+    def _requires_trusted_identity(spec) -> bool:
+        """Any non-pure-read or policy-protected contract is fail-closed."""
+        return bool(
+            spec.read_only is not True
+            or spec.side_effect is True
+            or spec.required_scopes
+            or spec.approval_required
+        )
 
     @staticmethod
     def _metadata(
@@ -322,9 +462,7 @@ class SkillExecutor:
     ) -> SkillResult:
         metadata = self._metadata(skill_name, started, context)
         if spec is not None and spec.deprecated:
-            metadata.update(
-                {"deprecated": True, "replacement": spec.replacement}
-            )
+            metadata.update({"deprecated": True, "replacement": spec.replacement})
         result = SkillResult(
             success=False,
             error_code=error_code,

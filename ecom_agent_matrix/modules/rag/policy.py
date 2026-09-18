@@ -1,4 +1,5 @@
 """Deterministic knowledge retrieval policy。"""
+
 from __future__ import annotations
 
 import re

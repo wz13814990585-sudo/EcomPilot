@@ -1,4 +1,4 @@
-"""MCP-independent RAG contracts and service。"""
+"""Typed RAG contracts and service."""
 
 from .schemas import RAGAnswerResult, RAGDocument, RAGRequest, RAGRetrievalResult
 from .service import RAGService, rag_service

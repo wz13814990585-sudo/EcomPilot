@@ -1,4 +1,5 @@
 """AI 绘图提示词 Skill（LLM，无 Key 时模板兜底）。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field

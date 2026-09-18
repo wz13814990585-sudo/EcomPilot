@@ -71,8 +71,8 @@ CREATE TABLE IF NOT EXISTS finetune_dataset (
     create_time TIMESTAMP DEFAULT NOW()
 );
 
--- 6.MCP消息持久化日志：消息总线故障回溯
-CREATE TABLE IF NOT EXISTS mcp_message_log (
+-- 6.Agent 内部消息持久化日志：消息总线故障回溯
+CREATE TABLE IF NOT EXISTS agent_message_log (
     id BIGSERIAL PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL DEFAULT 'demo_tenant',
     store_id VARCHAR(64) NOT NULL DEFAULT 'demo_store',
@@ -101,6 +101,19 @@ CREATE TABLE IF NOT EXISTS security_approval (
     reason_code VARCHAR(64)
 );
 
+CREATE TABLE IF NOT EXISTS skill_execution_idempotency (
+    idempotency_key CHAR(64) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    store_id VARCHAR(64) NOT NULL,
+    task_id VARCHAR(64) NOT NULL,
+    skill_name VARCHAR(128) NOT NULL,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('running','succeeded','failed')),
+    result_json JSONB,
+    error_code VARCHAR(64),
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS security_audit_log (
     id BIGSERIAL PRIMARY KEY,
     event_type VARCHAR(64) NOT NULL,
@@ -123,6 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_order_time ON ecom_order(create_time);
 CREATE INDEX IF NOT EXISTS idx_competitor_tenant_store_sku ON competitor_price(tenant_id, store_id, target_sku);
 CREATE INDEX IF NOT EXISTS idx_risk_tenant_store_order ON risk_record(tenant_id, store_id, order_no);
 CREATE INDEX IF NOT EXISTS idx_approval_scope_status ON security_approval(tenant_id, store_id, status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_skill_idempotency_scope ON skill_execution_idempotency(tenant_id, store_id, task_id);
 CREATE INDEX IF NOT EXISTS idx_security_audit_scope_time ON security_audit_log(tenant_id, store_id, create_time DESC);
 
 -- pg_trgm：加速 ILIKE '%xxx%' / similarity，数据量大时必备
@@ -190,8 +204,8 @@ VALUES
     ('social', 'Generate IG caption for UV hat', 'Stay cool under the sun ☀️ UPF50 protection for every adventure.', 'en'),
     ('tool_call', '查询 SKU-BAG-001 库存', 'stock_num=120', 'zh');
 
--- MCP 消息日志示例
-INSERT INTO mcp_message_log (task_id, sender_agent, target_agent, priority, msg_content)
+-- Agent 消息日志示例
+INSERT INTO agent_message_log (task_id, sender_agent, target_agent, priority, msg_content)
 VALUES
     ('seed-task-001', 'master_planning', 'goods_rag', 1, '{"query": "waterproof outdoor bag", "lang": "en"}'::jsonb),
     ('seed-task-002', 'master_planning', 'goods_rag', 1, '{"query": "平价海边连衣裙", "lang": "zh"}'::jsonb),
@@ -201,7 +215,7 @@ VALUES
 DO $$
 DECLARE table_name text;
 BEGIN
-  FOREACH table_name IN ARRAY ARRAY['ecom_goods','ecom_order','competitor_price','risk_record','finetune_dataset','mcp_message_log','security_approval','security_audit_log'] LOOP
+  FOREACH table_name IN ARRAY ARRAY['ecom_goods','ecom_order','competitor_price','risk_record','finetune_dataset','agent_message_log','security_approval','security_audit_log','skill_execution_idempotency'] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);
     EXECUTE format('DROP POLICY IF EXISTS tenant_store_isolation ON %I', table_name);

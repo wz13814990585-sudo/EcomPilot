@@ -1,4 +1,5 @@
 """将旧业务 payload 确定性标准化为 TaskContext。"""
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -10,8 +11,17 @@ from ecom_agent_matrix.core.security import SecurityContext
 _ENVELOPE_FIELDS = ("task_id", "correlation_id", "source_agent")
 _SECURITY_FIELDS = frozenset(
     {
-        "tenant_id", "user_id", "store_id", "roles", "role", "scopes", "scope",
-        "subject", "_security", "security_context", "auth_context",
+        "tenant_id",
+        "user_id",
+        "store_id",
+        "roles",
+        "role",
+        "scopes",
+        "scope",
+        "subject",
+        "_security",
+        "security_context",
+        "auth_context",
     }
 )
 

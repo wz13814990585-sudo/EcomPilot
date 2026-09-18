@@ -6,10 +6,24 @@ from ecom_agent_matrix.core.tasking.normalizer import (
     normalize_task_context,
 )
 from ecom_agent_matrix.core.tasking.result import WorkflowResult
+from ecom_agent_matrix.core.tasking.requests import (
+    AdOptimizeRequest,
+    CRMReplyRequest,
+    CompetitorWatchRequest,
+    GoodsSearchRequest,
+    OrderQueryRequest,
+    RiskOperationRequest,
+)
 
 __all__ = [
     "TaskContext",
     "WorkflowResult",
     "ensure_task_context",
     "normalize_task_context",
+    "AdOptimizeRequest",
+    "CRMReplyRequest",
+    "CompetitorWatchRequest",
+    "GoodsSearchRequest",
+    "OrderQueryRequest",
+    "RiskOperationRequest",
 ]

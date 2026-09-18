@@ -11,8 +11,14 @@ from ecom_agent_matrix.core.security import SecurityContext
 
 def _security(tenant="tenant-a", user="user-a", store="store-a"):
     return SecurityContext(
-        subject=user, user_id=user, tenant_id=tenant, store_id=store,
-        roles=frozenset({"viewer"}), scopes=frozenset(), auth_type="jwt", authenticated=True,
+        subject=user,
+        user_id=user,
+        tenant_id=tenant,
+        store_id=store,
+        roles=frozenset({"viewer"}),
+        scopes=frozenset(),
+        auth_type="jwt",
+        authenticated=True,
     )
 
 
@@ -33,15 +39,19 @@ def test_long_memory_save_forces_trusted_tenant_and_store_metadata():
         return [[7]]
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.core.memory.long_vector_memory.get_text_embedding",
-            new=AsyncMock(return_value=[0.1]),
-        ), patch(
-            "ecom_agent_matrix.core.memory.long_vector_memory.AsyncPGClient.execute_write",
-            new=execute,
+        with (
+            patch(
+                "ecom_agent_matrix.core.memory.long_vector_memory.get_text_embedding",
+                new=AsyncMock(return_value=[0.1]),
+            ),
+            patch(
+                "ecom_agent_matrix.core.memory.long_vector_memory.AsyncPGClient.execute_write",
+                new=execute,
+            ),
         ):
             return await AgentLongVectorMemory().save_memory(
-                "agent", "content",
+                "agent",
+                "content",
                 {"tenant_id": "fake", "store_id": "fake", "success": True},
                 context=_security(),
             )
@@ -61,15 +71,20 @@ def test_long_memory_recall_caller_cannot_override_trusted_scope():
         return []
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.core.memory.long_vector_memory.get_text_embedding",
-            new=AsyncMock(return_value=[0.1]),
-        ), patch(
-            "ecom_agent_matrix.core.memory.long_vector_memory.AsyncPGClient.execute_read",
-            new=execute,
+        with (
+            patch(
+                "ecom_agent_matrix.core.memory.long_vector_memory.get_text_embedding",
+                new=AsyncMock(return_value=[0.1]),
+            ),
+            patch(
+                "ecom_agent_matrix.core.memory.long_vector_memory.AsyncPGClient.execute_read",
+                new=execute,
+            ),
         ):
             return await AgentLongVectorMemory().recall(
-                "query", "agent", meta_filter={"tenant_id": "fake", "store_id": "fake"},
+                "query",
+                "agent",
+                meta_filter={"tenant_id": "fake", "store_id": "fake"},
                 context=_security(),
             )
 

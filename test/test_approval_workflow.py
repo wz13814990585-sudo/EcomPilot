@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -25,25 +24,42 @@ APPROVAL_ID = "00000000-0000-0000-0000-000000000001"
 
 def _security(user="operator", role="risk_operator", tenant="tenant-a", store="store-a"):
     return SecurityContext(
-        subject=user, user_id=user, tenant_id=tenant, store_id=store,
-        roles=frozenset({role}), scopes=frozenset(), auth_type="jwt", authenticated=True,
+        subject=user,
+        user_id=user,
+        tenant_id=tenant,
+        store_id=store,
+        roles=frozenset({role}),
+        scopes=frozenset(),
+        auth_type="jwt",
+        authenticated=True,
     )
 
 
 def _context():
     return SkillExecutionContext(
-        agent_id="biz_exec", task_id="task-1", tenant_id="tenant-a", store_id="store-a",
-        user_id="operator", roles=frozenset({"risk_operator"}), identity_trusted=True,
+        agent_id="biz_exec",
+        task_id="task-1",
+        tenant_id="tenant-a",
+        store_id="store-a",
+        user_id="operator",
+        roles=frozenset({"risk_operator"}),
+        identity_trusted=True,
     )
 
 
 def _request(**updates):
     now = datetime.now(timezone.utc)
     values = {
-        "approval_id": APPROVAL_ID, "task_id": "task-1", "tenant_id": "tenant-a",
-        "store_id": "store-a", "requester_user_id": "operator",
-        "skill_name": "record_order_risk", "params_hash": "a" * 64,
-        "status": "pending", "requested_at": now, "expires_at": now + timedelta(minutes=5),
+        "approval_id": APPROVAL_ID,
+        "task_id": "task-1",
+        "tenant_id": "tenant-a",
+        "store_id": "store-a",
+        "requester_user_id": "operator",
+        "skill_name": "record_order_risk",
+        "params_hash": "a" * 64,
+        "status": "pending",
+        "requested_at": now,
+        "expires_at": now + timedelta(minutes=5),
     }
     values.update(updates)
     return ApprovalRequest(**values)
@@ -51,10 +67,15 @@ def _request(**updates):
 
 def _grant(**updates):
     values = {
-        "approval_id": APPROVAL_ID, "task_id": "task-1", "tenant_id": "tenant-a",
-        "store_id": "store-a", "requester_user_id": "operator",
-        "approver_user_id": "approver", "skill_name": "record_order_risk",
-        "params_hash": "a" * 64, "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "approval_id": APPROVAL_ID,
+        "task_id": "task-1",
+        "tenant_id": "tenant-a",
+        "store_id": "store-a",
+        "requester_user_id": "operator",
+        "approver_user_id": "approver",
+        "skill_name": "record_order_risk",
+        "params_hash": "a" * 64,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5),
     }
     values.update(updates)
     return ApprovalGrant(**values)
@@ -68,13 +89,15 @@ def test_pending_approval_persists_hash_but_not_raw_params():
         return []
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.core.security.approval.AsyncPGClient.execute_write", new=write
-        ), patch(
-            "ecom_agent_matrix.core.security.approval.record_audit_event", new=AsyncMock()
+        with (
+            patch(
+                "ecom_agent_matrix.core.security.approval.AsyncPGClient.execute_write", new=write
+            ),
+            patch("ecom_agent_matrix.core.security.approval.record_audit_event", new=AsyncMock()),
         ):
             return await ApprovalService().create_pending(
-                context=_context(), skill_name="record_order_risk",
+                context=_context(),
+                skill_name="record_order_risk",
                 params_hash=approval_params_hash("record_order_risk", {"order_no": "SECRET-ORDER"}),
             )
 
@@ -121,12 +144,16 @@ def test_self_approval_rejected_but_admin_override_is_audited():
     pending = _request()
 
     async def scenario():
-        with patch.object(service, "get_request", new=AsyncMock(return_value=pending)), patch(
-            "ecom_agent_matrix.core.security.approval.AsyncPGClient.execute_write",
-            new=AsyncMock(return_value=[[APPROVAL_ID]]),
-        ), patch(
-            "ecom_agent_matrix.core.security.approval.record_audit_event", new=AsyncMock()
-        ) as audit:
+        with (
+            patch.object(service, "get_request", new=AsyncMock(return_value=pending)),
+            patch(
+                "ecom_agent_matrix.core.security.approval.AsyncPGClient.execute_write",
+                new=AsyncMock(return_value=[[APPROVAL_ID]]),
+            ),
+            patch(
+                "ecom_agent_matrix.core.security.approval.record_audit_event", new=AsyncMock()
+            ) as audit,
+        ):
             with pytest.raises(PermissionError, match="SELF_APPROVAL_DENIED"):
                 await service.approve(APPROVAL_ID, _security())
             grant = await service.approve(APPROVAL_ID, _security("operator", "admin"))
@@ -135,8 +162,7 @@ def test_self_approval_rejected_but_admin_override_is_audited():
     grant, audit = asyncio.run(scenario())
     assert grant.approver_user_id == "operator"
     assert any(
-        call.args[0] == "APPROVAL_APPROVED"
-        and call.kwargs["reason_code"] == "ADMIN_SELF_APPROVAL"
+        call.args[0] == "APPROVAL_APPROVED" and call.kwargs["reason_code"] == "ADMIN_SELF_APPROVAL"
         for call in audit.await_args_list
     )
 
@@ -161,10 +187,11 @@ def test_one_time_consume_is_atomic_and_concurrent_replay_fails():
             return str(exc)
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.core.security.approval.AsyncPGClient.execute_write", new=write
-        ), patch(
-            "ecom_agent_matrix.core.security.approval.record_audit_event", new=AsyncMock()
+        with (
+            patch(
+                "ecom_agent_matrix.core.security.approval.AsyncPGClient.execute_write", new=write
+            ),
+            patch("ecom_agent_matrix.core.security.approval.record_audit_event", new=AsyncMock()),
         ):
             return await asyncio.gather(consume_once(), consume_once())
 
@@ -174,13 +201,20 @@ def test_one_time_consume_is_atomic_and_concurrent_replay_fails():
 @pytest.mark.parametrize(
     "grant,skill_name,params_hash,code",
     [
-        (_grant(expires_at=datetime.now(timezone.utc) - timedelta(seconds=1)), "record_order_risk", "a" * 64, APPROVAL_EXPIRED),
+        (
+            _grant(expires_at=datetime.now(timezone.utc) - timedelta(seconds=1)),
+            "record_order_risk",
+            "a" * 64,
+            APPROVAL_EXPIRED,
+        ),
         (_grant(), "other_skill", "a" * 64, APPROVAL_INVALID),
         (_grant(), "record_order_risk", "b" * 64, APPROVAL_INVALID),
         (_grant(tenant_id="tenant-b"), "record_order_risk", "a" * 64, APPROVAL_INVALID),
     ],
 )
-def test_expired_wrong_skill_params_or_tenant_is_rejected_before_db(grant, skill_name, params_hash, code):
+def test_expired_wrong_skill_params_or_tenant_is_rejected_before_db(
+    grant, skill_name, params_hash, code
+):
     write = AsyncMock()
 
     async def scenario():
@@ -194,4 +228,3 @@ def test_expired_wrong_skill_params_or_tenant_is_rejected_before_db(grant, skill
     with pytest.raises(PermissionError, match=code):
         asyncio.run(scenario())
     write.assert_not_awaited()
-

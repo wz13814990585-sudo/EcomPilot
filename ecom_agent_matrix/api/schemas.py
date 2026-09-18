@@ -1,4 +1,5 @@
 """请求/响应模型（含 OpenAPI 示例）。"""
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -7,8 +8,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 RESERVED_SECURITY_FIELDS = frozenset(
     {
-        "tenant_id", "user_id", "store_id", "roles", "role", "scopes", "scope",
-        "subject", "_security", "security_context", "auth_context",
+        "tenant_id",
+        "user_id",
+        "store_id",
+        "roles",
+        "role",
+        "scopes",
+        "scope",
+        "subject",
+        "_security",
+        "security_context",
+        "auth_context",
     }
 )
 
@@ -26,7 +36,7 @@ class TaskCreateRequest(BaseModel):
                     "payload": {"sku": "SKU-BAG-001", "predict_days": 14},
                 },
             ]
-        }
+        },
     )
 
     query: str = Field(..., min_length=1, description="自然语言任务（只填这一项即可）")
@@ -39,7 +49,10 @@ class TaskCreateRequest(BaseModel):
         ),
     )
     priority: Optional[int] = Field(
-        default=None, ge=0, le=4, description="可选；0最高，4最低。Swagger 请留空不要填 0 以外的空串"
+        default=None,
+        ge=0,
+        le=4,
+        description="可选；0最高，4最低。Swagger 请留空不要填 0 以外的空串",
     )
     payload: dict[str, Any] = Field(
         default_factory=dict,

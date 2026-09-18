@@ -1,4 +1,5 @@
 """预警中心接口（竞品价监控）。"""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,7 +16,9 @@ from ecom_agent_matrix.platform.resilience.rate_limit import enforce_business_ra
 router = APIRouter(prefix="/api/v1/warn", tags=["warn"])
 
 
-@router.post("/competitor", response_model=ApiResult, dependencies=[Depends(enforce_business_rate_limit)])
+@router.post(
+    "/competitor", response_model=ApiResult, dependencies=[Depends(enforce_business_rate_limit)]
+)
 async def competitor_warn(
     body: CompetitorWarnRequest,
     security: SecurityContext = Depends(get_current_security_context),
@@ -24,7 +27,9 @@ async def competitor_warn(
     try:
         authorize_task(security, "competitor_watch")
     except AuthorizationError:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="PERMISSION_DENIED") from None
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="PERMISSION_DENIED"
+        ) from None
     query = (body.query or "").strip()
     if not query and not (body.sku and body.competitor):
         raise HTTPException(

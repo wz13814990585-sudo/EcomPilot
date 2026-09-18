@@ -1,4 +1,5 @@
 """Redis 缓存/队列客户端。"""
+
 import redis.asyncio as redis
 
 from ecom_agent_matrix.config.settings import settings

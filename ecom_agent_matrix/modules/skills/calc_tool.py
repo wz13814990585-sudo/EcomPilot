@@ -1,4 +1,5 @@
 """利润/库存测算工具。"""
+
 # modules/skills/calc_tool.py
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -57,8 +58,8 @@ class ProfitCalcTool(BaseSkill):
                     "unit_total_cost": round(total_cost, 2),
                     "gross_profit": round(gross_profit, 2),
                     "profit_ratio": round(profit_ratio, 3),
-                    "break_even_price": round(break_even_price, 2)
-                }
+                    "break_even_price": round(break_even_price, 2),
+                },
             )
         except KeyError as e:
             return SkillResult(success=False, error_msg=f"缺失必填参数：{str(e)}")

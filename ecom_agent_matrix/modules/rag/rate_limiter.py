@@ -1,4 +1,5 @@
 """RAG 检索限流：控制并发，保护向量库与 rerank 模型。"""
+
 import asyncio
 
 from ecom_agent_matrix.config.settings import settings

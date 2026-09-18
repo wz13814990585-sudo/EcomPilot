@@ -1,4 +1,5 @@
 """Batch CrossEncoder reranking with deterministic keyword fallback。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -39,10 +40,7 @@ async def rerank_documents_detailed(
     mode = "cross_encoder"
     try:
         model = _get_cross_encoder()
-        pairs = [
-            (query, str(candidate.get("chunk_text") or ""))
-            for candidate in candidates
-        ]
+        pairs = [(query, str(candidate.get("chunk_text") or "")) for candidate in candidates]
         raw_scores = await asyncio.wait_for(
             asyncio.to_thread(
                 model.predict,
@@ -73,9 +71,7 @@ async def rerank_documents_detailed(
             {
                 **dict(candidate),
                 "keyword_score": round(keyword_score, 6),
-                "semantic_score": (
-                    None if semantic_score is None else round(semantic_score, 6)
-                ),
+                "semantic_score": (None if semantic_score is None else round(semantic_score, 6)),
                 "relevance_score": round(relevance, 6),
                 "threshold": cut,
                 "rerank_mode": mode,

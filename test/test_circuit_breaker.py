@@ -5,7 +5,9 @@ import asyncio
 import pytest
 
 from ecom_agent_matrix.platform.resilience.circuit_breaker import (
-    CircuitBreaker, CircuitOpenError, CircuitState,
+    CircuitBreaker,
+    CircuitOpenError,
+    CircuitState,
 )
 
 
@@ -19,12 +21,16 @@ def test_circuit_closed_failures_open_fast_fail_and_successful_probe_closes():
 
         for _ in range(2):
             with pytest.raises(TimeoutError):
-                await breaker.call(transient, is_transient=lambda exc: isinstance(exc, TimeoutError))
+                await breaker.call(
+                    transient, is_transient=lambda exc: isinstance(exc, TimeoutError)
+                )
         assert breaker.state == CircuitState.OPEN
         with pytest.raises(CircuitOpenError):
             await breaker.call(lambda: asyncio.sleep(0), is_transient=lambda _exc: True)
         await asyncio.sleep(0.02)
-        result = await breaker.call(lambda: asyncio.sleep(0, result="ok"), is_transient=lambda _exc: True)
+        result = await breaker.call(
+            lambda: asyncio.sleep(0, result="ok"), is_transient=lambda _exc: True
+        )
         return breaker, result
 
     breaker, result = asyncio.run(scenario())
@@ -34,8 +40,10 @@ def test_circuit_closed_failures_open_fast_fail_and_successful_probe_closes():
 def test_non_transient_validation_failure_does_not_open_circuit():
     async def scenario():
         breaker = CircuitBreaker("validation", failure_threshold=1)
+
         async def invalid():
             raise ValueError("invalid")
+
         with pytest.raises(ValueError):
             await breaker.call(invalid, is_transient=lambda exc: isinstance(exc, TimeoutError))
         return breaker

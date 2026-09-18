@@ -1,4 +1,5 @@
 """社媒领域 TaskContext → SocialRequest 解析。"""
+
 from __future__ import annotations
 
 import re
@@ -7,9 +8,8 @@ from pydantic import BaseModel, ConfigDict
 
 from ecom_agent_matrix.config.constants import LANG_LIST
 from ecom_agent_matrix.core.tasking import TaskContext
-SUPPORTED_PLATFORMS = frozenset(
-    {"tiktok", "instagram", "facebook", "twitter", "youtube"}
-)
+
+SUPPORTED_PLATFORMS = frozenset({"tiktok", "instagram", "facebook", "twitter", "youtube"})
 
 _PLATFORM_ALIASES = {
     "tiktok": "tiktok",

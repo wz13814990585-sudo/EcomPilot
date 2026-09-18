@@ -1,4 +1,5 @@
 """进程内 / Redis 分布式限流（Semaphore 语义）。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -71,7 +72,11 @@ async def acquire_slot(
     except Exception as exc:
         logger.warning(
             "redis_rate_limit_fallback",
-            extra={"event": "redis_rate_limit_fallback", "agent": name, "error_type": type(exc).__name__},
+            extra={
+                "event": "redis_rate_limit_fallback",
+                "agent": name,
+                "error_type": type(exc).__name__,
+            },
         )
         async with _process_semaphore(name, limit):
             yield "process_fallback"

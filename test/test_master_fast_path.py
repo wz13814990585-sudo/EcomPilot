@@ -1,4 +1,5 @@
 """Phase 3A：Master deterministic Fast Path 与 ReAct 完成语义。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,23 +10,22 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.core.mcp.reply import build_reply
-from ecom_agent_matrix.core.mcp.task_waiter import TaskReplyWaiter
-from ecom_agent_matrix.modules.agent_cluster import master_agent as master_module
-from ecom_agent_matrix.modules.agent_cluster.master_agent import (
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.runtime.messaging.reply import build_reply
+from ecom_agent_matrix.runtime.messaging.replies import resolve_task_reply
+from ecom_agent_matrix.orchestration.master import orchestrator as master_module
+from ecom_agent_matrix.orchestration.master.orchestrator import (
     execute_fast_path,
     process_master_task,
 )
-from ecom_agent_matrix.modules.agent_cluster.master.schemas import (
+from ecom_agent_matrix.orchestration.master.schemas import (
     MasterPlan,
     PlanExecutionResult,
     PlanStep,
     RecoveryDecision,
     StepResult,
 )
-from ecom_agent_matrix.modules.agent_cluster.master_planner import PlanResult, ReactDecision
-from ecom_agent_matrix.modules.agent_cluster.master_router import (
+from ecom_agent_matrix.orchestration.master.router import (
     MasterRouteDecision,
     route_master_task,
 )
@@ -72,7 +72,7 @@ def test_high_confidence_rule_uses_fast_path(query, task_type, agent, reason_cod
 def test_multi_domain_request_never_uses_fast_path():
     query = "根据订单状态和退款规则帮我回复客户"
     with patch(
-        "ecom_agent_matrix.modules.agent_cluster.master_router.is_llm_configured",
+        "ecom_agent_matrix.orchestration.master.router.is_llm_configured",
         return_value=True,
     ):
         route = route_master_task({"query": query})
@@ -83,12 +83,12 @@ def test_multi_domain_request_never_uses_fast_path():
 
 def test_unknown_route_depends_on_llm_availability():
     with patch(
-        "ecom_agent_matrix.modules.agent_cluster.master_router.is_llm_configured",
+        "ecom_agent_matrix.orchestration.master.router.is_llm_configured",
         return_value=True,
     ):
         assert route_master_task({"query": "帮我分析一下这个问题"}).mode == "planner"
     with patch(
-        "ecom_agent_matrix.modules.agent_cluster.master_router.is_llm_configured",
+        "ecom_agent_matrix.orchestration.master.router.is_llm_configured",
         return_value=False,
     ):
         route = route_master_task({"query": "帮我分析一下这个问题"})
@@ -97,7 +97,7 @@ def test_unknown_route_depends_on_llm_availability():
 
 def test_fast_path_skips_planner_react_and_master_memory():
     async def scenario():
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-fast",
             correlation_id="gateway-correlation",
             sender="api_gateway",
@@ -112,17 +112,15 @@ def test_fast_path_skips_planner_react_and_master_memory():
             "error_msg": "",
             "timed_out": False,
         }
-        with patch.object(
-            master_module.typed_master_planner, "plan", new=AsyncMock()
-        ) as planner, patch.object(
-            master_module.recovery_controller, "run", new=AsyncMock()
-        ) as react, patch.object(
-            master_module, "_react_call_one", new=AsyncMock(return_value=observation)
-        ), patch.object(
-            master_module, "polish_final_output", new=AsyncMock()
-        ) as polish, patch.object(
-            master_module.mcp_bus, "send_msg", new=AsyncMock(return_value=True)
-        ) as send:
+        with (
+            patch.object(master_module.typed_master_planner, "plan", new=AsyncMock()) as planner,
+            patch.object(master_module.recovery_controller, "run", new=AsyncMock()) as react,
+            patch.object(master_module, "_react_call_one", new=AsyncMock(return_value=observation)),
+            patch.object(master_module, "polish_final_output", new=AsyncMock()) as polish,
+            patch.object(
+                master_module.message_bus, "send", new=AsyncMock(return_value=True)
+            ) as send,
+        ):
             await process_master_task(request, memory)
         return planner, react, polish, send, memory
 
@@ -143,14 +141,14 @@ def test_fast_path_uses_fresh_correlation_and_preserves_root_task_id():
 
         async def dispatch(task_id, correlation_id, target_agent, payload, priority):
             seen.append((task_id, correlation_id))
-            child_request = MCPMessage(
+            child_request = AgentMessage(
                 task_id=task_id,
                 correlation_id=correlation_id,
                 sender=AGENT_MASTER,
                 target=target_agent,
                 content=payload,
             )
-            TaskReplyWaiter.submit_reply(
+            resolve_task_reply(
                 build_reply(child_request, target_agent, success=True, data={"answer": "ok"})
             )
 
@@ -163,7 +161,7 @@ def test_fast_path_uses_fresh_correlation_and_preserves_root_task_id():
         )
         with patch.object(master_module, "_dispatch_subtask", new=AsyncMock(side_effect=dispatch)):
             first = await execute_fast_path(
-                MCPMessage(
+                AgentMessage(
                     task_id="same-root",
                     correlation_id="gateway-1",
                     sender="api_gateway",
@@ -173,7 +171,7 @@ def test_fast_path_uses_fresh_correlation_and_preserves_root_task_id():
                 route,
             )
             second = await execute_fast_path(
-                MCPMessage(
+                AgentMessage(
                     task_id="same-root",
                     correlation_id="gateway-2",
                     sender="api_gateway",
@@ -207,21 +205,24 @@ def test_fast_path_reuses_child_text_without_polish(agent, data, expected):
             confidence=1,
             reason_code="TEST",
         )
-        with patch.object(
-            master_module,
-            "_react_call_one",
-            new=AsyncMock(
-                return_value={
-                    "agent": agent,
-                    "success": True,
-                    "data": data,
-                    "error_msg": "",
-                    "timed_out": False,
-                }
+        with (
+            patch.object(
+                master_module,
+                "_react_call_one",
+                new=AsyncMock(
+                    return_value={
+                        "agent": agent,
+                        "success": True,
+                        "data": data,
+                        "error_msg": "",
+                        "timed_out": False,
+                    }
+                ),
             ),
-        ), patch.object(master_module, "polish_final_output", new=AsyncMock()) as polish:
+            patch.object(master_module, "polish_final_output", new=AsyncMock()) as polish,
+        ):
             result = await execute_fast_path(
-                MCPMessage(
+                AgentMessage(
                     task_id="root",
                     sender="api_gateway",
                     target=AGENT_MASTER,
@@ -239,15 +240,13 @@ def test_fast_path_reuses_child_text_without_polish(agent, data, expected):
 
 def test_typed_planner_clarify_with_zero_steps_is_success():
     async def scenario():
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-zero",
             sender="api_gateway",
             target=AGENT_MASTER,
             content={"query": "complex ambiguous request"},
         )
-        route = MasterRouteDecision(
-            mode="planner", confidence=0.4, reason_code="AMBIGUOUS"
-        )
+        route = MasterRouteDecision(mode="planner", confidence=0.4, reason_code="AMBIGUOUS")
         plan = MasterPlan(
             decision="clarify",
             steps=[],
@@ -258,9 +257,15 @@ def test_typed_planner_clarify_with_zero_steps_is_success():
         )
         memory = AsyncMock()
         memory.recall.return_value = []
-        with patch.object(master_module, "route_master_task", return_value=route), patch.object(
-            master_module.typed_master_planner, "plan", new=AsyncMock(return_value=plan)
-        ), patch.object(master_module.mcp_bus, "send_msg", new=AsyncMock(return_value=True)) as send:
+        with (
+            patch.object(master_module, "route_master_task", return_value=route),
+            patch.object(
+                master_module.typed_master_planner, "plan", new=AsyncMock(return_value=plan)
+            ),
+            patch.object(
+                master_module.message_bus, "send", new=AsyncMock(return_value=True)
+            ) as send,
+        ):
             await process_master_task(request, memory)
         return send.await_args_list[0].args[0].content["data"]
 
@@ -273,15 +278,13 @@ def test_typed_planner_clarify_with_zero_steps_is_success():
 
 def test_plan_step_real_timeout_remains_timeout():
     async def scenario():
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-timeout",
             sender="api_gateway",
             target=AGENT_MASTER,
             content={"query": "complex ambiguous request"},
         )
-        route = MasterRouteDecision(
-            mode="planner", confidence=0.4, reason_code="AMBIGUOUS"
-        )
+        route = MasterRouteDecision(mode="planner", confidence=0.4, reason_code="AMBIGUOUS")
         plan = MasterPlan(
             decision="execute",
             confidence=0.9,
@@ -301,19 +304,29 @@ def test_plan_step_real_timeout_remains_timeout():
                     agent=AGENT_QUERY,
                     task_type="order_query",
                     status="FAILED",
-                    error_code="TIMEOUT",
+                    error_code="AGENT_TIMEOUT",
                 )
             },
         )
-        with patch.object(master_module, "route_master_task", return_value=route), patch.object(
-            master_module.typed_master_planner, "plan", new=AsyncMock(return_value=plan)
-        ), patch.object(
-            master_module.MasterPlanExecutor, "execute", new=AsyncMock(return_value=execution)
-        ), patch.object(
-            master_module.recovery_controller,
-            "run",
-            new=AsyncMock(return_value=RecoveryDecision(action="finish", reason_code="TIMEOUT")),
-        ), patch.object(master_module.mcp_bus, "send_msg", new=AsyncMock(return_value=True)) as send:
+        with (
+            patch.object(master_module, "route_master_task", return_value=route),
+            patch.object(
+                master_module.typed_master_planner, "plan", new=AsyncMock(return_value=plan)
+            ),
+            patch.object(
+                master_module.MasterPlanExecutor, "execute", new=AsyncMock(return_value=execution)
+            ),
+            patch.object(
+                master_module.recovery_controller,
+                "run",
+                new=AsyncMock(
+                    return_value=RecoveryDecision(action="finish", reason_code="AGENT_TIMEOUT")
+                ),
+            ),
+            patch.object(
+                master_module.message_bus, "send", new=AsyncMock(return_value=True)
+            ) as send,
+        ):
             await process_master_task(request, memory)
         return send.await_args_list[0].args[0].content["data"]
 
@@ -333,7 +346,7 @@ def test_master_has_no_direct_skill_dependency_or_runtime():
 
 def test_complex_master_memory_is_compact_and_excludes_raw_payloads():
     async def scenario():
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-memory",
             sender="api_gateway",
             target=AGENT_MASTER,
@@ -343,9 +356,7 @@ def test_complex_master_memory_is_compact_and_excludes_raw_payloads():
                 "history": ["large raw history"],
             },
         )
-        route = MasterRouteDecision(
-            mode="planner", confidence=0.4, reason_code="AMBIGUOUS"
-        )
+        route = MasterRouteDecision(mode="planner", confidence=0.4, reason_code="AMBIGUOUS")
         plan = MasterPlan(
             decision="execute",
             confidence=0.95,
@@ -370,11 +381,16 @@ def test_complex_master_memory_is_compact_and_excludes_raw_payloads():
                 )
             },
         )
-        with patch.object(master_module, "route_master_task", return_value=route), patch.object(
-            master_module.typed_master_planner, "plan", new=AsyncMock(return_value=plan)
-        ), patch.object(
-            master_module.MasterPlanExecutor, "execute", new=AsyncMock(return_value=execution)
-        ), patch.object(master_module.mcp_bus, "send_msg", new=AsyncMock(return_value=True)):
+        with (
+            patch.object(master_module, "route_master_task", return_value=route),
+            patch.object(
+                master_module.typed_master_planner, "plan", new=AsyncMock(return_value=plan)
+            ),
+            patch.object(
+                master_module.MasterPlanExecutor, "execute", new=AsyncMock(return_value=execution)
+            ),
+            patch.object(master_module.message_bus, "send", new=AsyncMock(return_value=True)),
+        ):
             await process_master_task(request, memory)
         return memory.safe_save_memory.await_args.kwargs
 

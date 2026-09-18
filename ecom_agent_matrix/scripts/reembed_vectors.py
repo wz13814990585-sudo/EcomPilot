@@ -9,6 +9,7 @@
   python -m ecom_agent_matrix.scripts.reembed_vectors --only goods
   python -m ecom_agent_matrix.scripts.reembed_vectors --only memory
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,7 +19,7 @@ import json
 from ecom_agent_matrix.config.constants import TABLE_GOODS, TABLE_VECTOR_GOODS
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.modules.rag.embedding import (
+from ecom_agent_matrix.infrastructure.embedding.provider import (
     get_text_embeddings_batch,
     resolve_embed_model_name,
 )
@@ -69,11 +70,16 @@ async def sync_and_reembed_goods(batch_size: int) -> int:
     )
     goods = [
         {
-            "tenant_id": r[0], "store_id": r[1], "sku": r[2],
+            "tenant_id": r[0],
+            "store_id": r[1],
+            "sku": r[2],
             "category": r[3],
             "price": float(r[4]) if r[4] is not None else None,
-            "title_en": r[5], "title_zh": r[6], "title_es": r[7],
-            "title_fr": r[8], "desc_multi": r[9],
+            "title_en": r[5],
+            "title_zh": r[6],
+            "title_es": r[7],
+            "title_fr": r[8],
+            "desc_multi": r[9],
         }
         for r in goods_rows
     ]
@@ -114,15 +120,21 @@ async def sync_and_reembed_goods(batch_size: int) -> int:
             (tenant_id, store_id, goods_sku, lang, chunk_text, embedding, meta_json)
             VALUES (%s, %s, %s, %s, %s, %s::vector, %s::jsonb)
             """,
-            [tenant_id, store_id, sku, lang, chunk, _vec_literal(vec), json.dumps(meta, ensure_ascii=False)],
+            [
+                tenant_id,
+                store_id,
+                sku,
+                lang,
+                chunk,
+                _vec_literal(vec),
+                json.dumps(meta, ensure_ascii=False),
+            ],
         )
     return len(payloads)
 
 
 async def reembed_memory(batch_size: int) -> int:
-    rows = await AsyncPGClient.execute_sql(
-        "SELECT id, content FROM agent_long_memory ORDER BY id"
-    )
+    rows = await AsyncPGClient.execute_sql("SELECT id, content FROM agent_long_memory ORDER BY id")
     if not rows:
         print("⚠️  agent_long_memory 为空，跳过")
         return 0
@@ -149,7 +161,7 @@ async def smoke_vector_search() -> None:
         print("抽检跳过：无向量数据")
         return
     query = sample[0][0]
-    from ecom_agent_matrix.modules.rag.embedding import get_text_embedding
+    from ecom_agent_matrix.infrastructure.embedding.provider import get_text_embedding
 
     qvec = await get_text_embedding(query)
     rows = await AsyncPGClient.execute_sql(

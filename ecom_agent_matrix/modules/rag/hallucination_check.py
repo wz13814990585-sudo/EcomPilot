@@ -1,4 +1,5 @@
 """幻觉抑制：同义词扩展 + 停用词 + Cross-Encoder 语义分 + 动态阈值。"""
+
 from __future__ import annotations
 
 import math

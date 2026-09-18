@@ -1,4 +1,5 @@
 """结构化日志配置。"""
+
 import json
 import logging
 import traceback

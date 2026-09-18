@@ -5,6 +5,7 @@
   python -m ecom_agent_matrix.scripts.seed_demo_data
   python -m ecom_agent_matrix.scripts.seed_demo_data --target 100
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,8 +60,16 @@ PRODUCT_STEMS = [
 ]
 
 COMPETITORS = [
-    "Amazon", "Temu", "AliExpress", "Shein", "Walmart",
-    "eBay", "Shopee", "Lazada", "Decathlon", "REI",
+    "Amazon",
+    "Temu",
+    "AliExpress",
+    "Shein",
+    "Walmart",
+    "eBay",
+    "Shopee",
+    "Lazada",
+    "Decathlon",
+    "REI",
 ]
 
 # 外部站模拟店铺（与本店 demo_store 区分）
@@ -91,7 +100,10 @@ RISK_TYPES = [
 TASK_TYPES = ["goods_text", "chat", "social", "tool_call"]
 LANGS = ["en", "zh", "es", "fr"]
 AGENTS = [
-    AGENT_MASTER, AGENT_QUERY, AGENT_EXEC, AGENT_RAG,
+    AGENT_MASTER,
+    AGENT_QUERY,
+    AGENT_EXEC,
+    AGENT_RAG,
 ]
 
 
@@ -131,8 +143,7 @@ async def _ensure_vector_tables() -> None:
     # 简单按分号拆分执行（跳过空/注释）
     for part in text.split(";"):
         stmt = "\n".join(
-            ln for ln in part.splitlines()
-            if ln.strip() and not ln.strip().startswith("--")
+            ln for ln in part.splitlines() if ln.strip() and not ln.strip().startswith("--")
         ).strip()
         if not stmt:
             continue
@@ -227,8 +238,18 @@ async def seed_goods(target: int) -> int:
             ON CONFLICT (sku) DO NOTHING
             """,
             [
-                sku, cat_key, price, stock, title_en, title_zh, title_es, title_fr, desc,
-                store_id, store_name, True,
+                sku,
+                cat_key,
+                price,
+                stock,
+                title_en,
+                title_zh,
+                title_es,
+                title_fr,
+                desc,
+                store_id,
+                store_name,
+                True,
             ],
         )
     return need
@@ -268,8 +289,18 @@ async def seed_external_goods(target: int) -> int:
             ON CONFLICT (sku) DO NOTHING
             """,
             [
-                sku, cat_key, price, stock, title_en, title_zh, title_es, title_fr, desc,
-                store_id, store_name, True,
+                sku,
+                cat_key,
+                price,
+                stock,
+                title_en,
+                title_zh,
+                title_es,
+                title_fr,
+                desc,
+                store_id,
+                store_name,
+                True,
             ],
         )
     return need
@@ -289,7 +320,7 @@ async def seed_orders(target: int) -> int:
         unit = 19.9 + (idx % 30) * 2.5
         total = round(unit * buy_num, 2)
         order_no = f"ORD-SEED-{idx:04d}"
-        refund = (idx % 11 == 0)
+        refund = idx % 11 == 0
         created = base + timedelta(hours=idx * 3)
         await AsyncPGClient.execute_sql(
             f"""
@@ -377,8 +408,8 @@ async def seed_finetune(target: int) -> int:
     return need
 
 
-async def seed_mcp(target: int) -> int:
-    n = await _count("mcp_message_log")
+async def seed_agent_messages(target: int) -> int:
+    n = await _count("agent_message_log")
     need = max(0, target - n)
     for i in range(need):
         idx = n + i + 1
@@ -386,7 +417,7 @@ async def seed_mcp(target: int) -> int:
         target_agent = AGENTS[(idx + 3) % len(AGENTS)]
         if target_agent == sender:
             target_agent = AGENTS[(idx + 1) % len(AGENTS)]
-        task_id = f"seed-mcp-{idx:04d}-{uuid.uuid4().hex[:8]}"
+        task_id = f"seed-agent-message-{idx:04d}-{uuid.uuid4().hex[:8]}"
         content = {
             "query": f"seed task #{idx}",
             "sku": f"SKU-BAG-{(idx % 20) + 1:03d}",
@@ -394,7 +425,7 @@ async def seed_mcp(target: int) -> int:
         }
         await AsyncPGClient.execute_sql(
             """
-            INSERT INTO mcp_message_log
+            INSERT INTO agent_message_log
             (task_id, sender_agent, target_agent, priority, msg_content)
             VALUES (%s, %s, %s, %s, %s::jsonb)
             """,
@@ -436,10 +467,7 @@ async def seed_long_memory(target: int) -> int:
     for i in range(need):
         idx = n + i + 1
         agent = AGENTS[idx % len(AGENTS)]
-        content = (
-            f"记忆样本 #{idx} agent={agent}: "
-            f"历史任务处理摘要，SKU 偏好与阈值记录。"
-        )
+        content = f"记忆样本 #{idx} agent={agent}: 历史任务处理摘要，SKU 偏好与阈值记录。"
         meta = {
             "seed": True,
             "confidence": round(0.6 + (idx % 40) / 100, 2),
@@ -485,7 +513,7 @@ async def main() -> None:
         TABLE_COMPETITOR: await seed_competitor(target),
         TABLE_RISK_LOG: await seed_risk(target),
         TABLE_FINETUNE_DATA: await seed_finetune(target),
-        "mcp_message_log": await seed_mcp(target),
+        "agent_message_log": await seed_agent_messages(target),
         TABLE_VECTOR_GOODS: await seed_vector_goods(target),
         "agent_long_memory": await seed_long_memory(target),
     }
@@ -504,7 +532,7 @@ async def main() -> None:
         TABLE_COMPETITOR,
         TABLE_RISK_LOG,
         TABLE_FINETUNE_DATA,
-        "mcp_message_log",
+        "agent_message_log",
         TABLE_VECTOR_GOODS,
         "agent_long_memory",
     ):

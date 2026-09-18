@@ -1,4 +1,5 @@
 """Parser 与 SQL Skill 共享的只读 SQL 白名单策略。"""
+
 from __future__ import annotations
 
 import re

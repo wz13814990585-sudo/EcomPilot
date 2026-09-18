@@ -1,4 +1,5 @@
 """Phase 2C-1 Social parser / workflow 测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,8 +16,8 @@ from ecom_agent_matrix.core.tasking.result import (
     UNSUPPORTED_PLATFORM,
     WORKFLOW_TIMEOUT,
 )
-from ecom_agent_matrix.modules.agent_cluster.handlers import social as social_handler
-from ecom_agent_matrix.modules.agent_cluster.handlers.social import (
+from ecom_agent_matrix.workflows.social import workflow as social_handler
+from ecom_agent_matrix.workflows.social.workflow import (
     handle_social,
     run_social_workflow,
 )
@@ -40,12 +41,8 @@ def test_social_explicit_platform_wins_over_query():
 
 
 def test_social_tiktok_and_instagram_aliases_are_normalized():
-    tiktok = parse_social_request(
-        normalize_task_context({"query": "为「背包」生成抖音文案"})
-    )
-    instagram = parse_social_request(
-        normalize_task_context({"query": "为「背包」生成 IG 文案"})
-    )
+    tiktok = parse_social_request(normalize_task_context({"query": "为「背包」生成抖音文案"}))
+    instagram = parse_social_request(normalize_task_context({"query": "为「背包」生成 IG 文案"}))
     assert tiktok.platform == "tiktok"
     assert instagram.platform == "instagram"
 
@@ -61,9 +58,7 @@ def test_social_short_platform_aliases_do_not_match_inside_words():
 
 def test_social_unsupported_platform_has_structured_error():
     result = asyncio.run(
-        run_social_workflow(
-            {"product_name": "防水背包", "platform": "xiaohongshu"}
-        )
+        run_social_workflow({"product_name": "防水背包", "platform": "xiaohongshu"})
     )
     assert result.success is False
     assert result.error_code == UNSUPPORTED_PLATFORM
@@ -134,7 +129,7 @@ def test_social_skills_run_concurrently_and_receive_typed_params():
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.social.exec_skill",
+            "ecom_agent_matrix.workflows.social.workflow.exec_skill",
             side_effect=concurrent_skill,
         ):
             return await run_social_workflow(
@@ -168,38 +163,36 @@ def test_social_one_skill_failure_is_partial_success():
         if skill_name == "social_media_gen":
             return SkillResult(
                 success=False,
-                error_code="TIMEOUT",
+                error_code="SKILL_TIMEOUT",
                 error_msg="copy timeout",
             )
         return _success_for(skill_name)
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.social.exec_skill",
+            "ecom_agent_matrix.workflows.social.workflow.exec_skill",
             side_effect=skill_result,
         ):
-            return await run_social_workflow(
-                {"product_name": "防水背包", "platform": "tiktok"}
-            )
+            return await run_social_workflow({"product_name": "防水背包", "platform": "tiktok"})
 
     result = asyncio.run(scenario())
     assert result.success is True
     assert result.partial_success is True
     assert result.error_code == PARTIAL_SUCCESS
-    assert result.metadata["skill_error_codes"]["social_media_gen"] == "TIMEOUT"
+    assert result.metadata["skill_error_codes"]["social_media_gen"] == "SKILL_TIMEOUT"
 
 
 def test_social_two_skill_failures_fail_workflow():
     async def failed(skill_name: str, params: dict):
         return SkillResult(
             success=False,
-            error_code="EXECUTION_ERROR",
+            error_code="SKILL_EXECUTION_ERROR",
             error_msg=f"{skill_name} failed",
         )
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.social.exec_skill",
+            "ecom_agent_matrix.workflows.social.workflow.exec_skill",
             side_effect=failed,
         ):
             return await run_social_workflow({"product_name": "防水背包"})
@@ -220,9 +213,12 @@ def test_social_workflow_deadline_is_structured():
         return _success_for(skill_name)
 
     async def scenario():
-        with patch.object(settings, "SOCIAL_SKILL_TIMEOUT", 0.01), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.social.exec_skill",
-            side_effect=blocked,
+        with (
+            patch.object(settings, "SOCIAL_SKILL_TIMEOUT", 0.01),
+            patch(
+                "ecom_agent_matrix.workflows.social.workflow.exec_skill",
+                side_effect=blocked,
+            ),
         ):
             return await run_social_workflow({"product_name": "防水背包"})
 
@@ -239,7 +235,7 @@ def test_social_legacy_handler_accepts_context_and_returns_tuple():
     async def scenario():
         ctx = normalize_task_context({"product_name": "防水背包"})
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.social.exec_skill",
+            "ecom_agent_matrix.workflows.social.workflow.exec_skill",
             side_effect=successful,
         ):
             return await handle_social(ctx)

@@ -1,4 +1,5 @@
 """LLM HTTP 基础设施：进程内复用 session + 可恢复错误重试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -64,9 +65,12 @@ async def with_retry(
 
     def on_retry(exc: BaseException, attempt: int, delay: float) -> None:
         reason = (
-            "429" if isinstance(exc, LLMRateLimitError)
-            else "timeout" if isinstance(exc, (asyncio.TimeoutError, TimeoutError))
-            else "connection" if isinstance(exc, aiohttp.ClientError)
+            "429"
+            if isinstance(exc, LLMRateLimitError)
+            else "timeout"
+            if isinstance(exc, (asyncio.TimeoutError, TimeoutError))
+            else "connection"
+            if isinstance(exc, aiohttp.ClientError)
             else "5xx"
         )
         metrics.external_retries.labels(f"llm:{component}", reason).inc()

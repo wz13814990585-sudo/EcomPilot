@@ -1,4 +1,5 @@
 """报表领域 TaskContext → ReportRequest 解析。"""
+
 from __future__ import annotations
 
 import re

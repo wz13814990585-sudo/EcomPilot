@@ -1,4 +1,5 @@
 """Low-cardinality observability context; never used for business authorization."""
+
 from __future__ import annotations
 
 import hashlib
@@ -131,8 +132,15 @@ def finish_request_performance(task_id: str) -> None:
 
 
 __all__ = [
-    "RequestPerformanceSummary", "TraceContext", "begin_request_performance",
-    "finish_request_performance", "get_performance_summary",
-    "get_trace_context", "identity_hash", "record_llm_usage", "set_trace_context",
-    "trace_context", "update_trace_context",
+    "RequestPerformanceSummary",
+    "TraceContext",
+    "begin_request_performance",
+    "finish_request_performance",
+    "get_performance_summary",
+    "get_trace_context",
+    "identity_hash",
+    "record_llm_usage",
+    "set_trace_context",
+    "trace_context",
+    "update_trace_context",
 ]

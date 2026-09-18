@@ -1,4 +1,5 @@
 """运营报表聚合 Skill（SQL 统计 + 结构化 LLM 摘要）。"""
+
 from __future__ import annotations
 
 import json
@@ -91,10 +92,7 @@ async def _top_skus(days: int, top_k: int = 5) -> list[dict]:
     LIMIT %s
     """
     rows = await AsyncPGClient.execute_read(sql, [days, top_k])
-    return [
-        {"sku": r[0], "units": int(r[1] or 0), "gmv": round(float(r[2] or 0), 2)}
-        for r in rows
-    ]
+    return [{"sku": r[0], "units": int(r[1] or 0), "gmv": round(float(r[2] or 0), 2)} for r in rows]
 
 
 async def _stock_stats() -> dict:
@@ -152,10 +150,10 @@ def _template_summary(report_type: str, sections: dict) -> str:
         s = sections["sales"]
         lines.append(
             f"近{s['days']}天：订单 {s['order_count']}，销量 {s['units_sold']}，"
-            f"GMV {s['gmv']}，退款率 {s['refund_rate']*100:.1f}%"
+            f"GMV {s['gmv']}，退款率 {s['refund_rate'] * 100:.1f}%"
         )
         if s.get("refund_rate", 0) >= 0.08:
-            anomalies.append(f"退款率偏高 {s['refund_rate']*100:.1f}%")
+            anomalies.append(f"退款率偏高 {s['refund_rate'] * 100:.1f}%")
     if "top_skus" in sections and sections["top_skus"]:
         top = ", ".join(f"{x['sku']}({x['units']})" for x in sections["top_skus"][:3])
         lines.append(f"热销 SKU：{top}")

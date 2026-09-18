@@ -1,4 +1,5 @@
 """广告投放优化 Skill（LLM + 规则兜底）。"""
+
 from __future__ import annotations
 
 import json
@@ -40,6 +41,7 @@ class AdOptimizeOutput(BaseModel):
     suggested: dict[str, float]
     source: str
     llm_error: str
+
 
 AD_SYSTEM_PROMPT = """You are a cross-border ecommerce paid-ads optimizer.
 Given campaign metrics, return ONLY valid JSON (no markdown):
@@ -206,9 +208,7 @@ class AdOptimizeTool(BaseSkill):
                         "budget_adjust_pct": _clamp_pct(
                             parsed.get("budget_adjust_pct"), plan["budget_adjust_pct"]
                         ),
-                        "target_roas": float(
-                            parsed.get("target_roas") or plan["target_roas"]
-                        ),
+                        "target_roas": float(parsed.get("target_roas") or plan["target_roas"]),
                         "priority": str(parsed.get("priority") or plan["priority"]),
                         "reasoning": str(parsed.get("reasoning") or plan["reasoning"]),
                         "checklist": (
@@ -229,9 +229,7 @@ class AdOptimizeTool(BaseSkill):
                     metrics["daily_budget"] * (1 + plan["budget_adjust_pct"] / 100), 2
                 )
             if metrics.get("bid") is not None:
-                suggested["bid"] = round(
-                    metrics["bid"] * (1 + plan["bid_adjust_pct"] / 100), 2
-                )
+                suggested["bid"] = round(metrics["bid"] * (1 + plan["bid_adjust_pct"] / 100), 2)
 
             return SkillResult(
                 success=True,

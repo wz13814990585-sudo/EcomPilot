@@ -1,4 +1,5 @@
 """竞品监控共用解析：店铺名 / 价格（供 Master 与 price_warn_agent）。"""
+
 from __future__ import annotations
 
 import re

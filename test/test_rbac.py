@@ -11,14 +11,20 @@ from ecom_agent_matrix.api.schemas import CompetitorWarnRequest
 from ecom_agent_matrix.core.security import SecurityContext, authorize_task
 from ecom_agent_matrix.core.security.errors import AuthorizationError
 from ecom_agent_matrix.config.constants import AGENT_MASTER
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.modules.agent_cluster.master_agent import process_master_task
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.orchestration.master.orchestrator import process_master_task
 
 
 def _security(role: str) -> SecurityContext:
     return SecurityContext(
-        subject="s", user_id="u", tenant_id="t", store_id="store",
-        roles=frozenset({role}), scopes=frozenset(), auth_type="jwt", authenticated=True,
+        subject="s",
+        user_id="u",
+        tenant_id="t",
+        store_id="store",
+        roles=frozenset({role}),
+        scopes=frozenset(),
+        auth_type="jwt",
+        authenticated=True,
     )
 
 
@@ -37,9 +43,17 @@ def test_role_task_matrix_and_unknown_fail_closed():
     authorize_task(_security("risk_operator"), "risk_control")
     admin = _security("admin")
     for task_type in (
-        "knowledge_qa", "goods_search", "stock_analysis", "competitor_watch",
-        "order_query", "social_marketing", "customer_service", "ad_optimize",
-        "ops_report", "risk_control", "data_check",
+        "knowledge_qa",
+        "goods_search",
+        "stock_analysis",
+        "competitor_watch",
+        "order_query",
+        "social_marketing",
+        "customer_service",
+        "ad_optimize",
+        "ops_report",
+        "risk_control",
+        "data_check",
     ):
         authorize_task(admin, task_type)
     with pytest.raises(AuthorizationError):
@@ -49,9 +63,7 @@ def test_role_task_matrix_and_unknown_fail_closed():
 def test_direct_query_route_cannot_bypass_rbac():
     unauthorized = _security("custom")
     body = CompetitorWarnRequest(sku="SKU-1", competitor="Temu", via_master=False)
-    with patch(
-        "ecom_agent_matrix.api.route_warn.dispatch_and_wait", new=AsyncMock()
-    ) as dispatch:
+    with patch("ecom_agent_matrix.api.route_warn.dispatch_and_wait", new=AsyncMock()) as dispatch:
         with pytest.raises(HTTPException) as exc:
             asyncio.run(competitor_warn(body, security=unauthorized))
     assert exc.value.status_code == 403
@@ -60,9 +72,12 @@ def test_direct_query_route_cannot_bypass_rbac():
 
 def test_master_fast_path_denies_before_agent_dispatch():
     viewer = _security("viewer")
-    request = MCPMessage(
-        task_id="root", sender="api_gateway", target=AGENT_MASTER,
-        content={"task_type": "ad_optimize", "query": "optimize ads"}, security=viewer,
+    request = AgentMessage(
+        task_id="root",
+        sender="api_gateway",
+        target=AGENT_MASTER,
+        content={"task_type": "ad_optimize", "query": "optimize ads"},
+        security=viewer,
     )
     sent = []
 
@@ -70,12 +85,15 @@ def test_master_fast_path_denies_before_agent_dispatch():
         sent.append(message)
         return True
 
-    with patch(
-        "ecom_agent_matrix.modules.agent_cluster.master_agent._react_call_one",
-        new=AsyncMock(),
-    ) as dispatch, patch(
-        "ecom_agent_matrix.modules.agent_cluster.master_agent.mcp_bus.send_msg",
-        new=AsyncMock(side_effect=send),
+    with (
+        patch(
+            "ecom_agent_matrix.orchestration.master.orchestrator._react_call_one",
+            new=AsyncMock(),
+        ) as dispatch,
+        patch(
+            "ecom_agent_matrix.orchestration.master.orchestrator.message_bus.send",
+            new=AsyncMock(side_effect=send),
+        ),
     ):
         asyncio.run(process_master_task(request, AsyncMock()))
     dispatch.assert_not_awaited()

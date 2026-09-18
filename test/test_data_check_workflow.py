@@ -1,4 +1,5 @@
 """Phase 2C-2A DataCheck parser / workflow 测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,7 +12,7 @@ from pydantic import ValidationError
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
 from ecom_agent_matrix.core.tasking import normalize_task_context
 from ecom_agent_matrix.core.tasking.result import PARTIAL_SUCCESS, SKILL_FAILED
-from ecom_agent_matrix.modules.agent_cluster.handlers.data_check import (
+from ecom_agent_matrix.workflows.data_check.workflow import (
     handle_data_check,
     run_data_check_workflow,
 )
@@ -30,9 +31,7 @@ def test_data_check_order_no_parsing():
     explicit = parse_data_check_request(
         normalize_task_context({"order_no": "ORD-EXPLICIT", "query": "订单 ORD-OTHER"})
     )
-    inferred = parse_data_check_request(
-        normalize_task_context({"query": "查询订单 ORD-2026-ABC"})
-    )
+    inferred = parse_data_check_request(normalize_task_context({"query": "查询订单 ORD-2026-ABC"}))
     assert explicit.order_no == "ORD-EXPLICIT"
     assert inferred.order_no == "ORD-2026-ABC"
 
@@ -68,16 +67,17 @@ def test_custom_sql_always_goes_through_safe_sql_skill():
         return SkillResult(success=True, data={"query_result": [[1]]})
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.exec_skill",
-            side_effect=skills,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.llm_explain",
-            new=AsyncMock(return_value=("summary", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.exec_skill",
+                side_effect=skills,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.llm_explain",
+                new=AsyncMock(return_value=("summary", "template", "")),
+            ),
         ):
-            return await run_data_check_workflow(
-                {"custom_sql": "SELECT 1", "sql_params": [7]}
-            )
+            return await run_data_check_workflow({"custom_sql": "SELECT 1", "sql_params": [7]})
 
     result = asyncio.run(scenario())
     assert result.success is True
@@ -89,15 +89,22 @@ def test_natural_language_db_query_goes_through_safe_sql_skill():
 
     async def skills(skill_name: str, params: dict):
         calls.append((skill_name, params))
-        return _integrity_success() if skill_name == "data_integrity_check" else SkillResult(success=True)
+        return (
+            _integrity_success()
+            if skill_name == "data_integrity_check"
+            else SkillResult(success=True)
+        )
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.exec_skill",
-            side_effect=skills,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.llm_explain",
-            new=AsyncMock(return_value=("summary", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.exec_skill",
+                side_effect=skills,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.llm_explain",
+                new=AsyncMock(return_value=("summary", "template", "")),
+            ),
         ):
             return await run_data_check_workflow({"query": "有多少订单"})
 
@@ -123,12 +130,15 @@ def test_integrity_success_and_sql_failure_is_partial_success():
         )
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.exec_skill",
-            side_effect=skills,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.llm_explain",
-            new=AsyncMock(return_value=("summary", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.exec_skill",
+                side_effect=skills,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.llm_explain",
+                new=AsyncMock(return_value=("summary", "template", "")),
+            ),
         ):
             return await run_data_check_workflow({"custom_sql": "DELETE FROM goods"})
 
@@ -142,13 +152,13 @@ def test_integrity_success_and_sql_failure_is_partial_success():
 def test_integrity_skill_error_code_is_preserved():
     failure = SkillResult(
         success=False,
-        error_code="TIMEOUT",
+        error_code="SKILL_TIMEOUT",
         error_msg="timeout",
     )
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.exec_skill",
+            "ecom_agent_matrix.workflows.data_check.workflow.exec_skill",
             new=AsyncMock(return_value=failure),
         ):
             return await run_data_check_workflow({"query": "数据完整性检查"})
@@ -156,22 +166,25 @@ def test_integrity_skill_error_code_is_preserved():
     result = asyncio.run(scenario())
     assert result.success is False
     assert result.error_code == SKILL_FAILED
-    assert result.metadata["skill_error_code"] == "TIMEOUT"
+    assert result.metadata["skill_error_code"] == "SKILL_TIMEOUT"
 
 
 def test_data_check_legacy_tuple_compatibility():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.exec_skill",
-            new=AsyncMock(return_value=_integrity_success()),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.data_check.llm_explain",
-            new=AsyncMock(return_value=("summary", "template", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.exec_skill",
+                new=AsyncMock(return_value=_integrity_success()),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.data_check.workflow.llm_explain",
+                new=AsyncMock(return_value=("summary", "template", "")),
+            ),
         ):
             return await handle_data_check(normalize_task_context({"scope": "full"}))
 
     ok, error, data = asyncio.run(scenario())
     assert ok is True
     assert error == ""
-    assert data["_workflow"]["error_code"] == ""
+    assert data["_workflow"]["error_code"] is None
     assert data["_workflow"]["metadata"]["workflow"] == "data_check"

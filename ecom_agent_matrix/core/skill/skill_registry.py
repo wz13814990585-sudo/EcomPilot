@@ -1,4 +1,5 @@
 """Skill 注册、查询与兼容调用入口。"""
+
 # core/skill/skill_registry.py
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -49,14 +50,23 @@ def skill_execution_context(
     context = SkillExecutionContext(
         agent_id=agent_id,
         task_id=(task_context.task_id if task_context is not None else task_id),
-        tenant_id=(security.tenant_id if security else (task_context.tenant_id or "") if task_context else ""),
-        store_id=(security.store_id if security else (task_context.store_id or "") if task_context else ""),
-        user_id=(security.user_id if security else (task_context.user_id or "") if task_context else ""),
+        tenant_id=(
+            security.tenant_id
+            if security
+            else (task_context.tenant_id or "")
+            if task_context
+            else ""
+        ),
+        store_id=(
+            security.store_id if security else (task_context.store_id or "") if task_context else ""
+        ),
+        user_id=(
+            security.user_id if security else (task_context.user_id or "") if task_context else ""
+        ),
         roles=security.roles if security else frozenset(),
         scopes=security.scopes if security else frozenset(),
-        identity_trusted=bool(security and security.authenticated) or bool(
-            task_context and task_context.identity_trusted
-        ),
+        identity_trusted=bool(security and security.authenticated)
+        or bool(task_context and task_context.identity_trusted),
         approval=approval,
     )
     token = _execution_context.set(context)

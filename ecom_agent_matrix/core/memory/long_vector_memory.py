@@ -1,4 +1,5 @@
 """Agent 长向量记忆模块。"""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.modules.rag.embedding import get_text_embedding
+from ecom_agent_matrix.infrastructure.embedding.provider import get_text_embedding
 from ecom_agent_matrix.core.security import tenant_scope_from_task_context
 
 logger = logging.getLogger("memory.long")
@@ -21,8 +22,7 @@ class AgentLongVectorMemory:
     @staticmethod
     def _trusted_scope(context: Any | None) -> dict[str, str]:
         trusted = bool(
-            getattr(context, "authenticated", False)
-            or getattr(context, "identity_trusted", False)
+            getattr(context, "authenticated", False) or getattr(context, "identity_trusted", False)
         )
         if not trusted:
             return {}
@@ -49,8 +49,14 @@ class AgentLongVectorMemory:
             INSERT INTO {self.TABLE}(tenant_id, store_id, agent_name, content, embedding, meta_json)
             VALUES (%s, %s, %s, %s, %s::vector, %s::jsonb) RETURNING id;
             """
-            params = [scope.tenant_id, scope.store_id, agent_name, content, vec,
-                      json.dumps(scoped_meta, ensure_ascii=False)]
+            params = [
+                scope.tenant_id,
+                scope.store_id,
+                agent_name,
+                content,
+                vec,
+                json.dumps(scoped_meta, ensure_ascii=False),
+            ]
         else:
             sql = f"""
             INSERT INTO {self.TABLE}(agent_name, content, embedding, meta_json)
@@ -137,10 +143,7 @@ class AgentLongVectorMemory:
             )
             params[2:2] = [scope.tenant_id, scope.store_id]
         rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
-        return [
-            {"id": r[0], "content": r[1], "meta": r[2], "distance": r[3]}
-            for r in rows
-        ]
+        return [{"id": r[0], "content": r[1], "meta": r[2], "distance": r[3]} for r in rows]
 
     async def deprecate_memory(self, memory_id: int, *, context: Any | None = None) -> bool:
         """软删除错误记忆，防止再次召回。"""

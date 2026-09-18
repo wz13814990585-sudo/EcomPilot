@@ -1,4 +1,5 @@
 """LLM 路由：按 LLM_PROVIDER 选择供应商。业务只调用本模块。"""
+
 from __future__ import annotations
 
 from ecom_agent_matrix.config.settings import settings
@@ -25,9 +26,7 @@ def get_llm_provider(name: str | None = None) -> LLMProvider:
     key = (name or settings.LLM_PROVIDER or "deepseek").strip().lower()
     cls = PROVIDER_REGISTRY.get(key)
     if cls is None:
-        raise LLMError(
-            f"未知 LLM_PROVIDER={key!r}，可选: {', '.join(available_providers())}"
-        )
+        raise LLMError(f"未知 LLM_PROVIDER={key!r}，可选: {', '.join(available_providers())}")
     inst = _instances.get(key)
     if inst is None:
         inst = cls()

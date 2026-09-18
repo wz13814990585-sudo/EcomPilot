@@ -88,17 +88,31 @@ def test_task_payload_rejects_identity_spoof_fields(field):
 
 def test_production_security_config_is_fail_closed():
     base = dict(
-        APP_ENV="production", AUTH_MODE="jwt", ALLOW_INSECURE_LOCAL=False,
-        JWT_SECRET="", JWT_ISSUER="issuer", JWT_AUDIENCE="audience",
+        APP_ENV="production",
+        AUTH_MODE="jwt",
+        ALLOW_INSECURE_LOCAL=False,
+        JWT_SECRET="",
+        JWT_ISSUER="issuer",
+        JWT_AUDIENCE="audience",
         JWT_ALGORITHM="HS256",
     )
     with pytest.raises(SecurityConfigurationError):
         validate_security_configuration(SimpleNamespace(**base))
     with pytest.raises(SecurityConfigurationError):
-        validate_security_configuration(SimpleNamespace(**{
-            **base, "AUTH_MODE": "api_key", "ALLOW_INSECURE_LOCAL": True,
-        }))
-    validate_security_configuration(SimpleNamespace(**{
-        **base, "JWT_SECRET": "configured-secret",
-    }))
-
+        validate_security_configuration(
+            SimpleNamespace(
+                **{
+                    **base,
+                    "AUTH_MODE": "api_key",
+                    "ALLOW_INSECURE_LOCAL": True,
+                }
+            )
+        )
+    validate_security_configuration(
+        SimpleNamespace(
+            **{
+                **base,
+                "JWT_SECRET": "configured-secret",
+            }
+        )
+    )

@@ -1,7 +1,9 @@
 """Phase 2D：Skill contract、依赖边界与风险原子化审计。"""
+
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -15,8 +17,10 @@ from ecom_agent_matrix.core.skill.skill_registry import (
     skill_container,
     skill_execution_context,
 )
+from ecom_agent_matrix.core.security import ApprovalGrant, SecurityContext
+from ecom_agent_matrix.core.security.approval import approval_params_hash
 from ecom_agent_matrix.core.tasking.result import PARTIAL_SUCCESS
-from ecom_agent_matrix.modules.agent_cluster.handlers.risk import (
+from ecom_agent_matrix.workflows.risk.workflow import (
     handle_risk,
     run_risk_workflow,
 )
@@ -52,7 +56,7 @@ def test_registered_skill_contract_and_metadata(skill_name, skill_cls):
     assert not (spec.read_only and spec.side_effect)
     assert not (spec.side_effect and spec.read_only)
     if spec.side_effect:
-        assert spec.idempotent is False
+        assert isinstance(spec.idempotent, bool)
     if spec.deprecated:
         assert spec.replacement
 
@@ -82,12 +86,10 @@ def test_parser_and_core_tasking_dependency_boundaries():
         (501, 21, True, ["大额订单", "批量囤货"]),
     ],
 )
-def test_evaluate_order_risk_is_deterministic_and_never_writes(
-    amount, count, is_risk, tags
-):
+def test_evaluate_order_risk_is_deterministic_and_never_writes(amount, count, is_risk, tags):
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_sql",
+            "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_write",
             new=AsyncMock(),
         ) as execute:
             result = await exec_skill(
@@ -114,11 +116,43 @@ def test_record_order_risk_permission_matrix_and_single_insert():
         no_context = await exec_skill("record_order_risk", params)
         with skill_execution_context(AGENT_QUERY):
             query = await exec_skill("record_order_risk", params)
-        with patch(
-            "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_sql",
-            new=AsyncMock(return_value=[[7]]),
-        ) as execute:
-            with skill_execution_context(AGENT_EXEC):
+        with (
+            patch(
+                "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_write",
+                new=AsyncMock(return_value=[[7]]),
+            ) as execute,
+            patch(
+                "ecom_agent_matrix.core.skill.executor.approval_service.consume",
+                new=AsyncMock(),
+            ),
+            patch(
+                "ecom_agent_matrix.core.skill.executor.record_audit_event",
+                new=AsyncMock(),
+            ),
+        ):
+            security = SecurityContext(
+                subject="subject",
+                user_id="user",
+                tenant_id="tenant",
+                store_id="store",
+                roles=frozenset({"risk_operator"}),
+                auth_type="jwt",
+                authenticated=True,
+            )
+            grant = ApprovalGrant(
+                approval_id="approval-risk-record",
+                task_id="risk-record-task",
+                tenant_id="tenant",
+                store_id="store",
+                requester_user_id="user",
+                approver_user_id="approver",
+                skill_name="record_order_risk",
+                params_hash=approval_params_hash("record_order_risk", params),
+                expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+            )
+            with skill_execution_context(
+                AGENT_EXEC, security=security, task_id="risk-record-task", approval=grant
+            ):
                 allowed = await exec_skill("record_order_risk", params)
         return no_context, query, allowed, execute
 
@@ -130,7 +164,7 @@ def test_record_order_risk_permission_matrix_and_single_insert():
     execute.assert_awaited_once()
     sql, sql_params = execute.await_args.args
     assert "INSERT INTO risk_record" in sql
-    assert sql_params == ["ORD-1", "order_abnormal", "大额订单"]
+    assert sql_params == ["tenant", "store", "ORD-1", "order_abnormal", "大额订单"]
     spec = skill_container["record_order_risk"].spec()
     assert spec.risk_level == "high" and spec.side_effect and not spec.read_only
 
@@ -143,7 +177,7 @@ def test_risk_workflow_skips_record_for_safe_order():
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.risk.exec_skill",
+            "ecom_agent_matrix.workflows.risk.workflow.exec_skill",
             new=AsyncMock(return_value=evaluation),
         ) as execute:
             result = await run_risk_workflow(
@@ -161,14 +195,12 @@ def test_risk_workflow_records_risk_and_handles_partial_failure():
         success=True,
         data={"is_risk": True, "risk_tags": ["大额订单"], "risk_detail": "大额订单"},
     )
-    failed_record = SkillResult(
-        success=False, error_code="SKILL_FAILED", error_msg="record failed"
-    )
+    failed_record = SkillResult(success=False, error_code="SKILL_FAILED", error_msg="record failed")
 
     async def scenario():
         execute = AsyncMock(side_effect=[evaluation, failed_record])
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.risk.exec_skill",
+            "ecom_agent_matrix.workflows.risk.workflow.exec_skill",
             new=execute,
         ):
             result = await run_risk_workflow(
@@ -188,17 +220,50 @@ def test_risk_workflow_records_risk_and_handles_partial_failure():
 
 def test_risk_legacy_tuple_and_deprecated_skill_compatibility():
     async def scenario():
-        with skill_execution_context(AGENT_EXEC):
-            with patch(
-                "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_sql",
-                new=AsyncMock(return_value=[[9]]),
+        params = {"order_no": "ORD-1", "total_amount": 501, "buy_count": 1}
+        security = SecurityContext(
+            subject="subject",
+            user_id="user",
+            tenant_id="tenant",
+            store_id="store",
+            roles=frozenset({"risk_operator"}),
+            auth_type="jwt",
+            authenticated=True,
+        )
+        grant = ApprovalGrant(
+            approval_id="approval-risk-legacy",
+            task_id="risk-legacy-task",
+            tenant_id="tenant",
+            store_id="store",
+            requester_user_id="user",
+            approver_user_id="approver",
+            skill_name="order_risk_check",
+            params_hash=approval_params_hash("order_risk_check", params),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        )
+        with skill_execution_context(
+            AGENT_EXEC, security=security, task_id="risk-legacy-task", approval=grant
+        ):
+            with (
+                patch(
+                    "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_write",
+                    new=AsyncMock(return_value=[[9]]),
+                ),
+                patch(
+                    "ecom_agent_matrix.core.skill.executor.approval_service.consume",
+                    new=AsyncMock(),
+                ),
+                patch(
+                    "ecom_agent_matrix.core.skill.executor.record_audit_event",
+                    new=AsyncMock(),
+                ),
             ):
                 legacy_skill = await exec_skill(
                     "order_risk_check",
-                    {"order_no": "ORD-1", "total_amount": 501, "buy_count": 1},
+                    params,
                 )
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.risk.exec_skill",
+            "ecom_agent_matrix.workflows.risk.workflow.exec_skill",
             new=AsyncMock(
                 return_value=SkillResult(
                     success=True,

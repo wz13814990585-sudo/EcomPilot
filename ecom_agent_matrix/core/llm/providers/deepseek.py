@@ -1,4 +1,5 @@
 """DeepSeek 供应商（OpenAI 兼容协议）。"""
+
 from __future__ import annotations
 
 from ecom_agent_matrix.config.settings import settings
@@ -37,8 +38,7 @@ class DeepSeekProvider(OpenAICompatProvider):
 
     def retry_base_delay(self) -> float:
         return float(
-            getattr(settings, "DEEPSEEK_RETRY_BASE_DELAY", None)
-            or settings.LLM_RETRY_BASE_DELAY
+            getattr(settings, "DEEPSEEK_RETRY_BASE_DELAY", None) or settings.LLM_RETRY_BASE_DELAY
         )
 
     def reasoner_min_tokens(self) -> int:

@@ -1,4 +1,5 @@
 """安全只读 SQL 查询工具（由 data_check Agent 按需调用：payload.sql / custom_sql / NL）。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -10,6 +11,7 @@ from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
 from ecom_agent_matrix.core.skill.skill_registry import register_skill
 from ecom_agent_matrix.db.base import AsyncPGClient
 from ecom_agent_matrix.config.settings import settings
+
 
 class SafeSqlQueryInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -47,8 +49,7 @@ class SafeSqlQueryTool(BaseSkill):
     output_model = SafeSqlQueryOutput
     skill_name = "safe_sql_query"
     skill_desc = (
-        "安全只读数据库查询：参数 sql，或用 query/user_query 映射白名单模板；"
-        "仅支持 SELECT/WITH"
+        "安全只读数据库查询：参数 sql，或用 query/user_query 映射白名单模板；仅支持 SELECT/WITH"
     )
 
     async def run(self, params: dict) -> SkillResult:
@@ -57,10 +58,7 @@ class SafeSqlQueryTool(BaseSkill):
             label = ""
             if not sql:
                 nl = str(
-                    params.get("query")
-                    or params.get("user_query")
-                    or params.get("text")
-                    or ""
+                    params.get("query") or params.get("user_query") or params.get("text") or ""
                 )
                 sql, label, err = nl_to_readonly_sql(nl)
                 if err or not sql:

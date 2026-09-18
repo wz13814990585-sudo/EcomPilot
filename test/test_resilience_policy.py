@@ -20,12 +20,17 @@ def test_read_transient_retry_is_bounded_and_backoff_capped():
             raise TimeoutError()
         return "ok"
 
-    policy = RetryPolicy(max_attempts=3, base_delay_seconds=0.5, max_delay_seconds=0.75, jitter_seconds=0)
+    policy = RetryPolicy(
+        max_attempts=3, base_delay_seconds=0.5, max_delay_seconds=0.75, jitter_seconds=0
+    )
 
     async def scenario():
-        with patch("ecom_agent_matrix.platform.resilience.retry.asyncio.sleep", new=AsyncMock()) as sleep:
+        with patch(
+            "ecom_agent_matrix.platform.resilience.retry.asyncio.sleep", new=AsyncMock()
+        ) as sleep:
             result = await policy.run(
-                operation, retry_if=lambda exc: isinstance(exc, TimeoutError),
+                operation,
+                retry_if=lambda exc: isinstance(exc, TimeoutError),
                 on_retry=lambda _exc, _attempt, delay: delays.append(delay),
             )
         return result, sleep
@@ -55,4 +60,3 @@ def test_timeout_is_safe_and_cancellation_is_re_raised():
 
     asyncio.run(timeout_case())
     asyncio.run(cancellation_case())
-

@@ -1,4 +1,5 @@
 """Deterministic, retrieval-only RAG evaluation contract."""
+
 from __future__ import annotations
 
 import math

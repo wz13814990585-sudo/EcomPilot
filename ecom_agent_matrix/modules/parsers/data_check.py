@@ -1,4 +1,5 @@
 """数据校验领域 TaskContext → DataCheckRequest 解析。"""
+
 from __future__ import annotations
 
 import re

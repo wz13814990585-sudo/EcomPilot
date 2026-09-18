@@ -1,4 +1,5 @@
 """Phase 2C-1 Goods parser / workflow 测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,9 +7,9 @@ from copy import deepcopy
 from unittest.mock import AsyncMock, patch
 
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
-from ecom_agent_matrix.core.tasking import TaskContext, WorkflowResult, normalize_task_context
+from ecom_agent_matrix.core.tasking import WorkflowResult, normalize_task_context
 from ecom_agent_matrix.core.tasking.result import SKILL_FAILED
-from ecom_agent_matrix.modules.agent_cluster.handlers.goods import (
+from ecom_agent_matrix.workflows.goods.workflow import (
     handle_goods,
     run_goods_workflow,
 )
@@ -16,9 +17,7 @@ from ecom_agent_matrix.modules.parsers.goods import parse_goods_request
 
 
 def test_goods_explicit_product_name_has_priority():
-    ctx = normalize_task_context(
-        {"query": "查询鞋子的库存", "product_name": " 防水背包 "}
-    )
+    ctx = normalize_task_context({"query": "查询鞋子的库存", "product_name": " 防水背包 "})
     assert parse_goods_request(ctx).product_name == "防水背包"
 
 
@@ -42,30 +41,22 @@ def test_goods_search_mode_is_deterministic():
 
 
 def test_goods_list_all_and_top_k_are_parsed():
-    catalog = parse_goods_request(
-        normalize_task_context({"query": "列出全部商品", "top_k": 12})
-    )
-    search = parse_goods_request(
-        normalize_task_context({"query": "防水背包", "top_k": 7})
-    )
+    catalog = parse_goods_request(normalize_task_context({"query": "列出全部商品", "top_k": 12}))
+    search = parse_goods_request(normalize_task_context({"query": "防水背包", "top_k": 7}))
     assert catalog.list_all is True
     assert catalog.limit is None
     assert search.top_k == 7
 
 
 def test_goods_parser_does_not_reread_conflicting_user_query_alias():
-    ctx = normalize_task_context(
-        {"query": "防水背包", "user_query": "列出全部商品"}
-    )
+    ctx = normalize_task_context({"query": "防水背包", "user_query": "列出全部商品"})
     request = parse_goods_request(ctx)
     assert request.mode == "search"
     assert request.product_name == "防水背包"
 
 
 def test_goods_parser_does_not_modify_context_or_params():
-    ctx = normalize_task_context(
-        {"query": " 防水背包 ", "filters": {"categories": ["bags"]}}
-    )
+    ctx = normalize_task_context({"query": " 防水背包 ", "filters": {"categories": ["bags"]}})
     before = ctx.model_dump()
     params_before = deepcopy(ctx.params)
     parse_goods_request(ctx)
@@ -81,7 +72,7 @@ def test_goods_catalog_workflow_builds_exact_skill_params():
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.goods.exec_skill",
+            "ecom_agent_matrix.workflows.goods.workflow.exec_skill",
             new=AsyncMock(return_value=skill_result),
         ) as execute:
             result = await run_goods_workflow(
@@ -127,7 +118,7 @@ def test_goods_search_workflow_builds_exact_skill_params():
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.goods.exec_skill",
+            "ecom_agent_matrix.workflows.goods.workflow.exec_skill",
             new=AsyncMock(return_value=skill_result),
         ) as execute:
             result = await run_goods_workflow(
@@ -150,7 +141,7 @@ def test_goods_workflow_preserves_skill_error_code():
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.goods.exec_skill",
+            "ecom_agent_matrix.workflows.goods.workflow.exec_skill",
             new=AsyncMock(return_value=failure),
         ):
             return await run_goods_workflow({"query": "防水背包"})
@@ -169,7 +160,7 @@ def test_goods_legacy_handler_accepts_dict_and_returns_tuple():
 
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.goods.exec_skill",
+            "ecom_agent_matrix.workflows.goods.workflow.exec_skill",
             new=AsyncMock(return_value=success),
         ):
             return await handle_goods({"query": "防水背包"})

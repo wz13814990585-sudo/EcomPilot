@@ -1,4 +1,5 @@
-"""HTTP → MCP 下发与等待。"""
+"""HTTP adapter for the agent application service."""
+
 from __future__ import annotations
 
 import uuid
@@ -10,14 +11,22 @@ from fastapi import HTTPException, status
 from ecom_agent_matrix.config.constants import AGENT_MASTER
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.llm.output_polish import polish_final_output
-from ecom_agent_matrix.core.mcp.bus import mcp_bus
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.core.mcp.registry import agent_map
-from ecom_agent_matrix.core.mcp.result_waiter import GatewayResultWaiter
+from ecom_agent_matrix.application import AgentApplicationService
+from ecom_agent_matrix.runtime.messaging.bus import message_bus
+from ecom_agent_matrix.runtime.messaging.registry import agent_registry
 from ecom_agent_matrix.core.security import SecurityContext
 from ecom_agent_matrix.core.security import ApprovalGrant
 from ecom_agent_matrix.platform.observability.context import get_trace_context, update_trace_context
 from ecom_agent_matrix.platform.observability.context import get_performance_summary
+
+application_service = AgentApplicationService(
+    message_bus=message_bus, agent_registry=agent_registry
+)
+
+
+def set_application_service(service: AgentApplicationService) -> None:
+    global application_service
+    application_service = service
 
 
 async def dispatch_and_wait(
@@ -31,50 +40,39 @@ async def dispatch_and_wait(
 ) -> dict[str, Any]:
     """向目标 Agent 发任务并等待最终回传，并生成可读 summary。"""
     request_started = time.perf_counter()
-    if target not in agent_map:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Agent 未注册: {target}",
-        )
-
     task_id = get_trace_context().task_id or str(uuid.uuid4())
     wait_timeout = float(timeout if timeout is not None else settings.API_REQUEST_TIMEOUT)
-    GatewayResultWaiter.begin(task_id)
-    msg = MCPMessage(
-        task_id=task_id,
-        sender=settings.API_SENDER,
+    response = await application_service.execute(
         target=target,
         priority=priority,
         content=content,
         security=security,
         approval=approval,
+        timeout=wait_timeout,
+        task_id=task_id,
     )
-    update_trace_context(task_id=task_id, correlation_id=msg.correlation_id)
-    try:
-        await mcp_bus.send_msg(msg)
-        reply = await GatewayResultWaiter.wait(task_id, wait_timeout)
-    except Exception:
-        GatewayResultWaiter.cancel(task_id)
-        raise
-
-    if reply is None:
+    update_trace_context(
+        task_id=task_id,
+        correlation_id=str(response.metadata.get("correlation_id") or ""),
+    )
+    if response.error_code and response.error_code.value == "AGENT_UNAVAILABLE":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=response.error_message,
+            headers={"X-Task-Id": task_id},
+        )
+    if response.error_code and response.error_code.value == "AGENT_TIMEOUT":
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=f"等待 {target} 回传超时（>{wait_timeout}s）",
+            detail=response.error_message,
             headers={"X-Task-Id": task_id},
         )
 
-    body = reply.content or {}
-    data = body.get("data") or {}
-    if not isinstance(data, dict):
-        data = {"raw": data}
-    success = bool(body.get("success"))
-    error_msg = body.get("error_msg") or ""
+    data = response.data
+    success = response.success
+    error_msg = response.error_message
     user_query = str(
-        content.get("query")
-        or content.get("user_query")
-        or content.get("product_name")
-        or ""
+        content.get("query") or content.get("user_query") or content.get("product_name") or ""
     )
 
     # Master 若已在 data.summary 写好，直接复用；否则统一整理
@@ -86,17 +84,18 @@ async def dispatch_and_wait(
             data=data,
             error_msg=error_msg,
             user_query=user_query,
-            reply_from=reply.sender or target,
+            reply_from=response.reply_from or target,
         )
 
     return {
         "task_id": task_id,
         "target": target,
-        "reply_from": reply.sender,
+        "reply_from": response.reply_from,
         "success": success,
         "data": data,
         "error_msg": error_msg,
-        "msg_type": body.get("type") or "",
+        "msg_type": response.msg_type,
+        "error_code": response.error_code.value if response.error_code else "",
         "summary": summary,
         "performance": {
             "latency_ms": round((time.perf_counter() - request_started) * 1000, 2),

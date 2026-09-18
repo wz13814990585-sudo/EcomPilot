@@ -24,9 +24,7 @@ def test_batch_cross_encoder_predict_is_called_once_and_final_rank_gets_s1():
         {"source_id": "B", "chunk_text": "refund policy", "rrf_score": 0.01},
         {"source_id": "C", "chunk_text": "refund", "rrf_score": 0.01},
     ]
-    with patch(
-        "ecom_agent_matrix.modules.rag.reranker._get_cross_encoder", return_value=model
-    ):
+    with patch("ecom_agent_matrix.modules.rag.reranker._get_cross_encoder", return_value=model):
         ranked, mode = asyncio.run(
             rerank_documents_detailed("refund policy", candidates, 2, threshold=-1)
         )
@@ -65,4 +63,3 @@ def test_threshold_can_filter_every_candidate():
             )
         )
     assert ranked == [] and mode == "keyword_fallback"
-

@@ -5,6 +5,7 @@
 - http：调用自有「价格适配器」HTTP API（COMPETITOR_PRICE_API_URL）
          仅对接你方已授权的合法数据源服务，返回 JSON。
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,9 +36,7 @@ _PLATFORM_FACTOR = {
 
 
 class CompetitorPriceInput(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", str_strip_whitespace=True, populate_by_name=True
-    )
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
     target_sku: str | None = None
     sku: str | None = None
@@ -51,15 +50,15 @@ class CompetitorPriceInput(BaseModel):
     user_query: str | None = None
     text: str | None = None
     candidates: list[dict[str, Any]] = Field(default_factory=list)
-    goods_candidates: list[dict[str, Any]] = Field(
-        default_factory=list, alias="_goods_candidates"
-    )
+    goods_candidates: list[dict[str, Any]] = Field(default_factory=list, alias="_goods_candidates")
 
     @model_validator(mode="after")
     def require_direct_identifiers(self) -> "CompetitorPriceInput":
         sku_values = (self.target_sku, self.sku, self.product_sku, self.goods_sku, self.best_sku)
         competitor_values = (self.competitor, self.competitor_name, self.platform)
-        if not any(sku_values) and not any((self.query, self.user_query, self.text, self.candidates)):
+        if not any(sku_values) and not any(
+            (self.query, self.user_query, self.text, self.candidates)
+        ):
             raise ValueError("缺少 SKU 信息")
         if not any(competitor_values) and not any((self.query, self.user_query, self.text)):
             raise ValueError("缺少 competitor 信息")
@@ -138,9 +137,8 @@ def _build_adapter_url(template: str, sku: str, competitor: str) -> str:
     if not tpl:
         return ""
     if "{sku}" in tpl or "{competitor}" in tpl:
-        return (
-            tpl.replace("{sku}", quote(sku, safe=""))
-            .replace("{competitor}", quote(competitor, safe=""))
+        return tpl.replace("{sku}", quote(sku, safe="")).replace(
+            "{competitor}", quote(competitor, safe="")
         )
     sep = "&" if "?" in tpl else "?"
     return f"{tpl}{sep}{urlencode({'sku': sku, 'competitor': competitor})}"
@@ -152,9 +150,7 @@ def _extract_price_from_payload(body: Any) -> tuple[float | None, str, str]:
         return None, "USD", ""
 
     currency = str(body.get("currency") or "USD")
-    source_ref = str(
-        body.get("source_ref") or body.get("page_url") or body.get("url") or ""
-    )
+    source_ref = str(body.get("source_ref") or body.get("page_url") or body.get("url") or "")
 
     candidates: list[Any] = [
         body.get("compete_price"),
@@ -172,10 +168,7 @@ def _extract_price_from_payload(body: Any) -> tuple[float | None, str, str]:
         )
         currency = str(data.get("currency") or currency)
         source_ref = str(
-            data.get("source_ref")
-            or data.get("page_url")
-            or data.get("url")
-            or source_ref
+            data.get("source_ref") or data.get("page_url") or data.get("url") or source_ref
         )
 
     for raw in candidates:
@@ -277,16 +270,12 @@ class CompetitorPriceTool(BaseSkill):
             http_error = ""
 
             if mode == "http":
-                price, currency, source_ref, http_error = await _fetch_http_adapter(
-                    sku, competitor
-                )
+                price, currency, source_ref, http_error = await _fetch_http_adapter(sku, competitor)
                 if price is not None:
                     compete_price = price
                     source = "http_adapter"
                 else:
-                    allow_fallback = bool(
-                        getattr(settings, "COMPETITOR_HTTP_FALLBACK_DEMO", True)
-                    )
+                    allow_fallback = bool(getattr(settings, "COMPETITOR_HTTP_FALLBACK_DEMO", True))
                     if allow_fallback:
                         compete_price, source, source_ref = await _resolve_demo_price(
                             sku, competitor
@@ -305,9 +294,7 @@ class CompetitorPriceTool(BaseSkill):
                             },
                         )
             else:
-                compete_price, source, source_ref = await _resolve_demo_price(
-                    sku, competitor
-                )
+                compete_price, source, source_ref = await _resolve_demo_price(sku, competitor)
 
             return SkillResult(
                 success=True,

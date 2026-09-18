@@ -1,4 +1,5 @@
 """最终结果整理：用 LLM 把 Agent/Skill 原始 JSON 写成可读中文摘要。"""
+
 from __future__ import annotations
 
 import json
@@ -134,7 +135,11 @@ async def polish_final_output(
 
     # 客服等已有自然语言答复：直接用，避免二次 LLM
     existing = _extract_existing_answer(payload)
-    if prefer_existing_answer and isinstance(payload.get("answer"), str) and payload["answer"].strip():
+    if (
+        prefer_existing_answer
+        and isinstance(payload.get("answer"), str)
+        and payload["answer"].strip()
+    ):
         return payload["answer"].strip()
 
     if not is_llm_configured():
@@ -175,8 +180,7 @@ async def polish_final_output(
         slim["hint_final_answer"] = existing
 
     user_prompt = (
-        "请整理以下任务结果：\n"
-        f"{_truncate_json(slim, settings.OUTPUT_POLISH_MAX_INPUT_CHARS)}"
+        f"请整理以下任务结果：\n{_truncate_json(slim, settings.OUTPUT_POLISH_MAX_INPUT_CHARS)}"
     )
 
     try:

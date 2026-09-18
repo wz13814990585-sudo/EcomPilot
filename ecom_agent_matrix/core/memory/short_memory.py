@@ -1,4 +1,5 @@
 """Agent 短记忆：Redis List + 滑动窗口，并发 append 安全。"""
+
 from __future__ import annotations
 
 import json
@@ -39,9 +40,7 @@ class AgentShortMemory:
         self.session_id = session_id
         self.ttl = int(ttl if ttl is not None else settings.SHORT_MEMORY_TTL)
         self.max_messages = int(
-            max_messages
-            if max_messages is not None
-            else settings.SHORT_MEMORY_MAX_MESSAGES
+            max_messages if max_messages is not None else settings.SHORT_MEMORY_MAX_MESSAGES
         )
         # list: 新结构；旧 string JSON 会在首次读写时迁移
         if tenant_id and user_id:
@@ -113,11 +112,7 @@ class AgentShortMemory:
         pipe = redis.pipeline()
         pipe.delete(self.key)
         if msgs:
-            payload = [
-                json.dumps(m, ensure_ascii=False)
-                for m in msgs
-                if isinstance(m, dict)
-            ]
+            payload = [json.dumps(m, ensure_ascii=False) for m in msgs if isinstance(m, dict)]
             if payload:
                 # 先截断再写入，避免一次灌入超长历史
                 keep = payload[-self.max_messages :] if self.max_messages > 0 else payload

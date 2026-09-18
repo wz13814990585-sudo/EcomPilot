@@ -1,4 +1,5 @@
-"""MCP-independent typed RAG retrieval and answer service。"""
+"""Typed RAG retrieval and answer service."""
+
 from __future__ import annotations
 
 import time
@@ -52,7 +53,9 @@ class RAGService:
     ) -> RAGRetrievalResult:
         started = time.perf_counter()
         try:
-            typed = request if isinstance(request, RAGRequest) else RAGRequest.model_validate(request)
+            typed = (
+                request if isinstance(request, RAGRequest) else RAGRequest.model_validate(request)
+            )
         except (ValidationError, TypeError, ValueError):
             return RAGRetrievalResult(
                 success=False,
@@ -127,7 +130,9 @@ class RAGService:
     ) -> RAGAnswerResult:
         started = time.perf_counter()
         try:
-            typed = request if isinstance(request, RAGRequest) else RAGRequest.model_validate(request)
+            typed = (
+                request if isinstance(request, RAGRequest) else RAGRequest.model_validate(request)
+            )
         except (ValidationError, TypeError, ValueError):
             return RAGAnswerResult(
                 success=False,
@@ -224,7 +229,7 @@ class RAGService:
             degraded=retrieval.degraded,
             channel_errors=retrieval.channel_errors,
             candidate_counts=retrieval.candidate_counts,
-            error_code=GENERATION_ERROR if generation_failed else "",
+            error_code=GENERATION_ERROR if generation_failed else None,
             error_msg="RAG answer generation used safe fallback" if generation_failed else "",
         )
 

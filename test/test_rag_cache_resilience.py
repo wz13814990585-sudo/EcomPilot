@@ -4,7 +4,8 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.modules.rag import embedding, retriever
+from ecom_agent_matrix.infrastructure.embedding import provider as embedding
+from ecom_agent_matrix.modules.rag import retriever
 
 
 class _Vector:
@@ -44,12 +45,15 @@ def test_corrupted_retrieval_cache_is_a_miss():
 
 def test_redis_read_and_write_failures_do_not_block_retrieval():
     async def read_failure():
-        with patch(
-            "ecom_agent_matrix.modules.rag.retriever.AsyncRedisClient.get_client",
-            new=AsyncMock(side_effect=ConnectionError("redis password=secret")),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever._hybrid_retrieve_uncached",
-            new=AsyncMock(return_value=[{"chunk_text": "real result"}]),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever.AsyncRedisClient.get_client",
+                new=AsyncMock(side_effect=ConnectionError("redis password=secret")),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._hybrid_retrieve_uncached",
+                new=AsyncMock(return_value=[{"chunk_text": "real result"}]),
+            ),
         ):
             return await retriever.hybrid_retrieve("q", "en", top_k=1)
 
@@ -57,12 +61,15 @@ def test_redis_read_and_write_failures_do_not_block_retrieval():
         redis = AsyncMock()
         redis.get.return_value = None
         redis.set.side_effect = ConnectionError("redis down")
-        with patch(
-            "ecom_agent_matrix.modules.rag.retriever.AsyncRedisClient.get_client",
-            new=AsyncMock(return_value=redis),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever._hybrid_retrieve_uncached",
-            new=AsyncMock(return_value=[{"chunk_text": "real result"}]),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever.AsyncRedisClient.get_client",
+                new=AsyncMock(return_value=redis),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._hybrid_retrieve_uncached",
+                new=AsyncMock(return_value=[{"chunk_text": "real result"}]),
+            ),
         ):
             return await retriever.hybrid_retrieve("q", "en", top_k=1)
 
@@ -82,15 +89,19 @@ def test_embedding_key_is_stable_and_model_scoped():
 
 def test_embedding_redis_failure_falls_back_to_real_model():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.rag.embedding.AsyncRedisClient.get_client",
-            new=AsyncMock(side_effect=ConnectionError("redis unavailable")),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.embedding.get_embed_model",
-            return_value=_Model(),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.embedding.resolve_embed_model_name",
-            return_value="model-a",
+        with (
+            patch(
+                "ecom_agent_matrix.infrastructure.embedding.provider.AsyncRedisClient.get_client",
+                new=AsyncMock(side_effect=ConnectionError("redis unavailable")),
+            ),
+            patch(
+                "ecom_agent_matrix.infrastructure.embedding.provider.get_embed_model",
+                return_value=_Model(),
+            ),
+            patch(
+                "ecom_agent_matrix.infrastructure.embedding.provider.resolve_embed_model_name",
+                return_value="model-a",
+            ),
         ):
             return await embedding.get_text_embedding("hello")
 
@@ -101,15 +112,19 @@ def test_embedding_corrupt_cache_falls_back_to_real_model():
     async def scenario():
         redis = AsyncMock()
         redis.get.return_value = "broken-json"
-        with patch(
-            "ecom_agent_matrix.modules.rag.embedding.AsyncRedisClient.get_client",
-            new=AsyncMock(return_value=redis),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.embedding.get_embed_model",
-            return_value=_Model(),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.embedding.resolve_embed_model_name",
-            return_value="model-a",
+        with (
+            patch(
+                "ecom_agent_matrix.infrastructure.embedding.provider.AsyncRedisClient.get_client",
+                new=AsyncMock(return_value=redis),
+            ),
+            patch(
+                "ecom_agent_matrix.infrastructure.embedding.provider.get_embed_model",
+                return_value=_Model(),
+            ),
+            patch(
+                "ecom_agent_matrix.infrastructure.embedding.provider.resolve_embed_model_name",
+                return_value="model-a",
+            ),
         ):
             return await embedding.get_text_embedding("hello")
 

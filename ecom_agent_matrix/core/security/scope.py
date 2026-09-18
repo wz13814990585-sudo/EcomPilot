@@ -1,9 +1,10 @@
 """Trusted tenant/store data scope shared by DB, RAG and memory layers."""
+
 from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class TenantScope(BaseModel):
@@ -31,8 +32,7 @@ def tenant_scope_from_task_context(context: Any | None) -> TenantScope:
         tenant_id=str(getattr(context, "tenant_id", "") or ""),
         store_id=str(getattr(context, "store_id", "") or ""),
         identity_trusted=bool(
-            getattr(context, "identity_trusted", False)
-            or getattr(context, "authenticated", False)
+            getattr(context, "identity_trusted", False) or getattr(context, "authenticated", False)
         ),
     )
 

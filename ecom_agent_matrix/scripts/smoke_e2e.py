@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""端到端联调：MCP 进程内 或 HTTP 网关。
+"""端到端联调：进程内 Agent Runtime 或 HTTP 网关。
 
 用法:
   python -m ecom_agent_matrix.scripts.smoke_e2e --mode social
@@ -10,16 +10,17 @@
   python -m ecom_agent_matrix.scripts.smoke_e2e --mode social --transport http --base-url http://127.0.0.1:8000
   python -m ecom_agent_matrix.scripts.smoke_e2e --check-deps
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
-import uuid
 
-import ecom_agent_matrix.modules.agent_cluster  # noqa: F401
+import ecom_agent_matrix.agents  # noqa: F401
 import ecom_agent_matrix.modules.skills  # noqa: F401
 from ecom_agent_matrix.api.health import readiness_report
+from ecom_agent_matrix.api.dispatch import application_service
 from ecom_agent_matrix.config.constants import (
     AGENT_MASTER,
     MSG_PRIORITY_CUSTOMER,
@@ -28,10 +29,7 @@ from ecom_agent_matrix.config.constants import (
 )
 from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
-from ecom_agent_matrix.core.mcp.bus import mcp_bus
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.core.mcp.registry import agent_map, start_all_agents
-from ecom_agent_matrix.core.mcp.result_waiter import GatewayResultWaiter
+from ecom_agent_matrix.runtime.messaging.registry import agent_map, start_all_agents
 
 logger = setup_logger("smoke_e2e")
 
@@ -104,10 +102,10 @@ def _build_payload(mode: str) -> tuple[str, dict, int]:
     )
 
 
-async def _run_mcp(mode: str, timeout: float) -> dict:
+async def _run_internal(mode: str, timeout: float) -> dict:
     if mode == "risk":
         return {
-            "transport": "mcp",
+            "transport": "internal",
             "success": True,
             "skipped": True,
             "error_msg": "risk approval demo requires authenticated HTTP transport",
@@ -115,31 +113,24 @@ async def _run_mcp(mode: str, timeout: float) -> dict:
             "summary": "Use --transport http for the approval flow.",
         }
     target, content, priority = _build_payload(mode)
-    task_id = str(uuid.uuid4())
-    GatewayResultWaiter.begin(task_id)
-    msg = MCPMessage(
-        task_id=task_id,
-        sender=settings.API_SENDER,
+    response = await application_service.execute(
         target=target,
         priority=priority,
         content=content,
+        timeout=timeout,
     )
-    await mcp_bus.send_msg(msg)
-    reply = await GatewayResultWaiter.wait(task_id, timeout)
-    if reply is None:
-        return {"task_id": task_id, "success": False, "error_msg": "timeout", "data": {}, "summary": ""}
-    data = reply.content.get("data") or {}
+    data = response.data
     summary = ""
     if isinstance(data, dict):
         summary = str(data.get("summary") or "")
     return {
-        "task_id": task_id,
-        "transport": "mcp",
+        "task_id": response.task_id,
+        "transport": "internal",
         "target": target,
-        "success": bool(reply.content.get("success")),
-        "error_msg": reply.content.get("error_msg") or "",
+        "success": response.success,
+        "error_msg": response.error_message,
         "data": data,
-        "msg_type": reply.content.get("type"),
+        "msg_type": response.msg_type,
         "summary": summary,
     }
 
@@ -157,10 +148,7 @@ async def _run_http(mode: str, base_url: str, timeout: float, api_key: str) -> d
     if mode in {"customer", "rag"}:
         path = "/api/v1/customer/chat"
         body = {
-            "query": (
-                "防水户外背包有什么特点？"
-                if mode == "rag" else "你好，我想咨询退款流程"
-            ),
+            "query": ("防水户外背包有什么特点？" if mode == "rag" else "你好，我想咨询退款流程"),
             "lang": "zh",
             "use_rag": mode == "rag",
             "timeout": timeout,
@@ -245,9 +233,13 @@ async def _run_http(mode: str, base_url: str, timeout: float, api_key: str) -> d
                 approval_id = find_approval_id(data)
                 if http_status != 200 or not approval_id:
                     return {
-                        "transport": "http", "path": path, "http_status": http_status,
-                        "success": False, "error_msg": "approval was not created",
-                        "summary": data.get("summary") or "", "data": data,
+                        "transport": "http",
+                        "path": path,
+                        "http_status": http_status,
+                        "success": False,
+                        "error_msg": "approval was not created",
+                        "summary": data.get("summary") or "",
+                        "data": data,
                     }
                 approve_status, approve_data = await post_json(
                     session,
@@ -287,9 +279,13 @@ async def _run_http(mode: str, base_url: str, timeout: float, api_key: str) -> d
             }
     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
         return {
-            "transport": "http", "path": path, "http_status": 0,
-            "success": False, "error_msg": f"dependency unavailable: {type(exc).__name__}",
-            "summary": "", "data": {},
+            "transport": "http",
+            "path": path,
+            "http_status": 0,
+            "success": False,
+            "error_msg": f"dependency unavailable: {type(exc).__name__}",
+            "summary": "",
+            "data": {},
         }
 
 
@@ -298,12 +294,17 @@ async def main() -> None:
     parser.add_argument(
         "--mode",
         choices=[
-            "fast-path", "rag", "composite", "risk",
-            "social", "competitor", "customer",
+            "fast-path",
+            "rag",
+            "composite",
+            "risk",
+            "social",
+            "competitor",
+            "customer",
         ],
         default="fast-path",
     )
-    parser.add_argument("--transport", choices=["mcp", "http"], default="mcp")
+    parser.add_argument("--transport", choices=["internal", "http"], default="internal")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--api-key", default="")
     parser.add_argument("--timeout", type=float, default=60.0)
@@ -342,7 +343,7 @@ async def main() -> None:
     agent_task = asyncio.create_task(start_all_agents(), name="agents")
     await asyncio.sleep(0.1)
     try:
-        result = await _run_mcp(args.mode, args.timeout)
+        result = await _run_internal(args.mode, args.timeout)
         if result.get("summary"):
             print("=== 可读摘要 ===")
             print(result["summary"])

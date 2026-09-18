@@ -5,10 +5,10 @@ import json
 from unittest.mock import AsyncMock, patch
 
 from ecom_agent_matrix.core.llm import ChatResult
-from ecom_agent_matrix.modules.agent_cluster.master.planner import TypedMasterPlanner
-from ecom_agent_matrix.modules.agent_cluster.master.react import RecoveryController
-from ecom_agent_matrix.modules.agent_cluster.master.schemas import PlanExecutionResult, StepResult
-from ecom_agent_matrix.modules.agent_cluster.master.telemetry import MasterLLMTelemetry
+from ecom_agent_matrix.orchestration.master.planner import TypedMasterPlanner
+from ecom_agent_matrix.orchestration.master.recovery_controller import RecoveryController
+from ecom_agent_matrix.orchestration.master.schemas import PlanExecutionResult, StepResult
+from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
 
 
 def test_rule_composite_uses_zero_llm_calls():
@@ -49,12 +49,15 @@ def test_real_planner_call_records_provider_tokens():
             total_tokens=18,
             reasoning_content="must not persist",
         )
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.planner.is_llm_configured",
-            return_value=True,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.planner.llm_chat",
-            new=AsyncMock(return_value=response),
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.planner.is_llm_configured",
+                return_value=True,
+            ),
+            patch(
+                "ecom_agent_matrix.core.llm.structured.llm_chat",
+                new=AsyncMock(return_value=response),
+            ),
         ):
             plan = await TypedMasterPlanner().plan({"query": "complex unknown"}, telemetry)
         return plan, telemetry.snapshot().model_dump()
@@ -89,12 +92,15 @@ def test_invalid_llm_plan_is_not_executable():
                 }
             )
         )
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.planner.is_llm_configured",
-            return_value=True,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.planner.llm_chat",
-            new=AsyncMock(return_value=invalid),
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.planner.is_llm_configured",
+                return_value=True,
+            ),
+            patch(
+                "ecom_agent_matrix.core.llm.structured.llm_chat",
+                new=AsyncMock(return_value=invalid),
+            ),
         ):
             return await TypedMasterPlanner().plan({"query": "ambiguous"}, telemetry)
 
@@ -108,12 +114,15 @@ def test_budget_prevents_provider_call():
     async def scenario():
         telemetry = MasterLLMTelemetry(max_calls=0)
         provider = AsyncMock()
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.planner.is_llm_configured",
-            return_value=True,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.planner.llm_chat",
-            new=provider,
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.planner.is_llm_configured",
+                return_value=True,
+            ),
+            patch(
+                "ecom_agent_matrix.core.llm.structured.llm_chat",
+                new=provider,
+            ),
         ):
             plan = await TypedMasterPlanner().plan({"query": "complex unknown"}, telemetry)
         return plan, provider, telemetry.snapshot()
@@ -150,13 +159,16 @@ def test_recovery_is_bounded_and_never_retries_exec_write_step(monkeypatch):
                 }
             )
         )
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.react.is_llm_configured",
-            return_value=True,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.react.llm_chat",
-            new=AsyncMock(return_value=response),
-        ) as provider:
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.recovery_controller.is_llm_configured",
+                return_value=True,
+            ),
+            patch(
+                "ecom_agent_matrix.core.llm.structured.llm_chat",
+                new=AsyncMock(return_value=response),
+            ) as provider,
+        ):
             decision = await RecoveryController().run(failed, telemetry)
         return decision, provider, telemetry.snapshot()
 
@@ -167,7 +179,7 @@ def test_recovery_is_bounded_and_never_retries_exec_write_step(monkeypatch):
     assert usage.recovery.calls == 1
 
 
-def test_recovery_invalid_outputs_stop_at_configured_max(monkeypatch):
+def test_recovery_invalid_output_returns_one_bounded_decision():
     async def scenario():
         failed = PlanExecutionResult(
             all_success=False,
@@ -179,27 +191,26 @@ def test_recovery_invalid_outputs_stop_at_configured_max(monkeypatch):
                     agent="data_query",
                     task_type="order_query",
                     status="FAILED",
-                    error_code="TIMEOUT",
+                    error_code="AGENT_TIMEOUT",
                 )
             },
         )
         telemetry = MasterLLMTelemetry(max_calls=3)
         provider = AsyncMock(return_value=ChatResult(content="not-json"))
-        monkeypatch.setattr(
-            "ecom_agent_matrix.modules.agent_cluster.master.react.settings.MASTER_RECOVERY_MAX_STEPS",
-            2,
-        )
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.react.is_llm_configured",
-            return_value=True,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.react.llm_chat",
-            new=provider,
+        with (
+            patch(
+                "ecom_agent_matrix.orchestration.master.recovery_controller.is_llm_configured",
+                return_value=True,
+            ),
+            patch(
+                "ecom_agent_matrix.core.llm.structured.llm_chat",
+                new=provider,
+            ),
         ):
             decision = await RecoveryController().run(failed, telemetry)
         return decision, provider, telemetry.snapshot()
 
     decision, provider, usage = asyncio.run(scenario())
-    assert provider.await_count == 2
-    assert decision.reason_code == "RECOVERY_EXHAUSTED"
-    assert usage.recovery.calls == 2
+    assert provider.await_count == 1
+    assert decision.reason_code == "INVALID_RECOVERY_DECISION"
+    assert usage.recovery.calls == 1

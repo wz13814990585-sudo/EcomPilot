@@ -1,10 +1,12 @@
 """Workflow 层统一结果模型。"""
+
 from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from ecom_agent_matrix.core.errors import ErrorCode
 
 INVALID_REQUEST = "INVALID_REQUEST"
 MISSING_PRODUCT = "MISSING_PRODUCT"
@@ -21,10 +23,15 @@ UNSUPPORTED_REPORT_TYPE = "UNSUPPORTED_REPORT_TYPE"
 class WorkflowResult(BaseModel):
     success: bool
     data: dict[str, Any] = Field(default_factory=dict)
-    error_code: str = ""
+    error_code: ErrorCode | None = None
     error_msg: str = ""
     partial_success: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("error_code", mode="before")
+    @classmethod
+    def empty_error_is_none(cls, value):
+        return None if value == "" else value
 
     def to_legacy_data(self) -> dict[str, Any]:
         """保留 tuple 形状，同时携带 typed workflow 状态。"""

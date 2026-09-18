@@ -1,4 +1,5 @@
 """库存领域 TaskContext → StockRequest 解析。"""
+
 from __future__ import annotations
 
 import re

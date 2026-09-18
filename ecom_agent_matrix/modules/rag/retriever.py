@@ -1,4 +1,5 @@
 """混合检索（BM25 + 向量 RRF），含 Redis 结果缓存。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,12 +13,16 @@ from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.logging_config import setup_logger
 from ecom_agent_matrix.db.base import AsyncPGClient
 from ecom_agent_matrix.db.redis_client import AsyncRedisClient
-from ecom_agent_matrix.modules.rag.embedding import get_text_embedding
+from ecom_agent_matrix.infrastructure.embedding.provider import (
+    get_text_embedding,
+    resolve_embed_model_name,
+)
 from ecom_agent_matrix.modules.rag.formatter import stable_source_id
 from ecom_agent_matrix.modules.rag.lexical import lexical_search
 from ecom_agent_matrix.modules.rag.rate_limiter import get_rag_semaphore
 from ecom_agent_matrix.modules.rag.reranker import rerank_documents_detailed
-from ecom_agent_matrix.modules.rag.schemas import HybridRetrievalResult
+from ecom_agent_matrix.modules.rag.schemas import HybridRetrievalResult, RetrievalCacheEntry
+from pydantic import ValidationError
 from ecom_agent_matrix.core.security import TenantScope
 
 logger = setup_logger("rag.retriever")
@@ -44,13 +49,17 @@ def _scope_hash(scope: TenantScope | None) -> str:
 
 
 def _cache_key(
-    query: str, lang: str, price_max: Optional[float], top_k: int,
+    query: str,
+    lang: str,
+    price_max: Optional[float],
+    top_k: int,
     scope: TenantScope | None = None,
 ) -> str:
     payload = json.dumps(
         {
             "index_version": settings.RAG_INDEX_VERSION,
             "retrieval_version": settings.RAG_RETRIEVAL_VERSION,
+            "embedding_model_version": resolve_embed_model_name(),
             "q": query.strip().lower(),
             "lang": lang,
             "price_max": price_max,
@@ -67,7 +76,7 @@ def _cache_key(
     )
 
 
-async def _load_cache(key: str) -> Optional[list[dict]]:
+async def _load_cache(key: str) -> RetrievalCacheEntry | None:
     if not settings.RAG_CACHE_ENABLED:
         return None
     try:
@@ -75,9 +84,8 @@ async def _load_cache(key: str) -> Optional[list[dict]]:
         raw = await redis.get(key)
         if not raw:
             return None
-        decoded = json.loads(raw)
-        return decoded if isinstance(decoded, list) else None
-    except json.JSONDecodeError as exc:
+        return RetrievalCacheEntry.model_validate_json(raw)
+    except (json.JSONDecodeError, ValidationError) as exc:
         logger.warning(
             "rag_cache_decode_failed",
             extra={"event": "rag_cache_decode_failed", "error_type": type(exc).__name__},
@@ -91,12 +99,22 @@ async def _load_cache(key: str) -> Optional[list[dict]]:
         return None
 
 
-async def _save_cache(key: str, docs: list[dict]) -> None:
+async def _save_cache(key: str, result: HybridRetrievalResult) -> None:
     if not settings.RAG_CACHE_ENABLED:
         return
     try:
         redis = await AsyncRedisClient.get_client()
-        await redis.set(key, json.dumps(docs, ensure_ascii=False), ex=settings.RAG_CACHE_TTL)
+        entry = RetrievalCacheEntry(
+            index_version=settings.RAG_INDEX_VERSION,
+            retrieval_version=settings.RAG_RETRIEVAL_VERSION,
+            embedding_model_version=resolve_embed_model_name(),
+            retrieval_mode=result.mode,
+            degraded=result.degraded,
+            channel_errors=result.channel_errors,
+            candidate_counts=result.candidate_counts,
+            documents=result.raw_documents,
+        )
+        await redis.set(key, entry.model_dump_json(), ex=settings.RAG_CACHE_TTL)
     except Exception as exc:
         logger.warning(
             "rag_cache_write_failed",
@@ -105,8 +123,12 @@ async def _save_cache(key: str, docs: list[dict]) -> None:
 
 
 async def vector_search(
-    query_vec: list[float], lang: str, price_max: float = None, top_k: int = 10,
-    *, scope: TenantScope | None = None,
+    query_vec: list[float],
+    lang: str,
+    price_max: float = None,
+    top_k: int = 10,
+    *,
+    scope: TenantScope | None = None,
 ) -> List[Dict]:
     """PGVector 向量相似度检索，支持价格筛选。"""
     bounded_k = min(max(int(top_k), 1), 80)
@@ -295,7 +317,10 @@ async def _hybrid_retrieve_detailed_uncached(
 
 
 async def _hybrid_retrieve_uncached(
-    query: str, lang: str, price_max: float = None, top_k: int = 8,
+    query: str,
+    lang: str,
+    price_max: float = None,
+    top_k: int = 8,
     scope: TenantScope | None = None,
 ) -> List[Dict]:
     result = await _hybrid_retrieve_detailed_uncached(query, lang, price_max, top_k, scope)
@@ -315,30 +340,25 @@ async def hybrid_retrieve_detailed(
 ) -> HybridRetrievalResult:
     started = time.perf_counter()
     cache_key = _cache_key(query, lang, price_max, top_k, scope)
-    cached_docs = await _load_cache(cache_key)
-    if cached_docs is not None:
+    cached_entry = await _load_cache(cache_key)
+    if cached_entry is not None:
         elapsed = (time.perf_counter() - started) * 1000
         return HybridRetrievalResult(
             success=True,
-            raw_documents=cached_docs,
-            mode="hybrid",
+            raw_documents=cached_entry.documents,
+            mode=cached_entry.retrieval_mode,
+            degraded=cached_entry.degraded,
+            channel_errors=cached_entry.channel_errors,
             cached=True,
-            candidate_counts={
-                "vector": 0,
-                "lexical": 0,
-                "fused": len(cached_docs),
-                "reranked": len(cached_docs),
-            },
+            candidate_counts=cached_entry.candidate_counts,
             diagnostics={"total_ms": elapsed, "rerank_mode": "cached"},
             latency_ms=elapsed,
         )
     sem = get_rag_semaphore()
     async with sem:
         result = await _hybrid_retrieve_detailed_uncached(query, lang, price_max, top_k, scope)
-    # A degraded result is usable for this request but its channel mode cannot be
-    # reconstructed from the legacy list-only cache payload.
-    if result.success and not result.degraded:
-        await _save_cache(cache_key, result.raw_documents)
+    if result.success:
+        await _save_cache(cache_key, result)
     logger.info(
         "rag_retrieve_done",
         extra={
@@ -372,8 +392,8 @@ async def hybrid_retrieve(
     start = time.perf_counter()
     cache_key = _cache_key(query, lang, price_max, top_k, scope)
 
-    cached_docs = await _load_cache(cache_key)
-    if cached_docs is not None:
+    cached_entry = await _load_cache(cache_key)
+    if cached_entry is not None:
         elapsed_ms = (time.perf_counter() - start) * 1000
         logger.info(
             "rag_cache_hit",
@@ -382,18 +402,26 @@ async def hybrid_retrieve(
                 "task_id": task_id,
                 **_query_log_fields(query),
                 "lang": lang,
-                "recall_count": len(cached_docs),
+                "recall_count": len(cached_entry.documents),
                 "latency_ms": round(elapsed_ms, 2),
                 "cached": True,
             },
         )
-        return cached_docs, True, elapsed_ms
+        return cached_entry.documents, True, elapsed_ms
 
     sem = get_rag_semaphore()
     async with sem:
         docs = await _hybrid_retrieve_uncached(query, lang, price_max, top_k, scope)
 
-    await _save_cache(cache_key, docs)
+    await _save_cache(
+        cache_key,
+        HybridRetrievalResult(
+            success=True,
+            raw_documents=docs,
+            mode="hybrid",
+            candidate_counts={"reranked": len(docs)},
+        ),
+    )
     elapsed_ms = (time.perf_counter() - start) * 1000
     logger.info(
         "rag_retrieve_done",

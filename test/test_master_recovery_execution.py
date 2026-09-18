@@ -7,29 +7,29 @@ import pytest
 
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
 from ecom_agent_matrix.config.settings import settings
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.core.mcp.reply import build_reply
-from ecom_agent_matrix.core.mcp.task_waiter import TaskReplyWaiter
-from ecom_agent_matrix.modules.agent_cluster.master.executor import MasterPlanExecutor
-from ecom_agent_matrix.modules.agent_cluster.master.recovery import (
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.runtime.messaging.reply import build_reply
+from ecom_agent_matrix.runtime.messaging.replies import resolve_task_reply
+from ecom_agent_matrix.orchestration.master.executor import MasterPlanExecutor
+from ecom_agent_matrix.orchestration.master.recovery import (
     RecoveryApplication,
     apply_recovery_decision,
     build_replan_input,
 )
-from ecom_agent_matrix.modules.agent_cluster.master.schemas import (
+from ecom_agent_matrix.orchestration.master.schemas import (
     MasterPlan,
     PlanExecutionResult,
     PlanStep,
     RecoveryDecision,
     StepResult,
 )
-from ecom_agent_matrix.modules.agent_cluster.master.telemetry import MasterLLMTelemetry
-from ecom_agent_matrix.modules.agent_cluster.master_router import MasterRouteDecision
-from ecom_agent_matrix.modules.agent_cluster import master_agent as master_module
+from ecom_agent_matrix.orchestration.master.telemetry import MasterLLMTelemetry
+from ecom_agent_matrix.orchestration.master.router import MasterRouteDecision
+from ecom_agent_matrix.orchestration.master import orchestrator as master_module
 
 
-def _root() -> MCPMessage:
-    return MCPMessage(
+def _root() -> AgentMessage:
+    return AgentMessage(
         task_id="root-recovery",
         correlation_id="gateway-correlation",
         sender="api_gateway",
@@ -81,22 +81,20 @@ def _failed_execution(step_id: str, agent: str, task_type: str) -> PlanExecution
 def test_read_retry_resumes_dag_without_repeating_success(retry_step, retry_agent):
     async def scenario():
         counts = {AGENT_QUERY: 0, AGENT_RAG: 0, AGENT_EXEC: 0}
-        messages: list[MCPMessage] = []
+        messages: list[AgentMessage] = []
 
-        async def send(message: MCPMessage):
+        async def send(message: AgentMessage):
             messages.append(message)
             counts[message.target] += 1
             if message.target == retry_agent and counts[message.target] == 1:
                 return True
             data = {"answer": "final"} if message.target == AGENT_EXEC else {"context": True}
-            TaskReplyWaiter.submit_reply(
-                build_reply(message, sender=message.target, success=True, data=data)
-            )
+            resolve_task_reply(build_reply(message, sender=message.target, success=True, data=data))
             return True
 
         executor = MasterPlanExecutor(max_concurrent=2, timeout=0.01)
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.mcp_bus.send_msg",
+            "ecom_agent_matrix.orchestration.master.executor.message_bus.send",
             new=AsyncMock(side_effect=send),
         ):
             first = await executor.execute(_plan(), _root())
@@ -190,7 +188,7 @@ def test_safe_replan_uses_compact_context_revalidates_and_executes():
                     agent=AGENT_QUERY,
                     task_type="order_query",
                     status="FAILED",
-                    error_code="TIMEOUT",
+                    error_code="AGENT_TIMEOUT",
                     data={"rows": ["MUST_NOT_REPLAN"]},
                 ),
                 "policy_context": StepResult(
@@ -265,11 +263,7 @@ def test_invalid_replanned_plan_is_not_executed():
     async def scenario():
         first = _failed_execution("order_context", AGENT_QUERY, "order_query")
         invalid = _plan().model_copy(
-            update={
-                "steps": [
-                    _plan().steps[0].model_copy(update={"depends_on": ["missing_step"]})
-                ]
-            }
+            update={"steps": [_plan().steps[0].model_copy(update={"depends_on": ["missing_step"]})]}
         )
         planner = AsyncMock()
         planner.plan.return_value = invalid
@@ -332,32 +326,37 @@ def test_master_recovery_loop_is_bounded_and_final_status_is_authoritative(monke
             continue_recovery=True,
             execution_changed=True,
         )
-        route = MasterRouteDecision(
-            mode="planner", confidence=0.5, reason_code="TEST"
-        )
+        route = MasterRouteDecision(mode="planner", confidence=0.5, reason_code="TEST")
         memory = AsyncMock()
         monkeypatch.setattr(settings, "MASTER_RECOVERY_MAX_STEPS", 2)
-        with patch.object(master_module, "route_master_task", return_value=route), patch.object(
-            master_module.typed_master_planner, "plan", new=AsyncMock(return_value=_plan())
-        ), patch.object(
-            master_module.MasterPlanExecutor, "execute", new=AsyncMock(return_value=first)
-        ), patch.object(
-            master_module.recovery_controller,
-            "run",
-            new=AsyncMock(
-                return_value=RecoveryDecision(
-                    action="retry_agent",
-                    step_id="order_context",
-                    reason_code="RETRY",
-                )
+        with (
+            patch.object(master_module, "route_master_task", return_value=route),
+            patch.object(
+                master_module.typed_master_planner, "plan", new=AsyncMock(return_value=_plan())
             ),
-        ) as controller, patch.object(
-            master_module,
-            "apply_recovery_decision",
-            new=AsyncMock(return_value=still_failed),
-        ) as apply, patch.object(
-            master_module.mcp_bus, "send_msg", new=AsyncMock(return_value=True)
-        ) as send:
+            patch.object(
+                master_module.MasterPlanExecutor, "execute", new=AsyncMock(return_value=first)
+            ),
+            patch.object(
+                master_module.recovery_controller,
+                "run",
+                new=AsyncMock(
+                    return_value=RecoveryDecision(
+                        action="retry_agent",
+                        step_id="order_context",
+                        reason_code="RETRY",
+                    )
+                ),
+            ) as controller,
+            patch.object(
+                master_module,
+                "apply_recovery_decision",
+                new=AsyncMock(return_value=still_failed),
+            ) as apply,
+            patch.object(
+                master_module.message_bus, "send", new=AsyncMock(return_value=True)
+            ) as send,
+        ):
             await master_module.process_master_task(request, memory)
         return controller, apply, send.await_args_list[0].args[0].content["data"]
 
@@ -373,14 +372,14 @@ def test_master_returns_recovered_execution_as_final_status():
     async def scenario():
         request = _root()
         child_counts = {AGENT_QUERY: 0, AGENT_RAG: 0, AGENT_EXEC: 0}
-        final_replies: list[MCPMessage] = []
+        final_replies: list[AgentMessage] = []
 
-        async def send(message: MCPMessage):
+        async def send(message: AgentMessage):
             if message.target in child_counts:
                 child_counts[message.target] += 1
                 if message.target == AGENT_QUERY and child_counts[AGENT_QUERY] == 1:
                     return True
-                TaskReplyWaiter.submit_reply(
+                resolve_task_reply(
                     build_reply(
                         message,
                         sender=message.target,
@@ -394,30 +393,33 @@ def test_master_returns_recovered_execution_as_final_status():
                 final_replies.append(message)
             return True
 
-        route = MasterRouteDecision(
-            mode="planner", confidence=0.9, reason_code="TEST"
-        )
+        route = MasterRouteDecision(mode="planner", confidence=0.9, reason_code="TEST")
         memory = AsyncMock()
-        with patch.object(master_module, "route_master_task", return_value=route), patch.object(
-            master_module.typed_master_planner, "plan", new=AsyncMock(return_value=_plan())
-        ), patch.object(
-            master_module.recovery_controller,
-            "run",
-            new=AsyncMock(
-                return_value=RecoveryDecision(
-                    action="retry_agent",
-                    step_id="order_context",
-                    reason_code="RETRY_TIMEOUT",
-                )
+        with (
+            patch.object(master_module, "route_master_task", return_value=route),
+            patch.object(
+                master_module.typed_master_planner, "plan", new=AsyncMock(return_value=_plan())
             ),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.settings.MCP_TIMEOUT",
-            0.01,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.mcp_bus.send_msg",
-            new=AsyncMock(side_effect=send),
-        ), patch.object(
-            master_module.mcp_bus, "send_msg", new=AsyncMock(side_effect=send)
+            patch.object(
+                master_module.recovery_controller,
+                "run",
+                new=AsyncMock(
+                    return_value=RecoveryDecision(
+                        action="retry_agent",
+                        step_id="order_context",
+                        reason_code="RETRY_TIMEOUT",
+                    )
+                ),
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.executor.settings.AGENT_REPLY_TIMEOUT",
+                0.01,
+            ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.executor.message_bus.send",
+                new=AsyncMock(side_effect=send),
+            ),
+            patch.object(master_module.message_bus, "send", new=AsyncMock(side_effect=send)),
         ):
             await master_module.process_master_task(request, memory)
         return final_replies[-1].content["data"], child_counts

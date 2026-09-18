@@ -1,4 +1,5 @@
 """Phase 2B：TaskContext / TaskNormalizer 回归测试。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,14 +7,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_QUERY
+from ecom_agent_matrix.config.constants import AGENT_QUERY
 from ecom_agent_matrix.core.tasking import (
     TaskContext,
+    WorkflowResult,
     ensure_task_context,
     normalize_task_context,
 )
-from ecom_agent_matrix.modules.agent_cluster.exec_agent import infer_exec_kind, run_exec
-from ecom_agent_matrix.modules.agent_cluster.query_agent import infer_query_kind, run_query
+from ecom_agent_matrix.agents.exec.agent import infer_exec_kind, run_exec
+from ecom_agent_matrix.agents.query.agent import infer_query_kind, run_query
 
 
 @pytest.mark.parametrize("field", ["query", "user_query", "text", "message"])
@@ -173,8 +175,8 @@ def test_ensure_task_context_keeps_context_and_normalizes_dict():
 def test_run_query_dict_remains_compatible():
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.query_agent.handle_goods",
-            new=AsyncMock(return_value=(True, "", {"query_kind": "goods"})),
+            "ecom_agent_matrix.agents.query.agent.run_goods_workflow",
+            new=AsyncMock(return_value=WorkflowResult(success=True, data={"query_kind": "goods"})),
         ) as handler:
             result = await run_query({"task_type": "goods_search", "user_query": " 背包 "})
         assert handler.await_args.args[0]["query"] == "背包"
@@ -187,8 +189,8 @@ def test_run_query_task_context_works():
     async def scenario():
         ctx = normalize_task_context({"task_type": "goods_search", "text": " 鞋子 "})
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.query_agent.handle_goods",
-            new=AsyncMock(return_value=(True, "", {"query_kind": "goods"})),
+            "ecom_agent_matrix.agents.query.agent.run_goods_workflow",
+            new=AsyncMock(return_value=WorkflowResult(success=True, data={"query_kind": "goods"})),
         ) as handler:
             result = await run_query(ctx)
         assert handler.await_args.args[0]["query"] == "鞋子"
@@ -200,8 +202,8 @@ def test_run_query_task_context_works():
 def test_run_exec_dict_remains_compatible():
     async def scenario():
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.exec_agent.handle_ad",
-            new=AsyncMock(return_value=(True, "", {"exec_kind": "ad"})),
+            "ecom_agent_matrix.agents.exec.agent.run_ad_workflow",
+            new=AsyncMock(return_value=WorkflowResult(success=True, data={"exec_kind": "ad"})),
         ) as handler:
             result = await run_exec({"task_type": "ad_optimize", "text": " 优化广告 "})
         assert handler.await_args.args[0]["query"] == "优化广告"
@@ -217,8 +219,8 @@ def test_run_exec_task_context_works_and_preserves_root_task_id_for_crm():
             task_id="root-1",
         )
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.exec_agent.handle_crm",
-            new=AsyncMock(return_value=(True, "", {"exec_kind": "crm"})),
+            "ecom_agent_matrix.agents.exec.agent.run_crm_workflow",
+            new=AsyncMock(return_value=WorkflowResult(success=True, data={"exec_kind": "crm"})),
         ) as handler:
             result = await run_exec(ctx)
         assert handler.await_args.args[0]["query"] == "回复客户"

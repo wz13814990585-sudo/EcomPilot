@@ -33,10 +33,15 @@ def test_retrieve_returns_typed_documents_and_citations():
         ]
         with patch(
             "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
-            new=AsyncMock(return_value=HybridRetrievalResult(
-                success=True, raw_documents=raw, mode="hybrid", cached=True,
-                latency_ms=12.5,
-            )),
+            new=AsyncMock(
+                return_value=HybridRetrievalResult(
+                    success=True,
+                    raw_documents=raw,
+                    mode="hybrid",
+                    cached=True,
+                    latency_ms=12.5,
+                )
+            ),
         ):
             return await RAGService().retrieve(RAGRequest(query="refund", task_id="T1"))
 
@@ -70,7 +75,7 @@ def test_service_module_has_no_mcp_dependency():
     import ecom_agent_matrix.modules.rag.service as service_module
 
     source = inspect.getsource(service_module)
-    assert "MCPMessage" not in source
+    assert "AgentMessage" not in source
     assert "mcp_bus" not in source
     assert "register_agent" not in source
     assert "build_reply" not in source

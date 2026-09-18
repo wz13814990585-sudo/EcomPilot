@@ -1,4 +1,5 @@
 """商品名 → SKU 检索：字面/pg_trgm 优先，向量语义兜底。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -10,7 +11,7 @@ from ecom_agent_matrix.config.settings import settings
 from ecom_agent_matrix.core.skill.base_skill import BaseSkill, SkillResult
 from ecom_agent_matrix.core.skill.skill_registry import register_skill
 from ecom_agent_matrix.db.base import AsyncPGClient
-from ecom_agent_matrix.modules.rag.embedding import get_text_embedding
+from ecom_agent_matrix.infrastructure.embedding.provider import get_text_embedding
 
 
 class GoodsSkuSearchInput(BaseModel):
@@ -120,9 +121,23 @@ async def _literal_trgm_search(product_name: str, top_k: int) -> list[dict]:
     LIMIT %s
     """
     params = [
-        product_name, product_name, product_name, product_name, product_name, product_name,
-        pattern, pattern, pattern, pattern, pattern, pattern,
-        product_name, product_name, product_name, product_name, product_name,
+        product_name,
+        product_name,
+        product_name,
+        product_name,
+        product_name,
+        product_name,
+        pattern,
+        pattern,
+        pattern,
+        pattern,
+        pattern,
+        pattern,
+        product_name,
+        product_name,
+        product_name,
+        product_name,
+        product_name,
         max(top_k * 3, top_k),
     ]
     rows = await AsyncPGClient.execute_read(sql, params)

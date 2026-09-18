@@ -10,12 +10,26 @@ def _normalized(path: Path) -> str:
 
 
 def test_migration_and_fresh_schemas_cover_all_tenant_tables():
-    migration = _normalized(MIGRATION)
-    fresh = _normalized(DB_DIR / "business_tables.sql") + " " + _normalized(DB_DIR / "vector_tables.sql")
+    migration = " ".join(
+        _normalized(path) for path in sorted((DB_DIR / "migrations").glob("*.sql"))
+    )
+    fresh = (
+        _normalized(DB_DIR / "business_tables.sql")
+        + " "
+        + _normalized(DB_DIR / "vector_tables.sql")
+    )
     tables = {
-        "ecom_goods", "ecom_order", "competitor_price", "risk_record",
-        "vector_goods_kb", "agent_long_memory", "finetune_dataset", "mcp_message_log",
-        "security_approval", "security_audit_log",
+        "ecom_goods",
+        "ecom_order",
+        "competitor_price",
+        "risk_record",
+        "vector_goods_kb",
+        "agent_long_memory",
+        "finetune_dataset",
+        "agent_message_log",
+        "security_approval",
+        "security_audit_log",
+        "skill_execution_idempotency",
     }
     for table in tables:
         assert table in migration
@@ -40,8 +54,14 @@ def test_rls_is_forced_and_policy_checks_both_scope_dimensions_for_read_and_writ
         sql = _normalized(path)
         assert "enable row level security" in sql
         assert "force row level security" in sql
-        assert "using (tenant_id = current_setting(''app.tenant_id'', true) and store_id = current_setting(''app.store_id'', true))" in sql
-        assert "with check (tenant_id = current_setting(''app.tenant_id'', true) and store_id = current_setting(''app.store_id'', true))" in sql
+        assert (
+            "using (tenant_id = current_setting(''app.tenant_id'', true) and store_id = current_setting(''app.store_id'', true))"
+            in sql
+        )
+        assert (
+            "with check (tenant_id = current_setting(''app.tenant_id'', true) and store_id = current_setting(''app.store_id'', true))"
+            in sql
+        )
 
 
 def test_security_role_example_contains_no_password_and_read_role_is_select_only():

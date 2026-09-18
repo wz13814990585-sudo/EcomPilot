@@ -1,4 +1,5 @@
 """依赖健康探测（Postgres / Redis）。"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -16,8 +17,12 @@ async def check_postgres() -> dict[str, Any]:
         read_rows = await AsyncPGClient.execute_health("read")
         write_rows = await AsyncPGClient.execute_health("write")
         ok = bool(
-            read_rows and read_rows[0] and read_rows[0][0] == 1
-            and write_rows and write_rows[0] and write_rows[0][0] == 1
+            read_rows
+            and read_rows[0]
+            and read_rows[0][0] == 1
+            and write_rows
+            and write_rows[0]
+            and write_rows[0][0] == 1
         )
         return {"ok": ok, "status": "ok" if ok else "degraded"}
     except Exception as exc:

@@ -15,8 +15,8 @@ ALTER TABLE agent_long_memory ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
 ALTER TABLE agent_long_memory ADD COLUMN IF NOT EXISTS store_id VARCHAR(64);
 ALTER TABLE finetune_dataset ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
 ALTER TABLE finetune_dataset ADD COLUMN IF NOT EXISTS store_id VARCHAR(64);
-ALTER TABLE mcp_message_log ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
-ALTER TABLE mcp_message_log ADD COLUMN IF NOT EXISTS store_id VARCHAR(64);
+ALTER TABLE agent_message_log ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
+ALTER TABLE agent_message_log ADD COLUMN IF NOT EXISTS store_id VARCHAR(64);
 
 UPDATE ecom_goods SET tenant_id='demo_tenant', store_id=COALESCE(NULLIF(store_id,''),'demo_store') WHERE NULLIF(tenant_id,'') IS NULL OR NULLIF(store_id,'') IS NULL;
 UPDATE ecom_order SET tenant_id='demo_tenant', store_id='demo_store' WHERE NULLIF(tenant_id,'') IS NULL OR NULLIF(store_id,'') IS NULL;
@@ -25,7 +25,7 @@ UPDATE risk_record SET tenant_id='demo_tenant', store_id='demo_store' WHERE NULL
 UPDATE vector_goods_kb SET tenant_id='demo_tenant', store_id='demo_store' WHERE NULLIF(tenant_id,'') IS NULL OR NULLIF(store_id,'') IS NULL;
 UPDATE agent_long_memory SET tenant_id='demo_tenant', store_id='demo_store' WHERE NULLIF(tenant_id,'') IS NULL OR NULLIF(store_id,'') IS NULL;
 UPDATE finetune_dataset SET tenant_id='demo_tenant', store_id='demo_store' WHERE NULLIF(tenant_id,'') IS NULL OR NULLIF(store_id,'') IS NULL;
-UPDATE mcp_message_log SET tenant_id='demo_tenant', store_id='demo_store' WHERE NULLIF(tenant_id,'') IS NULL OR NULLIF(store_id,'') IS NULL;
+UPDATE agent_message_log SET tenant_id='demo_tenant', store_id='demo_store' WHERE NULLIF(tenant_id,'') IS NULL OR NULLIF(store_id,'') IS NULL;
 
 ALTER TABLE ecom_goods ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_id SET NOT NULL;
 ALTER TABLE ecom_order ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_id SET NOT NULL;
@@ -34,7 +34,7 @@ ALTER TABLE risk_record ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_
 ALTER TABLE vector_goods_kb ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_id SET NOT NULL;
 ALTER TABLE agent_long_memory ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_id SET NOT NULL;
 ALTER TABLE finetune_dataset ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_id SET NOT NULL;
-ALTER TABLE mcp_message_log ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_id SET NOT NULL;
+ALTER TABLE agent_message_log ALTER COLUMN tenant_id SET NOT NULL, ALTER COLUMN store_id SET NOT NULL;
 
 ALTER TABLE ecom_goods DROP CONSTRAINT IF EXISTS ecom_goods_sku_key;
 ALTER TABLE ecom_order DROP CONSTRAINT IF EXISTS ecom_order_order_no_key;
@@ -70,7 +70,7 @@ DECLARE table_name text;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY[
     'ecom_goods','ecom_order','competitor_price','risk_record','vector_goods_kb',
-    'agent_long_memory','finetune_dataset','mcp_message_log','security_approval','security_audit_log'
+    'agent_long_memory','finetune_dataset','agent_message_log','security_approval','security_audit_log'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);

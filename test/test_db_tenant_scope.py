@@ -84,8 +84,12 @@ def test_read_pool_transaction_is_read_only_and_scope_is_transaction_local():
 
     async def scenario():
         with patch.object(AsyncPGClient, "get_read_pool", new=AsyncMock(return_value=pool)):
-            first = await AsyncPGClient.execute_read("SELECT 1", scope=_scope("tenant-a", "store-a"))
-            second = await AsyncPGClient.execute_read("SELECT 1", scope=_scope("tenant-b", "store-b"))
+            first = await AsyncPGClient.execute_read(
+                "SELECT 1", scope=_scope("tenant-a", "store-a")
+            )
+            second = await AsyncPGClient.execute_read(
+                "SELECT 1", scope=_scope("tenant-b", "store-b")
+            )
         return first, second
 
     assert asyncio.run(scenario()) == ([(1,)], [(1,)])
@@ -103,9 +107,7 @@ def test_read_pool_transaction_is_read_only_and_scope_is_transaction_local():
     assert first.index("SET TRANSACTION READ ONLY") < next(
         i for i, sql in enumerate(first) if "set_config('statement_timeout'" in sql
     )
-    tenant_scope_at = next(
-        i for i, sql in enumerate(first) if "set_config('app.tenant_id'" in sql
-    )
+    tenant_scope_at = next(i for i, sql in enumerate(first) if "set_config('app.tenant_id'" in sql)
     assert tenant_scope_at < first.index("SELECT 1") < first.index("COMMIT")
 
 
@@ -115,8 +117,9 @@ def test_write_path_uses_write_pool_and_not_read_pool():
     read = AsyncMock()
 
     async def scenario():
-        with patch.object(AsyncPGClient, "get_write_pool", new=AsyncMock(return_value=write_pool)), patch.object(
-            AsyncPGClient, "get_read_pool", new=read
+        with (
+            patch.object(AsyncPGClient, "get_write_pool", new=AsyncMock(return_value=write_pool)),
+            patch.object(AsyncPGClient, "get_read_pool", new=read),
         ):
             return await AsyncPGClient.execute_write(
                 "INSERT INTO risk_record(order_no) VALUES (%s) RETURNING id",

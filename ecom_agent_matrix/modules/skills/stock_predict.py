@@ -1,4 +1,5 @@
 """拓展：库存预测工具。"""
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field

@@ -1,4 +1,5 @@
 """多语种客服 / 知识问答接口（经 Master 规划：RAG 或数据查询）。"""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -44,7 +45,9 @@ async def customer_chat(
     try:
         authorize_task(security, str(content["task_type"]))
     except AuthorizationError:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="PERMISSION_DENIED") from None
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="PERMISSION_DENIED"
+        ) from None
 
     result = await dispatch_to_master(
         content,

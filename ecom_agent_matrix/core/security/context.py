@@ -1,4 +1,5 @@
 """Verified identity models propagated through internal envelopes."""
+
 from __future__ import annotations
 
 from typing import Literal

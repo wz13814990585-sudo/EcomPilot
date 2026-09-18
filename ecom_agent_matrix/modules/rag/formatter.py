@@ -1,4 +1,5 @@
 """RAG document normalization and citation-aware formatting。"""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,9 +11,24 @@ from ecom_agent_matrix.modules.rag.schemas import RAGCitation, RAGDocument
 
 _SOURCE_KEYS = ("source_id", "document_id", "doc_id", "chunk_id")
 _KNOWN_KEYS = {
-    "sku", "goods_sku", "title", "product_name", "chunk_text", "content", "text",
-    "chunk", "lang", "score", "vector_score", "bm25_score", "rrf_score",
-    "relevance_score", "meta", "metadata", "citation_id", "source_id",
+    "sku",
+    "goods_sku",
+    "title",
+    "product_name",
+    "chunk_text",
+    "content",
+    "text",
+    "chunk",
+    "lang",
+    "score",
+    "vector_score",
+    "bm25_score",
+    "rrf_score",
+    "relevance_score",
+    "meta",
+    "metadata",
+    "citation_id",
+    "source_id",
 }
 
 
@@ -36,11 +52,7 @@ def stable_source_id(raw: dict[str, Any]) -> str:
             return str(value).strip()
     sku = str(raw.get("sku") or raw.get("goods_sku") or "")
     text = str(
-        raw.get("chunk_text")
-        or raw.get("content")
-        or raw.get("text")
-        or raw.get("chunk")
-        or ""
+        raw.get("chunk_text") or raw.get("content") or raw.get("text") or raw.get("chunk") or ""
     )
     digest = hashlib.sha256(f"{sku}\0{text}".encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
@@ -50,11 +62,7 @@ def normalize_documents(raw_documents: list[dict[str, Any]]) -> list[RAGDocument
     documents: list[RAGDocument] = []
     for raw in raw_documents:
         text = str(
-            raw.get("chunk_text")
-            or raw.get("content")
-            or raw.get("text")
-            or raw.get("chunk")
-            or ""
+            raw.get("chunk_text") or raw.get("content") or raw.get("text") or raw.get("chunk") or ""
         ).strip()
         if not text:
             continue
@@ -114,9 +122,7 @@ def format_rag_context(documents: list[RAGDocument], limit: int = 5) -> str:
 def format_rag_docs(docs: list[dict[str, Any]] | list[RAGDocument], limit: int = 3) -> str:
     """旧 CRM formatting API 兼容层；新路径使用 citation-aware context。"""
     documents = (
-        list(docs)
-        if not docs or isinstance(docs[0], RAGDocument)
-        else normalize_documents(docs)  # type: ignore[arg-type]
+        list(docs) if not docs or isinstance(docs[0], RAGDocument) else normalize_documents(docs)  # type: ignore[arg-type]
     )
     return format_rag_context(documents, limit=limit)  # type: ignore[arg-type]
 

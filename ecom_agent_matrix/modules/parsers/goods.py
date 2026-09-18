@@ -1,4 +1,5 @@
 """商品领域 TaskContext → GoodsRequest 解析。"""
+
 from __future__ import annotations
 
 import re
@@ -43,8 +44,7 @@ def wants_full_catalog(text: str) -> bool:
         return True
     if re.search(r"有哪些商品|列出.*商品|商品列表|商品目录|list\s+products?", value, re.I):
         return not (
-            _COUNT_ONLY_HINT.search(value)
-            and not re.search(r"哪些|列出|列表|list", value, re.I)
+            _COUNT_ONLY_HINT.search(value) and not re.search(r"哪些|列出|列表|list", value, re.I)
         )
     return False
 

@@ -5,8 +5,13 @@ import logging
 
 from ecom_agent_matrix.core.logging_config import JsonFormatter
 from ecom_agent_matrix.platform.observability.context import (
-    TraceContext, begin_request_performance, finish_request_performance,
-    get_performance_summary, get_trace_context, identity_hash, record_llm_usage,
+    TraceContext,
+    begin_request_performance,
+    finish_request_performance,
+    get_performance_summary,
+    get_trace_context,
+    identity_hash,
+    record_llm_usage,
     trace_context,
 )
 from ecom_agent_matrix.platform.observability.logging import sanitize_log_fields
@@ -15,8 +20,11 @@ from ecom_agent_matrix.platform.observability.logging import sanitize_log_fields
 def test_trace_context_propagates_task_and_correlation_then_resets():
     original = get_trace_context()
     context = TraceContext.from_identity(
-        task_id="root-1", correlation_id="hop-1", agent_id="data_query",
-        tenant_id="tenant-raw", user_id="user-raw",
+        task_id="root-1",
+        correlation_id="hop-1",
+        agent_id="data_query",
+        tenant_id="tenant-raw",
+        user_id="user-raw",
     )
     with trace_context(context):
         current = get_trace_context()
@@ -29,16 +37,23 @@ def test_trace_context_propagates_task_and_correlation_then_resets():
 
 def test_json_formatter_injects_context_and_redacts_message_and_fields():
     record = logging.LogRecord(
-        "test", logging.INFO, __file__, 1,
-        "authorization=Bearer raw.jwt.token password=hunter2", (), None,
+        "test",
+        logging.INFO,
+        __file__,
+        1,
+        "authorization=Bearer raw.jwt.token password=hunter2",
+        (),
+        None,
     )
     record.event = "safe_event"
     record.query_hash = "abc123"
     record.prompt_tokens = 10
     record.api_key = "real-key"
-    with trace_context(TraceContext.from_identity(
-        task_id="root", correlation_id="hop", tenant_id="tenant-secret", user_id="user-secret"
-    )):
+    with trace_context(
+        TraceContext.from_identity(
+            task_id="root", correlation_id="hop", tenant_id="tenant-secret", user_id="user-secret"
+        )
+    ):
         output = json.loads(JsonFormatter().format(record))
     encoded = json.dumps(output)
     assert output["task_id"] == "root" and output["correlation_id"] == "hop"
@@ -48,10 +63,15 @@ def test_json_formatter_injects_context_and_redacts_message_and_fields():
 
 
 def test_sensitive_structured_fields_are_centrally_redacted():
-    safe = sanitize_log_fields({
-        "password": "p", "token": "t", "payload": {"order": 1},
-        "query": "refund", "error_type": "ValueError",
-    })
+    safe = sanitize_log_fields(
+        {
+            "password": "p",
+            "token": "t",
+            "payload": {"order": 1},
+            "query": "refund",
+            "error_type": "ValueError",
+        }
+    )
     assert safe["password"] == safe["token"] == safe["query"] == "[REDACTED]"
     assert safe["payload"] == "[REDACTED]"
     assert safe["error_type"] == "ValueError"

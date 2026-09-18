@@ -11,7 +11,7 @@ from ecom_agent_matrix.modules.rag.schemas import RAGRetrievalResult
 from ecom_agent_matrix.modules.rag.service import RAGService
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
 from ecom_agent_matrix.core.tasking import normalize_task_context
-from ecom_agent_matrix.modules.agent_cluster.handlers.crm import run_crm_workflow
+from ecom_agent_matrix.workflows.crm.workflow import run_crm_workflow
 
 
 def _scope(tenant, store):
@@ -20,8 +20,14 @@ def _scope(tenant, store):
 
 def _security(tenant="tenant-a", store="store-a"):
     return SecurityContext(
-        subject="u", user_id="u", tenant_id=tenant, store_id=store,
-        roles=frozenset({"viewer"}), scopes=frozenset(), auth_type="jwt", authenticated=True,
+        subject="u",
+        user_id="u",
+        tenant_id=tenant,
+        store_id=store,
+        roles=frozenset({"viewer"}),
+        scopes=frozenset(),
+        auth_type="jwt",
+        authenticated=True,
     )
 
 
@@ -42,10 +48,11 @@ def test_vector_and_lexical_sql_use_identical_trusted_scope():
 
     async def scenario():
         scope = _scope("tenant-a", "store-a")
-        with patch(
-            "ecom_agent_matrix.modules.rag.retriever.AsyncPGClient.execute_read", new=execute
-        ), patch(
-            "ecom_agent_matrix.modules.rag.lexical.AsyncPGClient.execute_read", new=execute
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever.AsyncPGClient.execute_read", new=execute
+            ),
+            patch("ecom_agent_matrix.modules.rag.lexical.AsyncPGClient.execute_read", new=execute),
         ):
             await vector_search([0.1], "en", top_k=5, scope=scope)
             await lexical_search("refund policy", "en", None, 5, scope=scope)
@@ -60,9 +67,12 @@ def test_vector_and_lexical_sql_use_identical_trusted_scope():
 
 def test_rag_service_production_without_trusted_scope_fails_closed():
     async def scenario():
-        with patch("ecom_agent_matrix.modules.rag.service.settings.APP_ENV", "production"), patch(
-            "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed", new=AsyncMock()
-        ) as retrieve:
+        with (
+            patch("ecom_agent_matrix.modules.rag.service.settings.APP_ENV", "production"),
+            patch(
+                "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed", new=AsyncMock()
+            ) as retrieve,
+        ):
             result = await RAGService().retrieve(RAGRequest(query="refund policy"))
         return result, retrieve
 
@@ -78,7 +88,9 @@ def test_rag_agent_scope_helper_ignores_payload_tenant_values():
     scope = tenant_scope_from_security(_security())
     assert payload["tenant_id"] != scope.tenant_id
     assert (scope.tenant_id, scope.store_id, scope.identity_trusted) == (
-        "tenant-a", "store-a", True
+        "tenant-a",
+        "store-a",
+        True,
     )
 
 
@@ -89,27 +101,33 @@ def test_index_version_is_v2():
 
 
 def test_crm_rag_uses_trusted_task_scope():
-    retrieve = AsyncMock(return_value=RAGRetrievalResult(
-        success=False, retrieval_version="hybrid-v2", error_code="RETRIEVAL_ERROR"
-    ))
+    retrieve = AsyncMock(
+        return_value=RAGRetrievalResult(
+            success=False, retrieval_version="hybrid-v2", error_code="RETRIEVAL_ERROR"
+        )
+    )
     reply = SkillResult(success=True, data={"answer": "safe", "llm_ok": True})
     ctx = normalize_task_context(
         {"query": "help me reply about refund policy", "use_rag": True},
-        task_id="task-1", security=_security(),
+        task_id="task-1",
+        security=_security(),
     )
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.rag_service.retrieve", new=retrieve
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.exec_skill",
-            new=AsyncMock(return_value=reply),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.AgentShortMemory.append",
-            new=AsyncMock(),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.AgentShortMemory.get_all",
-            new=AsyncMock(return_value=[]),
+        with (
+            patch("ecom_agent_matrix.workflows.crm.workflow.rag_service.retrieve", new=retrieve),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.exec_skill",
+                new=AsyncMock(return_value=reply),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.AgentShortMemory.append",
+                new=AsyncMock(),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.AgentShortMemory.get_all",
+                new=AsyncMock(return_value=[]),
+            ),
         ):
             return await run_crm_workflow(ctx)
 

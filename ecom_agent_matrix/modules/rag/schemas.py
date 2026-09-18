@@ -1,9 +1,12 @@
 """RAG service typed contracts。"""
+
 from __future__ import annotations
 
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from ecom_agent_matrix.core.errors import ErrorCode
 
 
 class RAGRequest(BaseModel):
@@ -65,8 +68,13 @@ class RAGRetrievalResult(BaseModel):
     channel_errors: dict[str, str] = Field(default_factory=dict)
     candidate_counts: dict[str, int] = Field(default_factory=dict)
     diagnostics: dict[str, float | str] = Field(default_factory=dict)
-    error_code: str = ""
+    error_code: ErrorCode | None = None
     error_msg: str = ""
+
+    @field_validator("error_code", mode="before")
+    @classmethod
+    def empty_error_is_none(cls, value):
+        return None if value == "" else value
 
 
 class RAGAnswerResult(BaseModel):
@@ -87,8 +95,13 @@ class RAGAnswerResult(BaseModel):
     degraded: bool = False
     channel_errors: dict[str, str] = Field(default_factory=dict)
     candidate_counts: dict[str, int] = Field(default_factory=dict)
-    error_code: str = ""
+    error_code: ErrorCode | None = None
     error_msg: str = ""
+
+    @field_validator("error_code", mode="before")
+    @classmethod
+    def empty_error_is_none(cls, value):
+        return None if value == "" else value
 
 
 class HybridRetrievalResult(BaseModel):
@@ -105,4 +118,25 @@ class HybridRetrievalResult(BaseModel):
     diagnostics: dict[str, float | str] = Field(default_factory=dict)
     cached: bool = False
     latency_ms: float = Field(default=0, ge=0)
-    error_code: str = ""
+    error_code: ErrorCode | None = None
+
+    @field_validator("error_code", mode="before")
+    @classmethod
+    def empty_error_is_none(cls, value):
+        return None if value == "" else value
+
+
+class RetrievalCacheEntry(BaseModel):
+    """Versioned cache payload; never infer retrieval quality from a bare list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = "1"
+    index_version: str
+    retrieval_version: str
+    embedding_model_version: str
+    retrieval_mode: Literal["hybrid", "vector_only", "lexical_only", "none"]
+    degraded: bool = False
+    channel_errors: dict[str, str] = Field(default_factory=dict)
+    candidate_counts: dict[str, int] = Field(default_factory=dict)
+    documents: list[dict[str, Any]] = Field(default_factory=list)

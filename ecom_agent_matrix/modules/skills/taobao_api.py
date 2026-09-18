@@ -1,4 +1,5 @@
 """淘宝开放平台 TOP 工具（由 CRM Agent 按需调用：use_taobao / taobao_method）。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -59,7 +60,7 @@ class TaobaoApiTool(BaseSkill):
     side_effect = True
     risk_level = "high"
     timeout_seconds = 30.0
-    idempotent = False
+    idempotent = True
     required_scopes = frozenset({"operations:execute"})
     approval_required = True
     input_model = TaobaoApiInput
@@ -75,7 +76,9 @@ class TaobaoApiTool(BaseSkill):
             app_key = (settings.TAOBAO_APP_KEY or "").strip()
             app_secret = (settings.TAOBAO_APP_SECRET or "").strip()
             session_key = (settings.TAOBAO_SESSION_KEY or "").strip()
-            api_url = (settings.TAOBAO_API_URL or "").strip() or "https://eco.taobao.com/router/rest"
+            api_url = (
+                settings.TAOBAO_API_URL or ""
+            ).strip() or "https://eco.taobao.com/router/rest"
 
             if not app_key or not app_secret:
                 return SkillResult(
@@ -127,8 +130,11 @@ class TaobaoApiTool(BaseSkill):
             )
             resp = await breaker.call(
                 request_once,
-                is_transient=lambda exc: isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
-                or isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500,
+                is_transient=lambda exc: isinstance(
+                    exc, (httpx.TimeoutException, httpx.NetworkError)
+                )
+                or isinstance(exc, httpx.HTTPStatusError)
+                and exc.response.status_code >= 500,
             )
 
             if resp.status_code != 200:
@@ -145,7 +151,9 @@ class TaobaoApiTool(BaseSkill):
 
             return SkillResult(success=True, data=data)
         except CircuitOpenError:
-            return SkillResult(success=False, error_code="CIRCUIT_OPEN", error_msg="淘宝依赖暂时不可用")
+            return SkillResult(
+                success=False, error_code="CIRCUIT_OPEN", error_msg="淘宝依赖暂时不可用"
+            )
         except asyncio.CancelledError:
             raise
         except Exception as exc:

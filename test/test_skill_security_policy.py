@@ -9,6 +9,8 @@ import ecom_agent_matrix.modules.skills  # noqa: F401
 from ecom_agent_matrix.config.constants import AGENT_EXEC
 from ecom_agent_matrix.core.security import ApprovalGrant, ApprovalRequest, SecurityContext
 from ecom_agent_matrix.core.security.approval import approval_params_hash
+from ecom_agent_matrix.core.skill.executor import SkillExecutor
+from ecom_agent_matrix.core.skill.idempotency import MemoryIdempotencyStore
 from ecom_agent_matrix.core.skill.skill_registry import (
     exec_skill,
     skill_container,
@@ -25,27 +27,41 @@ RISK_PARAMS = {
 
 def _security(role):
     return SecurityContext(
-        subject=role, user_id=role, tenant_id="tenant-a", store_id="store-a",
-        roles=frozenset({role}), scopes=frozenset(), auth_type="jwt", authenticated=True,
+        subject=role,
+        user_id=role,
+        tenant_id="tenant-a",
+        store_id="store-a",
+        roles=frozenset({role}),
+        scopes=frozenset(),
+        auth_type="jwt",
+        authenticated=True,
     )
 
 
 def _request():
     now = datetime.now(timezone.utc)
     return ApprovalRequest(
-        approval_id="00000000-0000-0000-0000-000000000001", task_id="task-1",
-        tenant_id="tenant-a", store_id="store-a", requester_user_id="risk_operator",
+        approval_id="00000000-0000-0000-0000-000000000001",
+        task_id="task-1",
+        tenant_id="tenant-a",
+        store_id="store-a",
+        requester_user_id="risk_operator",
         skill_name="record_order_risk",
         params_hash=approval_params_hash("record_order_risk", RISK_PARAMS),
-        status="pending", requested_at=now, expires_at=now + timedelta(minutes=10),
+        status="pending",
+        requested_at=now,
+        expires_at=now + timedelta(minutes=10),
     )
 
 
 def _grant(**updates):
     values = {
         "approval_id": "00000000-0000-0000-0000-000000000001",
-        "task_id": "task-1", "tenant_id": "tenant-a", "store_id": "store-a",
-        "requester_user_id": "risk_operator", "approver_user_id": "approver",
+        "task_id": "task-1",
+        "tenant_id": "tenant-a",
+        "store_id": "store-a",
+        "requester_user_id": "risk_operator",
+        "approver_user_id": "approver",
         "skill_name": "record_order_risk",
         "params_hash": approval_params_hash("record_order_risk", RISK_PARAMS),
         "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
@@ -74,6 +90,33 @@ def test_record_competitor_price_viewer_denied_operator_allowed():
     sql, sql_params = write.await_args.args
     assert "tenant_id, store_id" in sql
     assert sql_params[:2] == ["tenant-a", "store-a"]
+
+
+def test_idempotent_write_replays_result_without_second_side_effect():
+    params = {"target_sku": "SKU-IDEMP", "competitor": "Temu", "compete_price": 9.9}
+    executor = SkillExecutor(MemoryIdempotencyStore())
+
+    async def scenario():
+        with patch(
+            "ecom_agent_matrix.modules.skills.price_monitor.AsyncPGClient.execute_write",
+            new=AsyncMock(return_value=[[17]]),
+        ) as write:
+            with skill_execution_context(
+                AGENT_EXEC,
+                security=_security("operator"),
+                task_id="idempotency-task",
+            ) as context:
+                first = await executor.execute("record_competitor_price", params, context=context)
+                repeated = await executor.execute(
+                    "record_competitor_price", params, context=context
+                )
+        return first, repeated, write
+
+    first, repeated, write = asyncio.run(scenario())
+    assert first.success and repeated.success
+    assert first.data == repeated.data
+    assert repeated.metadata["idempotent_replay"] is True
+    write.assert_awaited_once()
 
 
 def test_risk_operator_without_approval_receives_pending_id_and_no_sensitive_data():
@@ -109,14 +152,18 @@ def test_exact_approved_request_executes_once():
     service = AsyncMock()
 
     async def scenario():
-        with patch("ecom_agent_matrix.core.skill.executor.approval_service", service), patch(
-            "ecom_agent_matrix.core.skill.executor.record_audit_event", new=AsyncMock()
-        ), patch(
-            "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_write",
-            new=AsyncMock(return_value=[[9]]),
-        ) as write:
+        with (
+            patch("ecom_agent_matrix.core.skill.executor.approval_service", service),
+            patch("ecom_agent_matrix.core.skill.executor.record_audit_event", new=AsyncMock()),
+            patch(
+                "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_write",
+                new=AsyncMock(return_value=[[9]]),
+            ) as write,
+        ):
             with skill_execution_context(
-                AGENT_EXEC, security=_security("risk_operator"), task_id="task-1",
+                AGENT_EXEC,
+                security=_security("risk_operator"),
+                task_id="task-1",
                 approval=_grant(),
             ):
                 result = await exec_skill("record_order_risk", RISK_PARAMS)
@@ -132,10 +179,13 @@ def test_invalid_expired_and_consumed_approval_never_runs_skill():
     async def one(code):
         service = AsyncMock()
         service.consume.side_effect = PermissionError(code)
-        with patch("ecom_agent_matrix.core.skill.executor.approval_service", service), patch(
-            "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_write",
-            new=AsyncMock(),
-        ) as write:
+        with (
+            patch("ecom_agent_matrix.core.skill.executor.approval_service", service),
+            patch(
+                "ecom_agent_matrix.modules.skills.risk_control.AsyncPGClient.execute_write",
+                new=AsyncMock(),
+            ) as write,
+        ):
             with skill_execution_context(
                 AGENT_EXEC, security=_security("risk_operator"), approval=_grant()
             ):
@@ -153,4 +203,3 @@ def test_all_high_or_critical_side_effect_contracts_require_approval():
         spec = skill_cls.spec()
         if spec.side_effect and spec.risk_level in {"high", "critical"}:
             assert spec.approval_required, spec.name
-

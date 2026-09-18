@@ -23,14 +23,22 @@ def test_fallback_source_identity_is_deterministic_and_ranked():
 def test_valid_citation_is_grounded():
     async def scenario():
         docs = [{"chunk_text": "Returns are accepted.", "meta": {"doc_id": "D1"}}]
-        with patch(
-            "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
-            new=AsyncMock(return_value=HybridRetrievalResult(
-                success=True, raw_documents=docs, mode="hybrid", latency_ms=1,
-            )),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.service.llm_explain",
-            new=AsyncMock(return_value=("Returns are accepted [S1].", "test", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
+                new=AsyncMock(
+                    return_value=HybridRetrievalResult(
+                        success=True,
+                        raw_documents=docs,
+                        mode="hybrid",
+                        latency_ms=1,
+                    )
+                ),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.service.llm_explain",
+                new=AsyncMock(return_value=("Returns are accepted [S1].", "test", "")),
+            ),
         ):
             return await RAGService().answer(RAGRequest(query="returns"))
 
@@ -42,14 +50,22 @@ def test_valid_citation_is_grounded():
 def test_nonexistent_citation_is_not_legal_and_not_grounded():
     async def scenario():
         docs = [{"chunk_text": "Returns are accepted.", "meta": {"doc_id": "D1"}}]
-        with patch(
-            "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
-            new=AsyncMock(return_value=HybridRetrievalResult(
-                success=True, raw_documents=docs, mode="hybrid", latency_ms=1,
-            )),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.service.llm_explain",
-            new=AsyncMock(return_value=("Invented claim [S99].", "test", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
+                new=AsyncMock(
+                    return_value=HybridRetrievalResult(
+                        success=True,
+                        raw_documents=docs,
+                        mode="hybrid",
+                        latency_ms=1,
+                    )
+                ),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.service.llm_explain",
+                new=AsyncMock(return_value=("Invented claim [S99].", "test", "")),
+            ),
         ):
             return await RAGService().answer(RAGRequest(query="returns"))
 
@@ -64,14 +80,22 @@ def test_nonexistent_citation_is_not_legal_and_not_grounded():
 def test_documents_with_no_citation_are_not_grounded():
     async def scenario():
         docs = [{"chunk_text": "Returns are accepted.", "meta": {"doc_id": "D1"}}]
-        with patch(
-            "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
-            new=AsyncMock(return_value=HybridRetrievalResult(
-                success=True, raw_documents=docs, mode="hybrid", latency_ms=1,
-            )),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.service.llm_explain",
-            new=AsyncMock(return_value=("Returns are accepted.", "test", "")),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
+                new=AsyncMock(
+                    return_value=HybridRetrievalResult(
+                        success=True,
+                        raw_documents=docs,
+                        mode="hybrid",
+                        latency_ms=1,
+                    )
+                ),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.service.llm_explain",
+                new=AsyncMock(return_value=("Returns are accepted.", "test", "")),
+            ),
         ):
             return await RAGService().answer(RAGRequest(query="returns"))
 
@@ -83,13 +107,19 @@ def test_documents_with_no_citation_are_not_grounded():
 def test_no_documents_is_not_grounded_and_skips_answer_llm():
     async def scenario():
         llm = AsyncMock()
-        with patch(
-            "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
-            new=AsyncMock(return_value=HybridRetrievalResult(
-                success=True, raw_documents=[], mode="hybrid", latency_ms=1,
-            )),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.service.llm_explain", new=llm
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
+                new=AsyncMock(
+                    return_value=HybridRetrievalResult(
+                        success=True,
+                        raw_documents=[],
+                        mode="hybrid",
+                        latency_ms=1,
+                    )
+                ),
+            ),
+            patch("ecom_agent_matrix.modules.rag.service.llm_explain", new=llm),
         ):
             result = await RAGService().answer(RAGRequest(query="unknown"))
         return result, llm
@@ -104,14 +134,22 @@ def test_no_documents_is_not_grounded_and_skips_answer_llm():
 def test_generation_exception_uses_safe_grounded_fallback():
     async def scenario():
         docs = [{"chunk_text": "Returns are accepted.", "meta": {"doc_id": "D1"}}]
-        with patch(
-            "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
-            new=AsyncMock(return_value=HybridRetrievalResult(
-                success=True, raw_documents=docs, mode="hybrid", latency_ms=1,
-            )),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.service.llm_explain",
-            new=AsyncMock(side_effect=RuntimeError("api_key=TOP_SECRET")),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.service.hybrid_retrieve_detailed",
+                new=AsyncMock(
+                    return_value=HybridRetrievalResult(
+                        success=True,
+                        raw_documents=docs,
+                        mode="hybrid",
+                        latency_ms=1,
+                    )
+                ),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.service.llm_explain",
+                new=AsyncMock(side_effect=RuntimeError("api_key=TOP_SECRET")),
+            ),
         ):
             return await RAGService().answer(RAGRequest(query="returns"))
 

@@ -1,16 +1,17 @@
 """Phase 3A：Master 总并发、后台任务跟踪与失败回传。"""
+
 from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock, patch
 
 from ecom_agent_matrix.config.constants import AGENT_MASTER
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.modules.agent_cluster import master_agent as master_module
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.orchestration.master import orchestrator as master_module
 
 
-def _message(task_id: str) -> MCPMessage:
-    return MCPMessage(
+def _message(task_id: str) -> AgentMessage:
+    return AgentMessage(
         task_id=task_id,
         sender="api_gateway",
         target=AGENT_MASTER,
@@ -37,8 +38,11 @@ def test_master_total_concurrency_limit_is_enforced():
         old_sem = master_module._master_task_semaphore
         master_module._master_task_semaphore = None
         try:
-            with patch.object(master_module.settings, "MASTER_MAX_CONCURRENT", 2), patch.object(
-                master_module, "process_master_task", new=AsyncMock(side_effect=blocked_process)
+            with (
+                patch.object(master_module.settings, "MASTER_MAX_CONCURRENT", 2),
+                patch.object(
+                    master_module, "process_master_task", new=AsyncMock(side_effect=blocked_process)
+                ),
             ):
                 tasks = [
                     asyncio.create_task(
@@ -83,11 +87,16 @@ def test_unexpected_master_exception_returns_failure_reply():
         old_sem = master_module._master_task_semaphore
         master_module._master_task_semaphore = None
         try:
-            with patch.object(
-                master_module, "process_master_task", new=AsyncMock(side_effect=RuntimeError("secret"))
-            ), patch.object(
-                master_module.mcp_bus, "send_msg", new=AsyncMock(return_value=True)
-            ) as send:
+            with (
+                patch.object(
+                    master_module,
+                    "process_master_task",
+                    new=AsyncMock(side_effect=RuntimeError("secret")),
+                ),
+                patch.object(
+                    master_module.message_bus, "send", new=AsyncMock(return_value=True)
+                ) as send,
+            ):
                 await master_module.safe_process_master_task(request, AsyncMock())
             return send.await_args.args[0]
         finally:

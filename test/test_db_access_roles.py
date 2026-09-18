@@ -42,7 +42,9 @@ def test_production_requires_distinct_read_write_credentials(updates):
 
 
 def test_development_retains_legacy_database_compatibility():
-    validate_database_security_configuration(_config(APP_ENV="development", PG_READ_USER="", PG_WRITE_USER=""))
+    validate_database_security_configuration(
+        _config(APP_ENV="development", PG_READ_USER="", PG_WRITE_USER="")
+    )
 
 
 @pytest.mark.parametrize("role_row", [[(True, False)], [(False, True)]])
@@ -50,8 +52,9 @@ def test_production_rejects_superuser_or_bypassrls_runtime_role(role_row):
     pool = _Pool(_Cursor(role_row))
 
     async def scenario():
-        with patch.object(AsyncPGClient, "get_read_pool", new=AsyncMock(return_value=pool)), patch.object(
-            AsyncPGClient, "get_write_pool", new=AsyncMock(return_value=pool)
+        with (
+            patch.object(AsyncPGClient, "get_read_pool", new=AsyncMock(return_value=pool)),
+            patch.object(AsyncPGClient, "get_write_pool", new=AsyncMock(return_value=pool)),
         ):
             await validate_database_runtime_roles(_config())
 
@@ -64,8 +67,9 @@ def test_production_accepts_non_privileged_distinct_runtime_roles():
     write_pool = _Pool(_Cursor([(False, False)]))
 
     async def scenario():
-        with patch.object(AsyncPGClient, "get_read_pool", new=AsyncMock(return_value=read_pool)), patch.object(
-            AsyncPGClient, "get_write_pool", new=AsyncMock(return_value=write_pool)
+        with (
+            patch.object(AsyncPGClient, "get_read_pool", new=AsyncMock(return_value=read_pool)),
+            patch.object(AsyncPGClient, "get_write_pool", new=AsyncMock(return_value=write_pool)),
         ):
             await validate_database_runtime_roles(_config())
 

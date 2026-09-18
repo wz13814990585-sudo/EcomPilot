@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from ecom_agent_matrix.config.constants import AGENT_MASTER, AGENT_RAG
-from ecom_agent_matrix.core.mcp.message import MCPMessage
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
-from ecom_agent_matrix.modules.agent_cluster.handlers.crm import run_crm_workflow
-from ecom_agent_matrix.modules.rag.rag_agent import rag_agent
+from ecom_agent_matrix.workflows.crm.workflow import run_crm_workflow
+from ecom_agent_matrix.agents.rag.agent import rag_agent
 from ecom_agent_matrix.modules.rag.schemas import (
     RAGAnswerResult,
     RAGCitation,
@@ -63,7 +63,7 @@ def test_static_dependency_direction_is_enforced():
     combined = "\n".join(path.read_text() for path in rag_dir.glob("*.py"))
     assert "modules.skills.crm_reply" not in combined
 
-    import ecom_agent_matrix.modules.rag.rag_agent as agent_module
+    import ecom_agent_matrix.agents.rag.agent as agent_module
     import ecom_agent_matrix.modules.skills.crm_reply as crm_reply_module
 
     agent_source = inspect.getsource(agent_module)
@@ -85,16 +85,20 @@ def test_crm_workflow_owns_retrieval_policy(query, explicit, expected_calls):
     async def scenario():
         retrieve = AsyncMock(return_value=_retrieval())
         payload = {"query": query, "use_rag": explicit}
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.rag_service.retrieve",
-            new=retrieve,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.AgentShortMemory",
-            side_effect=RuntimeError("memory unavailable"),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.exec_skill",
-            new=AsyncMock(return_value=_skill_reply()),
-        ) as skill:
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.rag_service.retrieve",
+                new=retrieve,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.AgentShortMemory",
+                side_effect=RuntimeError("memory unavailable"),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.exec_skill",
+                new=AsyncMock(return_value=_skill_reply()),
+            ) as skill,
+        ):
             result = await run_crm_workflow(payload)
         return result, retrieve, skill
 
@@ -118,23 +122,25 @@ def test_upstream_policy_context_prevents_retrieval():
                     "task_type": "knowledge_qa",
                     "data": {
                         "answer": "Verified refund policy [S1]",
-                        "citations": [
-                            {"citation_id": "S1", "source_id": "policy-1"}
-                        ],
+                        "citations": [{"citation_id": "S1", "source_id": "policy-1"}],
                     },
                 }
             },
         }
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.rag_service.retrieve",
-            new=retrieve,
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.AgentShortMemory",
-            side_effect=RuntimeError("memory unavailable"),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.exec_skill",
-            new=AsyncMock(return_value=_skill_reply()),
-        ) as skill:
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.rag_service.retrieve",
+                new=retrieve,
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.AgentShortMemory",
+                side_effect=RuntimeError("memory unavailable"),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.exec_skill",
+                new=AsyncMock(return_value=_skill_reply()),
+            ) as skill,
+        ):
             result = await run_crm_workflow(task)
         return result, retrieve, skill
 
@@ -146,15 +152,19 @@ def test_upstream_policy_context_prevents_retrieval():
 
 def test_retrieval_failure_is_safe_partial_success():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.rag_service.retrieve",
-            new=AsyncMock(return_value=_retrieval(success=False)),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.AgentShortMemory",
-            side_effect=RuntimeError("memory unavailable"),
-        ), patch(
-            "ecom_agent_matrix.modules.agent_cluster.handlers.crm.exec_skill",
-            new=AsyncMock(return_value=_skill_reply()),
+        with (
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.rag_service.retrieve",
+                new=AsyncMock(return_value=_retrieval(success=False)),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.AgentShortMemory",
+                side_effect=RuntimeError("memory unavailable"),
+            ),
+            patch(
+                "ecom_agent_matrix.workflows.crm.workflow.exec_skill",
+                new=AsyncMock(return_value=_skill_reply()),
+            ),
         ):
             return await run_crm_workflow({"query": "hello", "use_rag": True})
 
@@ -167,7 +177,7 @@ def test_retrieval_failure_is_safe_partial_success():
 def test_rag_agent_is_service_adapter_and_preserves_legacy_fields():
     async def scenario():
         queue: asyncio.Queue = asyncio.Queue()
-        request = MCPMessage(
+        request = AgentMessage(
             task_id="root-rag",
             sender=AGENT_MASTER,
             target=AGENT_RAG,
@@ -186,7 +196,7 @@ def test_rag_agent_is_service_adapter_and_preserves_legacy_fields():
             retrieval_latency_ms=1,
             total_latency_ms=2,
         )
-        sent: list[MCPMessage] = []
+        sent: list[AgentMessage] = []
         done = asyncio.Event()
 
         async def send(message):
@@ -195,12 +205,15 @@ def test_rag_agent_is_service_adapter_and_preserves_legacy_fields():
             return True
 
         await queue.put(request)
-        with patch(
-            "ecom_agent_matrix.modules.rag.rag_agent.rag_service.answer",
-            new=AsyncMock(return_value=answer),
-        ) as service, patch(
-            "ecom_agent_matrix.modules.rag.rag_agent.mcp_bus.send_msg",
-            new=AsyncMock(side_effect=send),
+        with (
+            patch(
+                "ecom_agent_matrix.agents.rag.agent.rag_service.answer",
+                new=AsyncMock(return_value=answer),
+            ) as service,
+            patch(
+                "ecom_agent_matrix.agents.rag.agent.message_bus.send",
+                new=AsyncMock(side_effect=send),
+            ),
         ):
             task = asyncio.create_task(rag_agent(queue))
             await asyncio.wait_for(done.wait(), timeout=1)
@@ -213,8 +226,17 @@ def test_rag_agent_is_service_adapter_and_preserves_legacy_fields():
     service.assert_awaited_once()
     data = reply.content["data"]
     for field in (
-        "query", "lang", "recall_count", "latency_ms", "cached", "docs",
-        "answer", "answer_source", "llm_error", "citations", "grounded",
+        "query",
+        "lang",
+        "recall_count",
+        "latency_ms",
+        "cached",
+        "docs",
+        "answer",
+        "answer_source",
+        "llm_error",
+        "citations",
+        "grounded",
         "retrieval_version",
     ):
         assert field in data

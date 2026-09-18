@@ -1,4 +1,5 @@
 """Typed high-risk approval envelopes; no raw business payloads are stored."""
+
 from __future__ import annotations
 
 from datetime import datetime

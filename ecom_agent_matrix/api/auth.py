@@ -1,4 +1,5 @@
 """HTTP resource-server authentication producing a trusted SecurityContext."""
+
 from __future__ import annotations
 
 import secrets

@@ -1,4 +1,5 @@
 """OpenAI 供应商（官方 Chat Completions）。"""
+
 from __future__ import annotations
 
 from ecom_agent_matrix.config.settings import settings

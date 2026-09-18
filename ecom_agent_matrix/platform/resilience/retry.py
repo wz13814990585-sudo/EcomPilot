@@ -1,4 +1,5 @@
 """Bounded retry policy for explicitly safe transient operations."""
+
 from __future__ import annotations
 
 import asyncio
@@ -51,4 +52,3 @@ def skill_retry_allowed(*, read_only: bool, idempotent: bool, side_effect: bool)
 
 
 __all__ = ["RetryPolicy", "skill_retry_allowed"]
-

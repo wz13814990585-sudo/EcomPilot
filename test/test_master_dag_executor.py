@@ -4,15 +4,15 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
-from ecom_agent_matrix.core.mcp.message import MCPMessage
-from ecom_agent_matrix.core.mcp.reply import build_reply
-from ecom_agent_matrix.core.mcp.task_waiter import TaskReplyWaiter
-from ecom_agent_matrix.modules.agent_cluster.master.executor import MasterPlanExecutor
-from ecom_agent_matrix.modules.agent_cluster.master.schemas import MasterPlan, PlanStep
+from ecom_agent_matrix.runtime.messaging.message import AgentMessage
+from ecom_agent_matrix.runtime.messaging.reply import build_reply
+from ecom_agent_matrix.runtime.messaging.replies import resolve_task_reply, task_replies
+from ecom_agent_matrix.orchestration.master.executor import MasterPlanExecutor
+from ecom_agent_matrix.orchestration.master.schemas import MasterPlan, PlanStep
 
 
-def _root() -> MCPMessage:
-    return MCPMessage(
+def _root() -> AgentMessage:
+    return AgentMessage(
         task_id="root-dag",
         correlation_id="gateway-correlation",
         sender="api_gateway",
@@ -45,9 +45,9 @@ def test_independent_steps_are_concurrent_and_exec_waits_for_both():
         active = 0
         max_active = 0
         completed: set[str] = set()
-        sent: list[MCPMessage] = []
+        sent: list[AgentMessage] = []
 
-        async def send(message: MCPMessage):
+        async def send(message: AgentMessage):
             nonlocal active, max_active
             sent.append(message)
             if message.target == AGENT_EXEC:
@@ -61,7 +61,7 @@ def test_independent_steps_are_concurrent_and_exec_waits_for_both():
             await asyncio.sleep(0.02)
             completed.add(message.target)
             active -= 1
-            TaskReplyWaiter.submit_reply(
+            resolve_task_reply(
                 build_reply(
                     message,
                     sender=message.target,
@@ -72,7 +72,7 @@ def test_independent_steps_are_concurrent_and_exec_waits_for_both():
             return True
 
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.mcp_bus.send_msg",
+            "ecom_agent_matrix.orchestration.master.executor.message_bus.send",
             new=AsyncMock(side_effect=send),
         ):
             result = await MasterPlanExecutor(max_concurrent=2, timeout=0.5).execute(
@@ -93,20 +93,18 @@ def test_concurrency_limit_covers_dispatch_and_wait():
         active = 0
         max_active = 0
 
-        async def send(message: MCPMessage):
+        async def send(message: AgentMessage):
             nonlocal active, max_active
             active += 1
             max_active = max(max_active, active)
             await asyncio.sleep(0.01)
-            TaskReplyWaiter.submit_reply(
-                build_reply(message, sender=message.target, success=True, data={})
-            )
+            resolve_task_reply(build_reply(message, sender=message.target, success=True, data={}))
             active -= 1
             return True
 
         plan = _plan().model_copy(update={"steps": _plan().steps[:2]})
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.mcp_bus.send_msg",
+            "ecom_agent_matrix.orchestration.master.executor.message_bus.send",
             new=AsyncMock(side_effect=send),
         ):
             await MasterPlanExecutor(max_concurrent=1, timeout=0.5).execute(plan, _root())
@@ -117,18 +115,18 @@ def test_concurrency_limit_covers_dispatch_and_wait():
 
 def test_required_dependency_failure_skips_downstream():
     async def scenario():
-        sent: list[MCPMessage] = []
+        sent: list[AgentMessage] = []
 
-        async def send(message: MCPMessage):
+        async def send(message: AgentMessage):
             sent.append(message)
             success = message.target != AGENT_QUERY
-            TaskReplyWaiter.submit_reply(
+            resolve_task_reply(
                 build_reply(message, sender=message.target, success=success, data={})
             )
             return True
 
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.mcp_bus.send_msg",
+            "ecom_agent_matrix.orchestration.master.executor.message_bus.send",
             new=AsyncMock(side_effect=send),
         ):
             result = await MasterPlanExecutor(timeout=0.2).execute(_plan(), _root())
@@ -146,7 +144,7 @@ def test_timeout_is_propagated_and_waiter_is_cleaned():
     async def scenario():
         plan = _plan().model_copy(update={"steps": [_plan().steps[0]]})
         with patch(
-            "ecom_agent_matrix.modules.agent_cluster.master.executor.mcp_bus.send_msg",
+            "ecom_agent_matrix.orchestration.master.executor.message_bus.send",
             new=AsyncMock(return_value=True),
         ):
             result = await MasterPlanExecutor(timeout=0.01).execute(plan, _root())
@@ -155,5 +153,5 @@ def test_timeout_is_propagated_and_waiter_is_cleaned():
     result = asyncio.run(scenario())
     step = result.step_results["order_context"]
     assert step.status == "FAILED"
-    assert step.error_code == "TIMEOUT"
-    assert TaskReplyWaiter.pending_count(step.correlation_id) == 0
+    assert step.error_code == "AGENT_TIMEOUT"
+    assert not task_replies.contains(step.correlation_id)

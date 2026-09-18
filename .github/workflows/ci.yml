@@ -29,19 +29,21 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: |
-            ecom_agent_matrix/requirements.txt
-            requirements-dev.txt
+            pyproject.toml
 
       - name: Install runtime and development dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt
+          python -m pip install -e ".[dev]"
 
       - name: Compile Python sources
         run: python -m compileall -q ecom_agent_matrix
 
-      - name: Ruff critical correctness checks
-        run: ruff check ecom_agent_matrix test --select E9,F63,F7,F82
+      - name: Ruff checks
+        run: ruff check ecom_agent_matrix test
+
+      - name: Ruff formatting
+        run: ruff format --check ecom_agent_matrix test
 
       - name: Run tests
         run: pytest -q

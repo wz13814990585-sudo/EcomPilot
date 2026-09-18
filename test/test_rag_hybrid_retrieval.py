@@ -29,12 +29,12 @@ def test_candidate_limit_is_bounded():
 def test_lexical_is_parameterized_bounded_and_embedding_independent():
     captured = {}
 
-    async def execute(sql, params):
+    async def execute(sql, params, **_kwargs):
         captured.update(sql=sql, params=params)
         return [("SKU-1", "refund policy thirty days", {"doc_id": "D1"}, 2)]
 
     with patch(
-        "ecom_agent_matrix.modules.rag.lexical.AsyncPGClient.execute_sql",
+        "ecom_agent_matrix.modules.rag.lexical.AsyncPGClient.execute_read",
         new=execute,
     ):
         result = asyncio.run(lexical_search("refund policy", "en", None, 500))
@@ -49,12 +49,15 @@ def test_lexical_is_parameterized_bounded_and_embedding_independent():
 
 
 def test_vector_channel_does_not_depend_on_lexical():
-    with patch(
-        "ecom_agent_matrix.modules.rag.retriever.get_text_embedding",
-        new=AsyncMock(return_value=[0.1]),
-    ), patch(
-        "ecom_agent_matrix.modules.rag.retriever.vector_search",
-        new=AsyncMock(return_value=[{"chunk_text": "vector", "vector_score": 0.9}]),
+    with (
+        patch(
+            "ecom_agent_matrix.modules.rag.retriever.get_text_embedding",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "ecom_agent_matrix.modules.rag.retriever.vector_search",
+            new=AsyncMock(return_value=[{"chunk_text": "vector", "vector_score": 0.9}]),
+        ),
     ):
         documents, _ = asyncio.run(_vector_channel("q", "en", None, 20))
     assert documents[0]["vector_score"] == 0.9
@@ -75,15 +78,19 @@ def test_channels_run_concurrently_and_can_return_disjoint_documents():
         return candidates[:top_k], "keyword_fallback"
 
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.rag.retriever._vector_channel",
-            new=lambda *_args: channel("vector", _doc("V", "vector only")),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
-            new=lambda *_args: channel("lexical", _doc("L", "lexical only")),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever.rerank_documents_detailed",
-            new=rerank,
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._vector_channel",
+                new=lambda *_args: channel("vector", _doc("V", "vector only")),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
+                new=lambda *_args: channel("lexical", _doc("L", "lexical only")),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever.rerank_documents_detailed",
+                new=rerank,
+            ),
         ):
             return await _hybrid_retrieve_detailed_uncached("q", "en", top_k=8)
 
@@ -94,15 +101,19 @@ def test_channels_run_concurrently_and_can_return_disjoint_documents():
 
 def test_vector_embedding_failure_degrades_to_lexical_only():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.rag.retriever.get_text_embedding",
-            new=AsyncMock(side_effect=RuntimeError("model unavailable")),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
-            new=AsyncMock(return_value=([_doc("L", "refund")], 1.0)),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever.rerank_documents_detailed",
-            new=AsyncMock(return_value=([_doc("L", "refund")], "keyword_fallback")),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever.get_text_embedding",
+                new=AsyncMock(side_effect=RuntimeError("model unavailable")),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
+                new=AsyncMock(return_value=([_doc("L", "refund")], 1.0)),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever.rerank_documents_detailed",
+                new=AsyncMock(return_value=([_doc("L", "refund")], "keyword_fallback")),
+            ),
         ):
             return await _hybrid_retrieve_detailed_uncached("refund", "en")
 
@@ -113,15 +124,19 @@ def test_vector_embedding_failure_degrades_to_lexical_only():
 
 def test_lexical_failure_degrades_to_vector_only():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.rag.retriever._vector_channel",
-            new=AsyncMock(return_value=([_doc("V", "refund")], 1.0)),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
-            new=AsyncMock(side_effect=RuntimeError("db unavailable")),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever.rerank_documents_detailed",
-            new=AsyncMock(return_value=([_doc("V", "refund")], "keyword_fallback")),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._vector_channel",
+                new=AsyncMock(return_value=([_doc("V", "refund")], 1.0)),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
+                new=AsyncMock(side_effect=RuntimeError("db unavailable")),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever.rerank_documents_detailed",
+                new=AsyncMock(return_value=([_doc("V", "refund")], "keyword_fallback")),
+            ),
         ):
             return await _hybrid_retrieve_detailed_uncached("refund", "en")
 
@@ -132,12 +147,15 @@ def test_lexical_failure_degrades_to_vector_only():
 
 def test_both_channel_failures_return_failure_without_raw_errors():
     async def scenario():
-        with patch(
-            "ecom_agent_matrix.modules.rag.retriever._vector_channel",
-            new=AsyncMock(side_effect=RuntimeError("secret vector details")),
-        ), patch(
-            "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
-            new=AsyncMock(side_effect=ValueError("secret lexical details")),
+        with (
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._vector_channel",
+                new=AsyncMock(side_effect=RuntimeError("secret vector details")),
+            ),
+            patch(
+                "ecom_agent_matrix.modules.rag.retriever._lexical_channel",
+                new=AsyncMock(side_effect=ValueError("secret lexical details")),
+            ),
         ):
             return await _hybrid_retrieve_detailed_uncached("q", "en")
 
@@ -169,4 +187,3 @@ def test_cache_and_logs_use_hybrid_v2_without_raw_query():
 
     source = inspect.getsource(retriever)
     assert '"query": query' not in source
-

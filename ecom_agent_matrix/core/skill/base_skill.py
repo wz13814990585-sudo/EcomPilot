@@ -1,27 +1,37 @@
 """工具抽象基类。"""
+
 # core/skill/base_skill.py
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ecom_agent_matrix.core.skill.spec import SkillSpec
+from ecom_agent_matrix.core.errors import ErrorCode
+
 
 # 所有工具统一返回结果模型
 class SkillResult(BaseModel):
     success: bool
     data: dict[str, Any] = Field(default_factory=dict)
-    error_code: str = ""
+    error_code: ErrorCode | None = None
     error_msg: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("error_code", mode="before")
+    @classmethod
+    def empty_error_is_none(cls, value):
+        return None if value == "" else value
+
+
 class BaseSkill(ABC):
     """所有电商工具的父类，抽象约束，所有技能必须继承此类"""
+
     # 两个类属性必须子类重写
-    skill_name: str    # 工具唯一标识，调用工具时使用
-    skill_desc: str    # 工具功能描述，供LLM自动选择工具使用
+    skill_name: str  # 工具唯一标识，调用工具时使用
+    skill_desc: str  # 工具功能描述，供LLM自动选择工具使用
     # 未显式声明的 Skill 一律按“可写、高风险”处理，保证 fail-closed。
     read_only: bool = False
     side_effect: bool = True

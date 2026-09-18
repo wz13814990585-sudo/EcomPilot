@@ -1,4 +1,5 @@
 """竞品价格 Skill：只读监控计算与显式写入分离。"""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -104,9 +105,7 @@ class CompetitorPriceMonitor(BaseSkill):
                 min_sql += " AND tenant_id = %s AND store_id = %s"
                 min_params.extend([scope.tenant_id, scope.store_id])
             min_sql += ";"
-            min_price_row = await AsyncPGClient.execute_read(
-                min_sql, min_params, scope=scope
-            )
+            min_price_row = await AsyncPGClient.execute_read(min_sql, min_params, scope=scope)
             raw_min = min_price_row[0][0] if min_price_row and min_price_row[0] else None
             history_min = _as_float(raw_min) if raw_min is not None else compete_price
             price_diff = round(compete_price - history_min, 2)
@@ -147,7 +146,7 @@ class RecordCompetitorPrice(BaseSkill):
     side_effect = True
     risk_level = "medium"
     timeout_seconds = 10.0
-    idempotent = False
+    idempotent = True
     required_scopes = frozenset({"operations:execute"})
     input_model = RecordCompetitorPriceInput
     output_model = RecordCompetitorPriceOutput
@@ -170,7 +169,11 @@ class RecordCompetitorPrice(BaseSkill):
                 ) VALUES (%s, %s, %s, %s, %s) RETURNING id;
                 """
                 insert_params = [
-                    scope.tenant_id, scope.store_id, target_sku, competitor, compete_price
+                    scope.tenant_id,
+                    scope.store_id,
+                    target_sku,
+                    competitor,
+                    compete_price,
                 ]
             else:
                 insert_sql = """

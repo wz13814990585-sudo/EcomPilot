@@ -1,4 +1,5 @@
 """社媒文案生成 Skill（LLM，无 Key 时模板兜底）。"""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -36,6 +37,7 @@ class SocialMediaCopyOutput(BaseModel):
     lang: str
     source: str
     llm_error: str
+
 
 COPY_SYSTEM_PROMPT = """You are a cross-border ecommerce social media copywriter.
 Write ONE short promotional caption for the given platform and language.
@@ -89,8 +91,7 @@ class SocialMediaCopyTool(BaseSkill):
                 return SkillResult(
                     success=False,
                     error_msg=(
-                        f"不支持的平台：{platform}，"
-                        f"可选：{', '.join(sorted(SUPPORTED_PLATFORMS))}"
+                        f"不支持的平台：{platform}，可选：{', '.join(sorted(SUPPORTED_PLATFORMS))}"
                     ),
                 )
             if lang not in LANG_LIST:

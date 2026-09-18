@@ -1,4 +1,5 @@
 """Agent 侧 LLM 解读层：只生成说明文案，不参与数值计算 / 阈值判定。"""
+
 from __future__ import annotations
 
 import asyncio
