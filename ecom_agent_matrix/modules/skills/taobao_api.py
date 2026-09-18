@@ -130,11 +130,11 @@ class TaobaoApiTool(BaseSkill):
             )
             resp = await breaker.call(
                 request_once,
-                is_transient=lambda exc: isinstance(
-                    exc, (httpx.TimeoutException, httpx.NetworkError)
-                )
-                or isinstance(exc, httpx.HTTPStatusError)
-                and exc.response.status_code >= 500,
+                is_transient=lambda exc: (
+                    isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
+                    or isinstance(exc, httpx.HTTPStatusError)
+                    and exc.response.status_code >= 500
+                ),
             )
 
             if resp.status_code != 200:

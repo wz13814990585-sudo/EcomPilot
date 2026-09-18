@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<9", "ruff>=0.14,<1"]
+dev = ["pytest>=8,<9", "ruff==0.16.8"]
 rag-local = ["torch>=2.2,<3", "transformers>=4.44,<5", "sentence-transformers>=3,<6"]
 finetune = ["torch>=2.2,<3", "transformers>=4.44,<5", "peft>=0.12,<1"]
 
