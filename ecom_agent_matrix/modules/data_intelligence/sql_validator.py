@@ -135,7 +135,11 @@ class SQLSafetyValidator:
             raise SQLValidationError(
                 ErrorCode.UNSAFE_SQL, "SELECT INTO and row locks are forbidden"
             )
-        called_functions = {_function_name(function) for function in root.find_all(exp.Func)}
+        called_functions = {
+            _function_name(function)
+            for function in root.find_all(exp.Func)
+            if not isinstance(function, exp.Binary)
+        }
         unsafe_functions = called_functions.difference(self.function_policy.allowed)
         if unsafe_functions:
             raise SQLValidationError(

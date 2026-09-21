@@ -130,12 +130,20 @@ class DataIntelligenceService:
             anomalies=[],
             evidence_ids=[record["id"] for record in evidence_records if record.get("id")],
             warnings=warnings,
+            status=(
+                "FULL_SUCCESS"
+                if step_results and all(item.success for item in step_results)
+                else "PARTIAL"
+                if any(item.success for item in step_results)
+                else "FAILED"
+            ),
         )
         all_success = bool(step_results) and all(item.success for item in step_results)
         return DataAnalysisResult(
             success=all_success,
             question=request.question,
             catalog_source=self.catalog_provider.get().source,
+            schema_version=self.catalog_provider.get().version,
             schema_link=first_success.schema_link if first_success else None,
             generated_sql=first_success.generated_sql if first_success else None,
             validated_sql=first_success.validated_sql if first_success else None,
@@ -186,6 +194,7 @@ class DataIntelligenceService:
                 ),
                 relations=link.relations,
                 version=allowed_catalog.version,
+                source=allowed_catalog.source,
             )
             generation_request = SQLGenerationRequest(
                 question=request.question,
@@ -246,6 +255,7 @@ class DataIntelligenceService:
                 success=True,
                 question=request.question,
                 catalog_source=allowed_catalog.source,
+                schema_version=allowed_catalog.version,
                 schema_link=link,
                 generated_sql=final_generated,
                 validated_sql=final_validated,
@@ -259,6 +269,8 @@ class DataIntelligenceService:
             return DataAnalysisResult(
                 success=False,
                 question=request.question,
+                catalog_source=allowed_catalog.source,
+                schema_version=allowed_catalog.version,
                 schema_link=locals().get("link"),
                 generated_sql=locals().get("generated"),
                 error_code=exc.code,
@@ -268,6 +280,8 @@ class DataIntelligenceService:
             return DataAnalysisResult(
                 success=False,
                 question=request.question,
+                catalog_source=allowed_catalog.source,
+                schema_version=allowed_catalog.version,
                 schema_link=locals().get("link"),
                 error_code=ErrorCode.SQL_GENERATION_ERROR.value,
                 error_msg=str(exc),
@@ -276,6 +290,8 @@ class DataIntelligenceService:
             return DataAnalysisResult(
                 success=False,
                 question=request.question,
+                catalog_source=allowed_catalog.source,
+                schema_version=allowed_catalog.version,
                 schema_link=locals().get("link"),
                 generated_sql=locals().get("generated"),
                 validated_sql=locals().get("validated"),
@@ -296,6 +312,8 @@ class DataIntelligenceService:
             return DataAnalysisResult(
                 success=False,
                 question=request.question,
+                catalog_source=allowed_catalog.source,
+                schema_version=allowed_catalog.version,
                 schema_link=locals().get("link"),
                 generated_sql=locals().get("generated"),
                 validated_sql=locals().get("validated"),

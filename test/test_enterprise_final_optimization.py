@@ -169,3 +169,5 @@ def test_analytical_service_executes_every_subquery_through_safe_path():
     assert len(result.analytical.steps) == len(sql_calls) == 3
     assert all(step.lineage is not None for step in result.analytical.steps)
     assert len(result.evidence_records) == 3
+    assert any("EXTRACT(MONTH FROM o.create_time) = 8" in sql for sql in sql_calls)
+    assert any("EXTRACT(MONTH FROM create_time) = 8" in sql for sql in sql_calls)

@@ -1,0 +1,374 @@
+{
+  "benchmark_type": "QUESTION_TO_SQL_EXECUTION",
+  "status": "PASS",
+  "catalog_source": "postgres",
+  "schema_version": "postgres-8f320acb5ee9afb5",
+  "totals": {
+    "cases": 6,
+    "pass": 6,
+    "fail": 0
+  },
+  "metrics": {
+    "generation_success_rate": 1.0,
+    "sql_parse_valid_rate": 1.0,
+    "sql_safety_pass_rate": 1.0,
+    "execution_success_rate": 1.0,
+    "execution_accuracy": 1.0,
+    "repair_rate": 0.0,
+    "repair_success_rate": null,
+    "average_sql_attempts": 1.0,
+    "schema_link_latency_ms": 0.299,
+    "sql_generation_latency_ms": null,
+    "sql_execution_latency_ms": 1.034,
+    "total_llm_calls": 0,
+    "token_usage": 0,
+    "estimated_cost": 0.0
+  },
+  "retrieval_mode_distribution": {
+    "lexical_only": 6,
+    "hybrid": 0
+  },
+  "cases": [
+    {
+      "id": "t2sql_001",
+      "question": "2026年8月销售额是多少？",
+      "reference_sql": "SELECT SUM(total_amount) AS revenue FROM ecom_order WHERE create_time >= DATE '2026-08-01' AND create_time < DATE '2026-09-01'",
+      "reference_sql_used": false,
+      "status": "PASS",
+      "stage": "COMPLETE",
+      "error_code": "",
+      "error_message": "",
+      "generation_success": true,
+      "sql_parse_valid": true,
+      "sql_safety_pass": true,
+      "execution_success": true,
+      "execution_accurate": true,
+      "generated_sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue FROM ecom_order WHERE create_time >= DATE '2026-08-01' AND create_time < DATE '2026-09-01'",
+      "validated_sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue FROM ecom_order WHERE create_time >= CAST('2026-08-01' AS DATE) AND create_time < CAST('2026-09-01' AS DATE)",
+      "actual": [
+        {
+          "revenue": 730.0
+        }
+      ],
+      "expected": [
+        {
+          "revenue": 730.0
+        }
+      ],
+      "repair_attempts": 0,
+      "sql_attempts": 1,
+      "catalog_source": "postgres",
+      "schema_version": "postgres-8f320acb5ee9afb5",
+      "retrieval_mode": "lexical_only",
+      "schema_link_latency_ms": 0.695,
+      "sql_execution_latency_ms": 1.399,
+      "lineage_query_id": "sql-1bff059e-a52b-4b0f-8af7-4c17eb16ae32",
+      "referenced_tables": [
+        "ecom_order"
+      ],
+      "referenced_columns": [
+        "ecom_order.total_amount",
+        "ecom_order.create_time"
+      ],
+      "evidence_id": "sql-1bff059e-a52b-4b0f-8af7-4c17eb16ae32",
+      "evidence_traceable": true,
+      "latency_ms": 5.913
+    },
+    {
+      "id": "t2sql_002",
+      "question": "2026年7月订单总数是多少？",
+      "reference_sql": "SELECT COUNT(*) AS order_count FROM ecom_order WHERE create_time >= DATE '2026-07-01' AND create_time < DATE '2026-08-01'",
+      "reference_sql_used": false,
+      "status": "PASS",
+      "stage": "COMPLETE",
+      "error_code": "",
+      "error_message": "",
+      "generation_success": true,
+      "sql_parse_valid": true,
+      "sql_safety_pass": true,
+      "execution_success": true,
+      "execution_accurate": true,
+      "generated_sql": "SELECT COUNT(*) AS order_count FROM ecom_order WHERE create_time >= DATE '2026-07-01' AND create_time < DATE '2026-08-01'",
+      "validated_sql": "SELECT COUNT(*) AS order_count FROM ecom_order WHERE create_time >= CAST('2026-07-01' AS DATE) AND create_time < CAST('2026-08-01' AS DATE)",
+      "actual": [
+        {
+          "order_count": 5
+        }
+      ],
+      "expected": [
+        {
+          "order_count": 5
+        }
+      ],
+      "repair_attempts": 0,
+      "sql_attempts": 1,
+      "catalog_source": "postgres",
+      "schema_version": "postgres-8f320acb5ee9afb5",
+      "retrieval_mode": "lexical_only",
+      "schema_link_latency_ms": 0.226,
+      "sql_execution_latency_ms": 0.574,
+      "lineage_query_id": "sql-932f6ea3-2bd2-43e7-b093-afde4cb2dbb1",
+      "referenced_tables": [
+        "ecom_order"
+      ],
+      "referenced_columns": [
+        "ecom_order.create_time"
+      ],
+      "evidence_id": "sql-932f6ea3-2bd2-43e7-b093-afde4cb2dbb1",
+      "evidence_traceable": true,
+      "latency_ms": 1.785
+    },
+    {
+      "id": "t2sql_003",
+      "question": "2026年8月退款率是多少？",
+      "reference_sql": "SELECT COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric / COUNT(*), 4) AS refund_rate FROM ecom_order WHERE create_time >= DATE '2026-08-01' AND create_time < DATE '2026-09-01'",
+      "reference_sql_used": false,
+      "status": "PASS",
+      "stage": "COMPLETE",
+      "error_code": "",
+      "error_message": "",
+      "generation_success": true,
+      "sql_parse_valid": true,
+      "sql_safety_pass": true,
+      "execution_success": true,
+      "execution_accurate": true,
+      "generated_sql": "SELECT COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order WHERE create_time >= DATE '2026-08-01' AND create_time < DATE '2026-09-01'",
+      "validated_sql": "SELECT COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order WHERE create_time >= CAST('2026-08-01' AS DATE) AND create_time < CAST('2026-09-01' AS DATE)",
+      "actual": [
+        {
+          "order_count": 8,
+          "refund_count": 5,
+          "refund_rate": 0.625
+        }
+      ],
+      "expected": [
+        {
+          "order_count": 8,
+          "refund_count": 5,
+          "refund_rate": 0.625
+        }
+      ],
+      "repair_attempts": 0,
+      "sql_attempts": 1,
+      "catalog_source": "postgres",
+      "schema_version": "postgres-8f320acb5ee9afb5",
+      "retrieval_mode": "lexical_only",
+      "schema_link_latency_ms": 0.195,
+      "sql_execution_latency_ms": 0.878,
+      "lineage_query_id": "sql-4ec98a15-06f8-4201-b6b0-323ae9db64ad",
+      "referenced_tables": [
+        "ecom_order"
+      ],
+      "referenced_columns": [
+        "ecom_order.create_time",
+        "ecom_order.refund_flag"
+      ],
+      "evidence_id": "sql-4ec98a15-06f8-4201-b6b0-323ae9db64ad",
+      "evidence_traceable": true,
+      "latency_ms": 7.129
+    },
+    {
+      "id": "t2sql_004",
+      "question": "订单总数是多少？",
+      "reference_sql": "SELECT COUNT(*) AS order_count FROM ecom_order",
+      "reference_sql_used": false,
+      "status": "PASS",
+      "stage": "COMPLETE",
+      "error_code": "",
+      "error_message": "",
+      "generation_success": true,
+      "sql_parse_valid": true,
+      "sql_safety_pass": true,
+      "execution_success": true,
+      "execution_accurate": true,
+      "generated_sql": "SELECT COUNT(*) AS order_count FROM ecom_order",
+      "validated_sql": "SELECT COUNT(*) AS order_count FROM ecom_order",
+      "actual": [
+        {
+          "order_count": 17
+        }
+      ],
+      "expected": [
+        {
+          "order_count": 17
+        }
+      ],
+      "repair_attempts": 0,
+      "sql_attempts": 1,
+      "catalog_source": "postgres",
+      "schema_version": "postgres-8f320acb5ee9afb5",
+      "retrieval_mode": "lexical_only",
+      "schema_link_latency_ms": 0.215,
+      "sql_execution_latency_ms": 1.082,
+      "lineage_query_id": "sql-f012884e-8a86-4f58-9190-9eaf6e51494a",
+      "referenced_tables": [
+        "ecom_order"
+      ],
+      "referenced_columns": [],
+      "evidence_id": "sql-f012884e-8a86-4f58-9190-9eaf6e51494a",
+      "evidence_traceable": true,
+      "latency_ms": 2.055
+    },
+    {
+      "id": "t2sql_005",
+      "question": "销量最高的5个商品是什么？",
+      "reference_sql": "SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order o JOIN ecom_goods g ON g.sku=o.sku GROUP BY o.sku,g.title_zh ORDER BY units_sold DESC,o.sku LIMIT 5",
+      "reference_sql_used": false,
+      "status": "PASS",
+      "stage": "COMPLETE",
+      "error_code": "",
+      "error_message": "",
+      "generation_success": true,
+      "sql_parse_valid": true,
+      "sql_safety_pass": true,
+      "execution_success": true,
+      "execution_accurate": true,
+      "generated_sql": "SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC, o.sku LIMIT 5",
+      "validated_sql": "SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC, o.sku LIMIT 5",
+      "actual": [
+        {
+          "sku": "SKU-A",
+          "title_zh": "A",
+          "units_sold": 6
+        },
+        {
+          "sku": "SKU-B",
+          "title_zh": "B",
+          "units_sold": 6
+        },
+        {
+          "sku": "SKU-C",
+          "title_zh": "C",
+          "units_sold": 5
+        },
+        {
+          "sku": "SKU-D",
+          "title_zh": "D",
+          "units_sold": 4
+        }
+      ],
+      "expected": [
+        {
+          "sku": "SKU-A",
+          "title_zh": "A",
+          "units_sold": 6
+        },
+        {
+          "sku": "SKU-B",
+          "title_zh": "B",
+          "units_sold": 6
+        },
+        {
+          "sku": "SKU-C",
+          "title_zh": "C",
+          "units_sold": 5
+        },
+        {
+          "sku": "SKU-D",
+          "title_zh": "D",
+          "units_sold": 4
+        }
+      ],
+      "repair_attempts": 0,
+      "sql_attempts": 1,
+      "catalog_source": "postgres",
+      "schema_version": "postgres-8f320acb5ee9afb5",
+      "retrieval_mode": "lexical_only",
+      "schema_link_latency_ms": 0.243,
+      "sql_execution_latency_ms": 1.074,
+      "lineage_query_id": "sql-96bc2483-b0fe-425a-83a8-da16070e7160",
+      "referenced_tables": [
+        "ecom_order",
+        "ecom_goods"
+      ],
+      "referenced_columns": [
+        "ecom_order.sku",
+        "ecom_goods.title_zh",
+        "ecom_order.buy_num",
+        "ecom_goods.sku"
+      ],
+      "evidence_id": "sql-96bc2483-b0fe-425a-83a8-da16070e7160",
+      "evidence_traceable": true,
+      "latency_ms": 2.854
+    },
+    {
+      "id": "t2sql_006",
+      "question": "最近的退款率是多少？",
+      "reference_sql": "SELECT DATE_TRUNC('month',create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric/COUNT(*),4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('month',create_time) ORDER BY month DESC",
+      "reference_sql_used": false,
+      "status": "PASS",
+      "stage": "COMPLETE",
+      "error_code": "",
+      "error_message": "",
+      "generation_success": true,
+      "sql_parse_valid": true,
+      "sql_safety_pass": true,
+      "execution_success": true,
+      "execution_accurate": true,
+      "generated_sql": "SELECT DATE_TRUNC('month', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('month', create_time) ORDER BY month DESC LIMIT 12",
+      "validated_sql": "SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month DESC LIMIT 12",
+      "actual": [
+        {
+          "month": "2026-09-01T00:00:00",
+          "order_count": 4,
+          "refund_count": 1,
+          "refund_rate": 0.25
+        },
+        {
+          "month": "2026-08-01T00:00:00",
+          "order_count": 8,
+          "refund_count": 5,
+          "refund_rate": 0.625
+        },
+        {
+          "month": "2026-07-01T00:00:00",
+          "order_count": 5,
+          "refund_count": 2,
+          "refund_rate": 0.4
+        }
+      ],
+      "expected": [
+        {
+          "month": "2026-09-01T00:00:00",
+          "order_count": 4,
+          "refund_count": 1,
+          "refund_rate": 0.25
+        },
+        {
+          "month": "2026-08-01T00:00:00",
+          "order_count": 8,
+          "refund_count": 5,
+          "refund_rate": 0.625
+        },
+        {
+          "month": "2026-07-01T00:00:00",
+          "order_count": 5,
+          "refund_count": 2,
+          "refund_rate": 0.4
+        }
+      ],
+      "repair_attempts": 0,
+      "sql_attempts": 1,
+      "catalog_source": "postgres",
+      "schema_version": "postgres-8f320acb5ee9afb5",
+      "retrieval_mode": "lexical_only",
+      "schema_link_latency_ms": 0.222,
+      "sql_execution_latency_ms": 1.196,
+      "lineage_query_id": "sql-65385206-690f-442f-96b4-524887535a6e",
+      "referenced_tables": [
+        "ecom_order"
+      ],
+      "referenced_columns": [
+        "ecom_order.create_time",
+        "ecom_order.refund_flag"
+      ],
+      "evidence_id": "sql-65385206-690f-442f-96b4-524887535a6e",
+      "evidence_traceable": true,
+      "latency_ms": 5.33
+    }
+  ],
+  "live_llm_text_to_sql": {
+    "status": "NOT_RUN",
+    "reason": "No external LLM in CI"
+  }
+}

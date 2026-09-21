@@ -48,21 +48,31 @@ async def check_redis() -> dict[str, Any]:
         return {"ok": False, "status": "degraded", "error_code": "DEPENDENCY_UNAVAILABLE"}
 
 
-async def readiness_report(*, agents_alive: bool = True) -> dict[str, Any]:
+async def readiness_report(
+    *,
+    agents_alive: bool = True,
+    catalog_source: str | None = None,
+    schema_version: str = "",
+) -> dict[str, Any]:
     from ..core.llm.router import is_llm_configured
 
     pg = await check_postgres()
     redis = await check_redis()
     llm_status = "unknown" if is_llm_configured() else "degraded"
     llm_ok = llm_status != "degraded" or not bool(settings.LLM_REQUIRED_FOR_READINESS)
-    ready = bool(pg.get("ok") and redis.get("ok") and agents_alive and llm_ok)
+    catalog_degraded = catalog_source == "static_fallback"
+    catalog_ok = not (catalog_degraded and str(settings.APP_ENV).strip().lower() == "production")
+    ready = bool(pg.get("ok") and redis.get("ok") and agents_alive and llm_ok and catalog_ok)
     return {
         "ready": ready,
-        "degraded": llm_status == "degraded",
+        "degraded": llm_status == "degraded" or catalog_degraded,
+        "catalog_source": catalog_source or "unknown",
+        "schema_version": schema_version,
         "dependencies": {
             "postgres": pg["status"],
             "redis": redis["status"],
             "llm": llm_status,
             "agents": "ok" if agents_alive else "degraded",
+            "schema_catalog": "degraded" if catalog_degraded else "ok",
         },
     }

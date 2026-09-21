@@ -1,0 +1,53 @@
+[
+  {
+    "id": "t2sql_001",
+    "question": "2026年8月销售额是多少？",
+    "expected": [{"revenue": 730.0}],
+    "comparison": {"ordered": true, "float_tolerance": 0.000001},
+    "reference_sql": "SELECT SUM(total_amount) AS revenue FROM ecom_order WHERE create_time >= DATE '2026-08-01' AND create_time < DATE '2026-09-01'"
+  },
+  {
+    "id": "t2sql_002",
+    "question": "2026年7月订单总数是多少？",
+    "expected": [{"order_count": 5}],
+    "comparison": {"ordered": true, "float_tolerance": 0.000001},
+    "reference_sql": "SELECT COUNT(*) AS order_count FROM ecom_order WHERE create_time >= DATE '2026-07-01' AND create_time < DATE '2026-08-01'"
+  },
+  {
+    "id": "t2sql_003",
+    "question": "2026年8月退款率是多少？",
+    "expected": [{"order_count": 8, "refund_count": 5, "refund_rate": 0.625}],
+    "comparison": {"ordered": true, "float_tolerance": 0.000001},
+    "reference_sql": "SELECT COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric / COUNT(*), 4) AS refund_rate FROM ecom_order WHERE create_time >= DATE '2026-08-01' AND create_time < DATE '2026-09-01'"
+  },
+  {
+    "id": "t2sql_004",
+    "question": "订单总数是多少？",
+    "expected": [{"order_count": 17}],
+    "comparison": {"ordered": true, "float_tolerance": 0.000001},
+    "reference_sql": "SELECT COUNT(*) AS order_count FROM ecom_order"
+  },
+  {
+    "id": "t2sql_005",
+    "question": "销量最高的5个商品是什么？",
+    "expected": [
+      {"sku": "SKU-A", "title_zh": "A", "units_sold": 6},
+      {"sku": "SKU-B", "title_zh": "B", "units_sold": 6},
+      {"sku": "SKU-C", "title_zh": "C", "units_sold": 5},
+      {"sku": "SKU-D", "title_zh": "D", "units_sold": 4}
+    ],
+    "comparison": {"ordered": true, "float_tolerance": 0.000001},
+    "reference_sql": "SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order o JOIN ecom_goods g ON g.sku=o.sku GROUP BY o.sku,g.title_zh ORDER BY units_sold DESC,o.sku LIMIT 5"
+  },
+  {
+    "id": "t2sql_006",
+    "question": "最近的退款率是多少？",
+    "expected": [
+      {"month": "2026-09-01T00:00:00", "order_count": 4, "refund_count": 1, "refund_rate": 0.25},
+      {"month": "2026-08-01T00:00:00", "order_count": 8, "refund_count": 5, "refund_rate": 0.625},
+      {"month": "2026-07-01T00:00:00", "order_count": 5, "refund_count": 2, "refund_rate": 0.4}
+    ],
+    "comparison": {"ordered": true, "float_tolerance": 0.000001},
+    "reference_sql": "SELECT DATE_TRUNC('month',create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric/COUNT(*),4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('month',create_time) ORDER BY month DESC"
+  }
+]

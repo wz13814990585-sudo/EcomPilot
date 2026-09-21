@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "git_sha": "868bd9123eb89f0acbc7fc17d02fe6b68fac4fb4",
-    "timestamp": "2026-09-21T10:09:28.215327+00:00",
+    "git_sha": "455615ce593703ecc2bef08b30893ecfb6e9b2ff",
+    "timestamp": "2026-09-21T11:25:54.429082+00:00",
     "environment": "development",
     "deterministic": true
   },
@@ -21,7 +21,7 @@
     "fast_path_rate": 0.571429,
     "planner_rate": 0.428571,
     "routing_accuracy": 1.0,
-    "schema_link_latency_ms": 0.2395,
+    "schema_link_latency_ms": 0.313063,
     "sql_parse_valid": 1.0,
     "sql_safety_pass": 1.0,
     "table_precision": 0.979167,
@@ -65,7 +65,7 @@
       "id": "sql_004",
       "category": "simple_sql",
       "status": "PASS",
-      "detail": "tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 5"
+      "detail": "tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC, o.sku LIMIT 5"
     },
     {
       "id": "sql_005",
@@ -89,7 +89,7 @@
       "id": "sql_008",
       "category": "simple_sql",
       "status": "PASS",
-      "detail": "tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 10"
+      "detail": "tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC, o.sku LIMIT 10"
     },
     {
       "id": "complex_001",

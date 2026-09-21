@@ -253,13 +253,18 @@ class PostgresSchemaCatalogLoader:
         )
         relation_rows = await self.execute(
             "SELECT tc.table_name, kcu.column_name, "
-            "ccu.table_name AS foreign_table_name, "
-            "ccu.column_name AS foreign_column_name "
+            "ukcu.table_name AS foreign_table_name, "
+            "ukcu.column_name AS foreign_column_name "
             "FROM information_schema.table_constraints tc "
             "JOIN information_schema.key_column_usage kcu "
             "ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema "
-            "JOIN information_schema.constraint_column_usage ccu "
-            "ON ccu.constraint_name=tc.constraint_name AND ccu.table_schema=tc.table_schema "
+            "JOIN information_schema.referential_constraints rc "
+            "ON rc.constraint_name=tc.constraint_name "
+            "AND rc.constraint_schema=tc.table_schema "
+            "JOIN information_schema.key_column_usage ukcu "
+            "ON ukcu.constraint_name=rc.unique_constraint_name "
+            "AND ukcu.constraint_schema=rc.unique_constraint_schema "
+            "AND ukcu.ordinal_position=kcu.position_in_unique_constraint "
             "WHERE tc.constraint_type='FOREIGN KEY' "
             f"AND tc.table_schema IN ({placeholders}) ORDER BY tc.constraint_name",
             params,
@@ -328,7 +333,7 @@ class PostgresSchemaCatalogLoader:
                         allowed_roles=frozenset({"admin"}),
                     )
                 )
-        relations = tuple(
+        discovered_relations = tuple(
             SchemaRelation(
                 from_table=str(_value(row, 0, "table_name")),
                 from_column=str(_value(row, 1, "column_name")),
@@ -337,6 +342,33 @@ class PostgresSchemaCatalogLoader:
             )
             for row in relation_rows
         )
+        table_map = {table.name: table for table in tables}
+        relations_by_key = {
+            (
+                relation.from_table,
+                relation.from_column,
+                relation.to_table,
+                relation.to_column,
+            ): relation
+            for relation in discovered_relations
+        }
+        for relation in self.glossary.relations:
+            from_table = table_map.get(relation.from_table)
+            to_table = table_map.get(relation.to_table)
+            if (
+                from_table
+                and to_table
+                and from_table.column(relation.from_column)
+                and to_table.column(relation.to_column)
+            ):
+                key = (
+                    relation.from_table,
+                    relation.from_column,
+                    relation.to_table,
+                    relation.to_column,
+                )
+                relations_by_key.setdefault(key, relation)
+        relations = tuple(relations_by_key.values())
         fingerprint = json.dumps(
             {
                 "tables": [table.model_dump(mode="json") for table in tables],

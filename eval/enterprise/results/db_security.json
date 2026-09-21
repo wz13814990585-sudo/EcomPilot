@@ -1,0 +1,286 @@
+{
+  "benchmark_type": "POSTGRES_SECURITY_AND_ANALYTICAL",
+  "status": "PASS",
+  "schema_discovery": {
+    "status": "PASS",
+    "source": "postgres",
+    "schema_version": "postgres-8f320acb5ee9afb5",
+    "missing": {},
+    "business_glossary": {
+      "销售额": true,
+      "GMV": true,
+      "refund": true,
+      "inventory": true,
+      "category": true
+    }
+  },
+  "rls": {
+    "status": "PASS",
+    "tenant_a_rows": 17,
+    "tenant_b_rows": 1,
+    "tenant_a_order_numbers": [
+      "AUG-001",
+      "AUG-002",
+      "AUG-003",
+      "AUG-004",
+      "AUG-005",
+      "AUG-006",
+      "AUG-007",
+      "AUG-008",
+      "JUL-001",
+      "JUL-002",
+      "JUL-003",
+      "JUL-004",
+      "JUL-005",
+      "SEP-001",
+      "SEP-002",
+      "SEP-003",
+      "SEP-004"
+    ],
+    "tenant_b_order_numbers": [
+      "B-SECRET-ORDER-001"
+    ],
+    "explicit_cross_tenant_rows": 0,
+    "tenant_isolation_failure_rate": 0.0
+  },
+  "readonly": {
+    "status": "PASS",
+    "role_is_non_superuser": true,
+    "role_has_no_bypassrls": true,
+    "checks": [
+      {
+        "operation": "INSERT",
+        "blocked": true,
+        "error_type": "ReadOnlySqlTransaction",
+        "permission_denied": true
+      },
+      {
+        "operation": "UPDATE",
+        "blocked": true,
+        "error_type": "ReadOnlySqlTransaction",
+        "permission_denied": true
+      },
+      {
+        "operation": "DELETE",
+        "blocked": true,
+        "error_type": "ReadOnlySqlTransaction",
+        "permission_denied": true
+      },
+      {
+        "operation": "DROP",
+        "blocked": true,
+        "error_type": "ReadOnlySqlTransaction",
+        "permission_denied": true
+      }
+    ],
+    "db_readonly_bypass_rate": 0.0
+  },
+  "sql_repair": {
+    "status": "PASS",
+    "repair_attempt_rate": 1.0,
+    "repair_success_rate": 1.0,
+    "repair_attempts": 1,
+    "rows": [
+      {
+        "order_count": 17
+      }
+    ],
+    "non_repairable_policy": "permission/rls/read-only/timeout errors remain fail-closed"
+  },
+  "analytical": {
+    "status": "PASS",
+    "result_status": "FULL_SUCCESS",
+    "analytical_plan_validity": 1.0,
+    "subquery_execution_success_rate": 1.0,
+    "required_dimension_coverage": 1.0,
+    "forbidden_dimension_hallucination_rate": 0.0,
+    "evidence_completeness": 1.0,
+    "analytical_task_latency_ms": 20.973,
+    "steps": [
+      {
+        "step_id": "metric_trend",
+        "step_type": "metric_trend",
+        "success": true,
+        "rows": [
+          {
+            "month": "2026-07-01T00:00:00",
+            "order_count": 5,
+            "refund_count": 2,
+            "refund_rate": "0.4000"
+          },
+          {
+            "month": "2026-08-01T00:00:00",
+            "order_count": 8,
+            "refund_count": 5,
+            "refund_rate": "0.6250"
+          },
+          {
+            "month": "2026-09-01T00:00:00",
+            "order_count": 4,
+            "refund_count": 1,
+            "refund_rate": "0.2500"
+          }
+        ],
+        "evidence_id": "sql-030dd1cc-f234-4b4d-95bc-8e735a108369",
+        "lineage": {
+          "query_id": "sql-030dd1cc-f234-4b4d-95bc-8e735a108369",
+          "generated_sql": "SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month LIMIT 200",
+          "referenced_tables": [
+            "ecom_order"
+          ],
+          "referenced_columns": [
+            "ecom_order.create_time",
+            "ecom_order.refund_flag"
+          ],
+          "timestamp": "2026-09-21T11:25:56.470977Z",
+          "tenant_id": "tenant-a",
+          "store_id": "store-a",
+          "row_count": 3,
+          "truncated": false,
+          "execution_latency_ms": 10.571
+        },
+        "warnings": [],
+        "error_code": ""
+      },
+      {
+        "step_id": "category_breakdown",
+        "step_type": "category_breakdown",
+        "success": true,
+        "rows": [
+          {
+            "category": "electronics",
+            "order_count": 4,
+            "refund_count": 3,
+            "refund_rate": "0.7500"
+          },
+          {
+            "category": "beauty",
+            "order_count": 2,
+            "refund_count": 1,
+            "refund_rate": "0.5000"
+          },
+          {
+            "category": "home",
+            "order_count": 2,
+            "refund_count": 1,
+            "refund_rate": "0.5000"
+          }
+        ],
+        "evidence_id": "sql-353dd88f-059c-494a-8fb7-e45ce5f0c978",
+        "lineage": {
+          "query_id": "sql-353dd88f-059c-494a-8fb7-e45ce5f0c978",
+          "generated_sql": "SELECT g.category, COUNT(*) AS order_count, SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku WHERE EXTRACT(MONTH FROM o.create_time) = 8 GROUP BY g.category ORDER BY refund_count DESC LIMIT 20",
+          "referenced_tables": [
+            "ecom_order",
+            "ecom_goods"
+          ],
+          "referenced_columns": [
+            "ecom_goods.category",
+            "ecom_goods.sku",
+            "ecom_order.sku",
+            "ecom_order.create_time",
+            "ecom_order.refund_flag"
+          ],
+          "timestamp": "2026-09-21T11:25:56.472153Z",
+          "tenant_id": "tenant-a",
+          "store_id": "store-a",
+          "row_count": 3,
+          "truncated": false,
+          "execution_latency_ms": 6.506
+        },
+        "warnings": [],
+        "error_code": ""
+      },
+      {
+        "step_id": "sku_breakdown",
+        "step_type": "sku_breakdown",
+        "success": true,
+        "rows": [
+          {
+            "sku": "SKU-A",
+            "order_count": 2,
+            "refund_count": 2,
+            "refund_rate": "1.0000"
+          },
+          {
+            "sku": "SKU-B",
+            "order_count": 2,
+            "refund_count": 1,
+            "refund_rate": "0.5000"
+          },
+          {
+            "sku": "SKU-C",
+            "order_count": 2,
+            "refund_count": 1,
+            "refund_rate": "0.5000"
+          },
+          {
+            "sku": "SKU-D",
+            "order_count": 2,
+            "refund_count": 1,
+            "refund_rate": "0.5000"
+          }
+        ],
+        "evidence_id": "sql-75d3ebe5-9fbf-412f-80a8-3519e67a64bd",
+        "lineage": {
+          "query_id": "sql-75d3ebe5-9fbf-412f-80a8-3519e67a64bd",
+          "generated_sql": "SELECT sku, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order WHERE EXTRACT(MONTH FROM create_time) = 8 GROUP BY sku ORDER BY refund_count DESC LIMIT 20",
+          "referenced_tables": [
+            "ecom_order"
+          ],
+          "referenced_columns": [
+            "ecom_order.sku",
+            "ecom_order.create_time",
+            "ecom_order.refund_flag"
+          ],
+          "timestamp": "2026-09-21T11:25:56.472388Z",
+          "tenant_id": "tenant-a",
+          "store_id": "store-a",
+          "row_count": 4,
+          "truncated": false,
+          "execution_latency_ms": 4.286
+        },
+        "warnings": [],
+        "error_code": ""
+      }
+    ]
+  },
+  "evidence": {
+    "status": "PASS",
+    "grounding_pass_rate": 1.0,
+    "unsupported_claim_rate": 0.0,
+    "missing_evidence_rate": 0.0,
+    "fake_citation_rate": 0.0,
+    "claim_type_accuracy": 1.0,
+    "claim_types": [
+      "co_occurrence",
+      "fact"
+    ],
+    "grounding": {
+      "valid": true,
+      "issues": []
+    },
+    "evidence_ids": [
+      "doc-august-operations",
+      "sql-030dd1cc-f234-4b4d-95bc-8e735a108369",
+      "sql-353dd88f-059c-494a-8fb7-e45ce5f0c978",
+      "sql-75d3ebe5-9fbf-412f-80a8-3519e67a64bd"
+    ]
+  },
+  "metrics": {
+    "tenant_isolation_failure_rate": 0.0,
+    "db_readonly_bypass_rate": 0.0,
+    "permission_violation_rate": 0.0,
+    "unsafe_sql_execution_rate": 0.0,
+    "repair_attempt_rate": 1.0,
+    "repair_success_rate": 1.0,
+    "analytical_plan_validity": 1.0,
+    "subquery_execution_success_rate": 1.0,
+    "required_dimension_coverage": 1.0,
+    "forbidden_dimension_hallucination_rate": 0.0,
+    "grounding_pass_rate": 1.0,
+    "fake_citation_rate": 0.0,
+    "approval_compliance_rate": null,
+    "duplicate_side_effect_rate": null
+  }
+}

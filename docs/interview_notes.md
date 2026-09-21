@@ -115,10 +115,34 @@ Metric movement and a contemporaneous policy or logistics event establish a usef
 
 ## 27. How is Text-to-SQL evaluated?
 
-The deterministic suite covers routing, schema table/column precision, recall and F1, SQL parse/safety, analytical-plan validity, evidence grounding, security and 35 adversarial SQL cases. A separate seeded PostgreSQL suite contains 32 normalized gold-result cases over July, August and September orders, products, refunds and competitor prices. It compares result values rather than SQL strings and reports execution success, accuracy, attempts and latency.
+The evaluation deliberately separates two different claims. `SQL_EXECUTION_GOLD` runs 32 authored SQL statements through SQLGlot safety, the read role, RLS, PostgreSQL and the result comparator; it proves the validator/database/comparator path, not generation accuracy. `QUESTION_TO_SQL_EXECUTION` gives six deterministic questions—never their `reference_sql`—to the production `DataIntelligenceService`, then measures generation, parse, safety, execution and normalized result accuracy separately.
 
-Deterministic and integration evaluation are separate because the main CI gate must not need a database, external APIs or large model downloads. The integration job starts PostgreSQL/pgvector and runs the seed. If PostgreSQL or a populated RAG index is absent, the status is `NOT_RUN`, never an inferred pass.
+Execution results are compared instead of SQL strings because semantically equivalent SQL can differ in aliases, predicate order or formulation. Deterministic and integration evaluation are separate because the quality gate should not need a database, external APIs or large model downloads. The Level B job starts PostgreSQL/pgvector and uploads all reports even when a case fails. If a required service or populated RAG index is absent, the status is `NOT_RUN`, never an inferred pass.
 
 ## 28. What changes at production scale?
 
 Replace the demo Business API adapter with authenticated provider adapters, load the catalog from governed metadata at startup, add explicit catalog refresh/versioning, and enable safe `EXPLAIN (FORMAT JSON)` cost estimates where supported. Durable transport or process separation should only follow measured throughput, availability or replay requirements; the four Agent boundaries stay stable.
+
+## 29. How is PostgreSQL RLS tested rather than assumed?
+
+The Level B seed creates tenant A and a clearly marked tenant B secret row, enables and forces tenant/store RLS, and creates a non-superuser role without `BYPASSRLS`. Tests set transaction-local tenant/store settings, query without application-added tenant predicates, and verify tenant A cannot see tenant B even with an explicit `tenant_id='tenant-b'` predicate. The same role must see tenant B only after the trusted scope is changed to tenant B.
+
+## 30. Why use both application permissions and database RLS?
+
+Application filtering prevents forbidden schema from reaching ranking, generation and logs; AST validation rejects unsafe query shapes before execution. RLS is the final data boundary if an application bug, unexpected query or future code path bypasses an earlier control. The integration suite also bypasses the AST layer intentionally and proves the read credential cannot `INSERT`, `UPDATE`, `DELETE` or `DROP`.
+
+## 31. Why is semantic retrieval optional in CI?
+
+The deterministic CI injects a fake semantic scorer to prove hybrid ranking, cache versioning and lexical fallback without downloading Torch models. This keeps CI reproducible and inexpensive. Actual embedding-provider quality belongs to optional Level C evaluation and cannot be reported as run when the model is unavailable.
+
+## 32. Why is a SELECT allowlist insufficient without a function policy?
+
+PostgreSQL permits function calls inside a SELECT, including sleep, administrative, file and extension-backed operations. The validator therefore distinguishes AST syntax operators such as `AND` from executable functions and applies a fail-closed allowlist to the latter. The database read role and read-only transaction remain independent defenses.
+
+## 33. What do partial analytical results mean?
+
+Every trend/category/SKU subquery traverses the full schema-link, generation, validation, execution and evidence path under a bounded semaphore. If one fails, the aggregate result is `PARTIAL`, not full success, and synthesis receives evidence only from successful steps. Missing dimensions such as region are skipped explicitly instead of hallucinated.
+
+## 34. How do you prevent Agent benchmarks from lying?
+
+Each layer records independent observables: generated SQL, parse validity, safety acceptance, execution success, result accuracy, lineage, evidence IDs and failure stage. Gold SQL and generated SQL have different report types; unavailable capabilities stay `NOT_RUN`; rates use executed cases; current Git metadata is read at report time; and CI preserves failure artifacts and prints failed case IDs directly.

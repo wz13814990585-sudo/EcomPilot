@@ -68,6 +68,8 @@ jobs:
       PG_USER: postgres
       PG_PWD: postgres
       PG_DB: ecom_matrix
+      PG_READ_USER: ecom_eval_read
+      PG_READ_PWD: eval_read_password
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -95,7 +97,30 @@ jobs:
       - name: Install project
         run: python -m pip install -e ".[dev]"
 
-      - name: Run seeded PostgreSQL execution benchmark
+      - name: Run Gold SQL execution benchmark
         run: >-
           python -m eval.enterprise.live_sql.runner
           --require-postgres --fail-on-regression
+
+      - name: Run deterministic question-to-SQL benchmark
+        if: always()
+        run: >-
+          python -m eval.enterprise.live_sql.text_to_sql_runner
+          --require-postgres --fail-on-regression
+
+      - name: Run PostgreSQL schema, RLS, read-only and analytical benchmark
+        if: always()
+        run: >-
+          python -m eval.enterprise.live_sql.db_integration_runner
+          --require-postgres --fail-on-regression
+
+      - name: Upload enterprise SQL reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: enterprise-sql-reports
+          if-no-files-found: warn
+          path: |
+            eval/enterprise/results/sql_gold_execution.json
+            eval/enterprise/results/text_to_sql_execution.json
+            eval/enterprise/results/db_security.json

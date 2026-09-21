@@ -6,11 +6,14 @@ import argparse
 import asyncio
 import json
 import platform
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .advanced_runner import run as run_advanced
 from .live_sql.runner import run as run_live_sql
+from .live_sql.text_to_sql_runner import run as run_text_to_sql
+from .live_sql.db_integration_runner import run as run_db_integration
 from .runner import run as run_enterprise
 
 HERE = Path(__file__).parent
@@ -22,13 +25,32 @@ def _delta(before, after):
     return round(after - before, 6)
 
 
+def _git_sha() -> str:
+    try:
+        return (
+            subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=HERE.parent.parent,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            ).stdout.strip()
+            or "unknown"
+        )
+    except Exception:
+        return "unknown"
+
+
 async def build() -> dict:
     baseline = json.loads(
         (HERE / "results" / "baseline_before_final_optimization.json").read_text()
     )
     enterprise = await run_enterprise()
     advanced = await run_advanced("all")
-    live = run_live_sql()
+    gold = await asyncio.to_thread(run_live_sql)
+    text_to_sql = await asyncio.to_thread(run_text_to_sql)
+    db_integration = await asyncio.to_thread(run_db_integration)
     before = baseline["metrics"]
     after = enterprise["metrics"]
     comparison_names = (
@@ -59,27 +81,35 @@ async def build() -> dict:
         }
         for name in comparison_names
     }
-    comparison["execution_success_rate"]["after"] = live["metrics"].get("execution_success_rate")
-    comparison["execution_accuracy"]["after"] = live["metrics"].get("execution_accuracy")
+    comparison["execution_success_rate"]["after"] = text_to_sql.get("metrics", {}).get(
+        "execution_success_rate"
+    )
+    comparison["execution_accuracy"]["after"] = text_to_sql.get("metrics", {}).get(
+        "execution_accuracy"
+    )
     return {
         "metadata": {
-            "git_sha": enterprise["metadata"]["git_sha"],
+            "git_sha": _git_sha(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "environment": {
                 "python": platform.python_version(),
                 "platform": platform.platform(),
-                "deterministic": True,
+                "mode": "deterministic_and_postgres_integration",
             },
         },
         "status": "PASS"
         if enterprise["status"] == advanced["status"] == "PASS"
-        and live["status"] in {"PASS", "NOT_RUN"}
+        and gold["status"] in {"PASS", "NOT_RUN"}
+        and text_to_sql["status"] in {"PASS", "NOT_RUN"}
+        and db_integration["status"] in {"PASS", "NOT_RUN"}
         else "FAIL",
         "before": baseline,
         "after": {
             "enterprise": enterprise,
             "advanced": advanced,
-            "live_sql": live,
+            "sql_gold_execution": gold,
+            "text_to_sql_execution": text_to_sql,
+            "db_security": db_integration,
             "rag_live": {"status": "NOT_RUN", "reason": "No populated vector index"},
         },
         "comparison": comparison,
@@ -131,7 +161,9 @@ def _markdown(report: dict) -> str:
             "",
             "## Integration status",
             "",
-            f"- Seeded PostgreSQL: **{report['after']['live_sql']['status']}**",
+            f"- Gold SQL execution: **{report['after']['sql_gold_execution']['status']}**",
+            f"- Question-to-SQL execution: **{report['after']['text_to_sql_execution']['status']}**",
+            f"- DB security / analytical: **{report['after']['db_security']['status']}**",
             f"- RAG live: **{report['after']['rag_live']['status']}**",
             "",
             "`NOT_RUN` is preserved and is not counted as `PASS`.",

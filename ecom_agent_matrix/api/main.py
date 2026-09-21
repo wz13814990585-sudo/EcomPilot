@@ -184,7 +184,11 @@ async def health():
 @app.get("/health/ready", tags=["system"], summary="就绪探针（Postgres + Redis）")
 async def health_ready(response: Response):
     agents_alive = bool(_agent_task and not _agent_task.done())
-    report = await readiness_report(agents_alive=agents_alive)
+    report = await readiness_report(
+        agents_alive=agents_alive,
+        catalog_source=_runtime.catalog_source if _runtime else None,
+        schema_version=_runtime.schema_version if _runtime else "",
+    )
     if not report["ready"]:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return {

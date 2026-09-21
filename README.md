@@ -40,7 +40,7 @@
 
 当前分支已通过：
 
-- 476 个自动化测试（当前 `pytest -q` 实测）
+- 484 个自动化测试（当前 `pytest -q` 实测）
 - Ruff lint 与 format gate
 - Python compileall
 - 13/13 deterministic routing cases
@@ -48,9 +48,12 @@
 - 16/16 safety cases
 - 50/50 Enterprise Data Agent deterministic benchmark cases
 - 16/16 Schema Linking、6/6 Analytical Plan、35/35 SQL Safety 对抗、3/3 Evidence 用例
+- 32/32 Gold SQL 实执行用例（validator + PostgreSQL + comparator）
+- 6/6 确定性 Question-to-SQL 实执行用例（question + production service + PostgreSQL）
+- 真实 PostgreSQL Schema Discovery、RLS 租户隔离、只读角色、SQL Repair 和 Analytical Evidence 集成评测通过
 - Docker Compose 配置校验
 
-最新评估输出见 [Agent report](eval/results/latest.json)、[Enterprise report](eval/enterprise/results/latest.json) 和 [before/after report](eval/enterprise/results/final.md)。依赖真实 API、数据库执行或已填充向量索引的指标会明确显示 `NOT_RUN`。
+最新评估输出见 [Agent report](eval/results/latest.json)、[Enterprise report](eval/enterprise/results/latest.json)、[Gold SQL report](eval/enterprise/results/sql_gold_execution.json)、[Question-to-SQL report](eval/enterprise/results/text_to_sql_execution.json) 和 [DB security report](eval/enterprise/results/db_security.json)。依赖外部 LLM 或已填充向量索引的 Level C 指标会明确显示 `NOT_RUN`。
 
 ## 系统架构
 
@@ -133,6 +136,8 @@ Question -> permission-filtered Schema Catalog -> Hybrid Schema Linking
 ```
 
 Schema Catalog 从 PostgreSQL `information_schema` 显式刷新并与静态业务词汇合并；数据库不可用时明确标记 `static_fallback`。Catalog 和 schema embedding 都按版本缓存，不在每次请求中重扫 `information_schema`。
+
+`AppRuntime` 在 DB/Redis 启动后、Agent 启动前加载 Catalog，并将 Runtime 自有的 `SchemaCatalogProvider` 和 `DataIntelligenceService` 注入 Query。本地/演示环境允许显式降级；生产环境中 `static_fallback` 会使 readiness 降级，不会伪装成动态 Catalog 已加载。
 
 Schema Linking 在已配置且本地可用的 embedding provider 上使用 semantic + lexical + alias；默认 CI 不下载模型，因此显式返回 `lexical_only`。自适应阈值、受控 FK 扩展和列级选择会限制生成上下文。
 
@@ -268,7 +273,9 @@ python -m eval.runner --suite deterministic --fail-on-regression
 python -m eval.runner --suite all
 python -m eval.enterprise.runner --suite all --fail-on-regression
 python -m eval.enterprise.advanced_runner --suite all --fail-on-regression
-python -m eval.enterprise.live_sql.runner --fail-on-regression
+python -m eval.enterprise.live_sql.runner --require-postgres --fail-on-regression
+python -m eval.enterprise.live_sql.text_to_sql_runner --require-postgres --fail-on-regression
+python -m eval.enterprise.live_sql.db_integration_runner --require-postgres --fail-on-regression
 ```
 
 评估维度：
@@ -293,7 +300,11 @@ python -m eval.enterprise.live_sql.runner --fail-on-regression
 | Grounding Pass Rate | 1.0 |
 | Unsafe SQL Execution Rate | 0.0 |
 | Enterprise Cases | 50/50 |
-| SQL Execution Accuracy | NOT_RUN（当前本机无可用 PostgreSQL） |
+| Gold SQL Execution Accuracy | 1.0（32/32） |
+| Text-to-SQL Generation Success | 1.0（6/6） |
+| Text-to-SQL Execution Accuracy | 1.0（6/6） |
+| Tenant Isolation Failure Rate | 0.0 |
+| DB Read-only Bypass Rate | 0.0 |
 | RAG Live Eval | NOT_RUN（无已填充向量索引） |
 
 报告写入 `eval/results/latest.json` 和 `eval/results/latest.md`，并严格区分 `PASS`、`FAIL`、`DEGRADED` 与 `NOT_RUN`。
@@ -310,7 +321,7 @@ python -m eval.enterprise.runner --suite all --fail-on-regression
 python -m eval.enterprise.advanced_runner --suite all --fail-on-regression
 ```
 
-默认 CI 不下载 embedding/CrossEncoder 模型，也不依赖外部 API、PostgreSQL 或 Redis 集成环境。
+默认 quality CI 不下载 embedding/CrossEncoder 模型，也不依赖外部 API。独立的 `enterprise-sql-integration` job 启动可复现的 PostgreSQL/pgvector service，运行 Gold SQL、Question-to-SQL、Schema Discovery、RLS/只读边界和 Analytical Evidence 评测，并以 `if: always()` 上传三份报告。
 
 确定性 routing benchmark 可单独运行，但它不是端到端性能测试：
 
@@ -353,7 +364,7 @@ docs/                   architecture, demo, observability, interview notes
 - MessageBus、rate limiter、circuit breaker 和 reply registry 是进程内状态。
 - 默认 Docker 镜像不包含本地 Transformer 模型。
 - 完整 RAG 质量评估需要真实填充的向量索引与 ranked results。
-- Seeded PostgreSQL 的 32 个实执行用例已纳入独立 CI job；当前本机无 PostgreSQL，所以本地报告为 `NOT_RUN`。
+- 当前 Question-to-SQL CI 是 6 个不需外部 LLM 的高置信确定性问句；外部模型泛化评测属于可选 Level C，未运行时为 `NOT_RUN`。
 - Business API provider 当前是本地 demo adapter，不声称已连接生产电商平台。
 - 生产部署仍需要 managed secrets、正式数据库角色/迁移、SLO 和部署平台配置。
 - 仓库不包含虚构的 CD 或未经测量的吞吐量、准确率与成本声明。

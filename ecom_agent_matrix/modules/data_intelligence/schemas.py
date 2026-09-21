@@ -245,6 +245,7 @@ class AnalyticalAnalysisResult(BaseModel):
     anomalies: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    status: Literal["FULL_SUCCESS", "PARTIAL", "FAILED"] = "FAILED"
 
 
 class DataAnalysisResult(BaseModel):
@@ -253,6 +254,7 @@ class DataAnalysisResult(BaseModel):
     success: bool
     question: str
     catalog_source: str = ""
+    schema_version: str = ""
     schema_link: SchemaLinkResult | None = None
     generated_sql: GeneratedSQL | None = None
     validated_sql: ValidatedSQL | None = None

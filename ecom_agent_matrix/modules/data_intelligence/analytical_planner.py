@@ -31,6 +31,16 @@ class AnalyticalQueryPlanner:
         if not diagnostic or not metric or catalog.table("ecom_order") is None:
             return None
 
+        dated_period = re.search(r"(20\d{2})\s*年\s*(1[0-2]|0?[1-9])\s*月", query)
+        month_period = re.search(r"(?<!\d)(1[0-2]|0?[1-9])\s*月", query)
+        period_hint = ""
+        if dated_period:
+            period_hint = (
+                f" period={int(dated_period.group(1)):04d}-{int(dated_period.group(2)):02d}"
+            )
+        elif month_period:
+            period_hint = f" period_month={int(month_period.group(1))}"
+
         order = catalog.table("ecom_order")
         goods = catalog.table("ecom_goods")
         metric_columns = (
@@ -60,9 +70,10 @@ class AnalyticalQueryPlanner:
                     step_type=AnalyticalStepType.CATEGORY_BREAKDOWN,
                     question=(
                         f"ANALYSIS_STEP:CATEGORY_BREAKDOWN metric={metric} category product orders"
+                        f"{period_hint}"
                     ),
                     required_tables=("ecom_order", "ecom_goods"),
-                    required_columns=(*metric_columns[:1], "sku", "category"),
+                    required_columns=(*metric_columns, "sku", "category"),
                 )
             )
         if order.column("sku"):
@@ -70,9 +81,11 @@ class AnalyticalQueryPlanner:
                 AnalyticalQueryStep(
                     id="sku_breakdown",
                     step_type=AnalyticalStepType.SKU_BREAKDOWN,
-                    question=f"ANALYSIS_STEP:SKU_BREAKDOWN metric={metric} sku orders",
+                    question=(
+                        f"ANALYSIS_STEP:SKU_BREAKDOWN metric={metric} sku orders{period_hint}"
+                    ),
                     required_tables=("ecom_order",),
-                    required_columns=(*metric_columns[:1], "sku"),
+                    required_columns=(*metric_columns, "sku"),
                 )
             )
         bounded = tuple(steps[: max(1, int(settings.ANALYSIS_MAX_SUBQUERIES))])

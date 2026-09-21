@@ -24,6 +24,7 @@ class DatabaseManager:
     execute_write = AsyncPGClient.execute_write
     execute_system = AsyncPGClient.execute_system
     execute_health = AsyncPGClient.execute_health
+    execute_metadata = AsyncPGClient.execute_metadata
 
 
 __all__ = ["DatabaseManager"]

@@ -15,11 +15,17 @@ from ..agents.rag.agent import rag_agent
 from ..config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
 from ..config.settings import Settings
 from ..core.security.approval import ApprovalService
+from ..core.logging_config import setup_logger
 from ..core.skill.executor import SkillExecutor
 from ..core.skill.skill_registry import skill_executor_context
 from ..infrastructure.database import DatabaseManager
 from ..infrastructure.llm import LLMGateway
 from ..infrastructure.redis import RedisManager
+from ..modules.data_intelligence import DataIntelligenceService
+from ..modules.data_intelligence.catalog import (
+    PostgresSchemaCatalogLoader,
+    SchemaCatalogProvider,
+)
 from ..orchestration.master.orchestrator import (
     MasterOrchestrator,
     cancel_master_tasks,
@@ -34,6 +40,8 @@ from .messaging.message import AgentMessage
 from .messaging.reply_registry import ReplyRegistry
 from .messaging.registry import AgentRegistry
 
+logger = setup_logger("runtime.container")
+
 
 @dataclass
 class AppRuntime:
@@ -45,6 +53,9 @@ class AppRuntime:
     llm_gateway: LLMGateway
     skill_executor: SkillExecutor
     approval_service: ApprovalService
+    schema_catalog_provider: SchemaCatalogProvider = field(default_factory=SchemaCatalogProvider)
+    data_intelligence_service: DataIntelligenceService | None = None
+    schema_catalog_loader: PostgresSchemaCatalogLoader | None = None
     task_reply_registry: ReplyRegistry[AgentMessage] | None = None
     gateway_reply_registry: ReplyRegistry[AgentMessage] | None = None
     planner: Any = None
@@ -59,6 +70,9 @@ class AppRuntime:
     _redis_attempted: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        self.data_intelligence_service = self.data_intelligence_service or DataIntelligenceService(
+            catalog_provider=self.schema_catalog_provider
+        )
         self.task_reply_registry = self.task_reply_registry or self.message_bus.task_reply_registry
         self.gateway_reply_registry = (
             self.gateway_reply_registry or self.message_bus.gateway_reply_registry
@@ -103,9 +117,11 @@ class AppRuntime:
         )
         owned_planner = TypedMasterPlanner()
         owned_recovery_controller = RecoveryController()
+        owned_db = DatabaseManager(settings)
+        owned_catalog = SchemaCatalogProvider()
         return cls(
             settings=settings,
-            db=DatabaseManager(settings),
+            db=owned_db,
             redis=RedisManager(),
             message_bus=owned_bus,
             agent_registry=agent_registry,
@@ -116,6 +132,9 @@ class AppRuntime:
             gateway_reply_registry=gateway_reply_registry,
             planner=owned_planner,
             recovery_controller=owned_recovery_controller,
+            schema_catalog_provider=owned_catalog,
+            data_intelligence_service=DataIntelligenceService(catalog_provider=owned_catalog),
+            schema_catalog_loader=PostgresSchemaCatalogLoader(execute=owned_db.execute_metadata),
         )
 
     async def start(self) -> None:
@@ -131,12 +150,29 @@ class AppRuntime:
             self._redis_attempted = True
             await self.redis.start()
             self._redis_started = True
+            if self.schema_catalog_loader is not None:
+                catalog = await self.schema_catalog_provider.refresh_from_postgres(
+                    self.schema_catalog_loader
+                )
+                log = logger.warning if catalog.source == "static_fallback" else logger.info
+                log(
+                    "schema_catalog_loaded",
+                    extra={
+                        "event": "schema_catalog_loaded",
+                        "catalog_source": catalog.source,
+                        "schema_version": catalog.version,
+                    },
+                )
             if not self.agent_registry.definitions:
                 raise RuntimeError("agent registry is empty")
 
             async def serve_query(queue):
                 with skill_executor_context(self.skill_executor):
-                    await query_agent(queue, bus=self.message_bus)
+                    await query_agent(
+                        queue,
+                        bus=self.message_bus,
+                        data_service=self.data_intelligence_service,
+                    )
 
             async def serve_exec(queue):
                 with skill_executor_context(self.skill_executor):
@@ -174,6 +210,14 @@ class AppRuntime:
     @property
     def agents_alive(self) -> bool:
         return bool(self._agent_task and not self._agent_task.done())
+
+    @property
+    def catalog_source(self) -> str:
+        return self.schema_catalog_provider.get().source
+
+    @property
+    def schema_version(self) -> str:
+        return self.schema_catalog_provider.get().version
 
     async def close(self) -> None:
         if not any(

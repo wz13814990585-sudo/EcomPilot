@@ -7,7 +7,11 @@ import time
 from ...core.errors import ErrorCode
 from ...core.security import SecurityContext
 from ...core.tasking import TaskContext, WorkflowResult, ensure_task_context
-from ...modules.data_intelligence import DataAnalysisRequest, data_intelligence_service
+from ...modules.data_intelligence import (
+    DataAnalysisRequest,
+    DataIntelligenceService,
+    data_intelligence_service,
+)
 from ...platform.observability.metrics import observed_workflow
 
 
@@ -16,6 +20,7 @@ async def run_data_analysis_workflow(
     task: dict | TaskContext,
     *,
     security: SecurityContext | None,
+    service: DataIntelligenceService | None = None,
 ) -> WorkflowResult:
     started = time.perf_counter()
     ctx = ensure_task_context(task)
@@ -43,7 +48,8 @@ async def run_data_analysis_workflow(
             error_msg=f"Invalid data-analysis request: {exc}",
             data={"query_kind": "data_analysis"},
         )
-    result = await data_intelligence_service.analyze(request, security=security)
+    active_service = service or data_intelligence_service
+    result = await active_service.analyze(request, security=security)
     if not result.success:
         return WorkflowResult(
             success=False,
@@ -51,6 +57,8 @@ async def run_data_analysis_workflow(
             error_msg=result.error_msg,
             data={
                 "query_kind": "data_analysis",
+                "catalog_source": result.catalog_source,
+                "schema_version": result.schema_version,
                 "schema_link": result.schema_link.model_dump(mode="json")
                 if result.schema_link
                 else None,
@@ -75,6 +83,8 @@ async def run_data_analysis_workflow(
             "result": execution.model_dump(mode="json"),
             "evidence": result.evidence,
             "repair_attempts": result.repair_attempts,
+            "catalog_source": result.catalog_source,
+            "schema_version": result.schema_version,
         },
         metadata={"latency_ms": round((time.perf_counter() - started) * 1000, 2)},
     )

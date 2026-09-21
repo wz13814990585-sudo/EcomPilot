@@ -33,6 +33,7 @@ from ...workflows.stock import run_stock_workflow
 from ...modules.parsers.stock import extract_stock_sku
 from ...platform.observability.context import TraceContext, set_trace_context
 from ...platform.observability.metrics import metrics
+from ...modules.data_intelligence import DataIntelligenceService
 
 logger = setup_logger("agent.query")
 
@@ -77,6 +78,7 @@ async def run_query(
     *,
     security: SecurityContext | None = None,
     approval: ApprovalGrant | None = None,
+    data_service: DataIntelligenceService | None = None,
 ) -> tuple[bool, str, dict]:
     """执行一次只读查询（可供单测直接调用）。"""
     started = time.perf_counter()
@@ -93,14 +95,17 @@ async def run_query(
     with skill_execution_context(
         AGENT_QUERY, task_context=ctx, security=security, approval=approval
     ):
-        typed = await execute_query(ctx, security=security)
+        typed = await execute_query(ctx, security=security, data_service=data_service)
         result = typed.as_legacy_tuple()  # Deprecated compatibility API; workers stay typed.
     metrics.observe_agent(AGENT_QUERY, result[0], time.perf_counter() - started)
     return result
 
 
 async def execute_query(
-    ctx: TaskContext, *, security: SecurityContext | None = None
+    ctx: TaskContext,
+    *,
+    security: SecurityContext | None = None,
+    data_service: DataIntelligenceService | None = None,
 ) -> WorkflowResult:
     """Query workflow 实现；调用的所有 Skill 继承统一只读上下文。"""
     task_type = str(ctx.task_type or "").strip()
@@ -140,7 +145,7 @@ async def execute_query(
         return await run_competitor_workflow(enriched)
 
     if kind == "data_analysis":
-        return await run_data_analysis_workflow(ctx, security=security)
+        return await run_data_analysis_workflow(ctx, security=security, service=data_service)
 
     if kind == "business_api":
         return await run_business_api_read_workflow(ctx)
@@ -149,7 +154,12 @@ async def execute_query(
 
 
 @register_agent(AGENT_QUERY)
-async def query_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
+async def query_agent(
+    msg_queue: asyncio.Queue,
+    *,
+    bus=message_bus,
+    data_service: DataIntelligenceService | None = None,
+):
     """数据查询：广告/订单/库存/竞品/商品目录，只调只读 Skill。"""
     logger.info(
         "query_agent_started",
@@ -183,7 +193,7 @@ async def query_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
                     AGENT_QUERY, task_context=ctx, security=msg.security, approval=msg.approval
                 ):
                     result = await asyncio.wait_for(
-                        execute_query(ctx, security=msg.security),
+                        execute_query(ctx, security=msg.security, data_service=data_service),
                         timeout=float(settings.QUERY_SKILL_TIMEOUT),
                     )
                 ok, err = result.success, result.error_msg
