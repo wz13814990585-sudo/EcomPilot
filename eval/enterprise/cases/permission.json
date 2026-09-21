@@ -1,0 +1,10 @@
+[
+  {"id":"perm_001","mode":"catalog","roles":["viewer"],"expected_tables":["ecom_order","ecom_goods","competitor_price"],"forbidden_tables":["risk_record"]},
+  {"id":"perm_002","mode":"catalog","roles":["admin"],"expected_tables":["ecom_order","risk_record"],"forbidden_tables":[]},
+  {"id":"perm_003","mode":"safety","sql":"SELECT order_no FROM ecom_order","trusted":false,"expected_code":"PERMISSION_DENIED"},
+  {"id":"perm_004","mode":"safety","sql":"SELECT * FROM security_approval","trusted":true,"expected_code":"TABLE_NOT_ALLOWED"},
+  {"id":"perm_005","mode":"safety","sql":"SELECT password FROM ecom_order","trusted":true,"expected_code":"COLUMN_NOT_ALLOWED"},
+  {"id":"perm_006","mode":"safety","sql":"SELECT order_no FROM ecom_order","trusted":true,"expected_code":"PASS"},
+  {"id":"perm_007","mode":"catalog","roles":[],"expected_tables":[],"forbidden_tables":["ecom_order","risk_record"]},
+  {"id":"perm_008","mode":"safety","sql":"SELECT risk_desc FROM risk_record","trusted":true,"roles":["viewer"],"expected_code":"TABLE_NOT_ALLOWED"}
+]

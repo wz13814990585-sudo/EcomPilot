@@ -1,0 +1,8 @@
+[
+  {"id":"rag_001","mode":"route","question":"退款政策是什么？","expected_mode":"fast_path","expected_task_type":"knowledge_qa"},
+  {"id":"rag_002","mode":"route","question":"退货政策允许多少天？","expected_mode":"fast_path","expected_task_type":"knowledge_qa"},
+  {"id":"rag_003","mode":"route","question":"店铺规则是什么？","expected_mode":"fast_path","expected_task_type":"knowledge_qa"},
+  {"id":"rag_004","mode":"route","question":"查询知识库中的 FAQ","expected_mode":"fast_path","expected_task_type":"knowledge_qa"},
+  {"id":"rag_005","mode":"route","question":"What is the refund policy?","expected_mode":"fast_path","expected_task_type":"knowledge_qa"},
+  {"id":"rag_006","mode":"route","question":"Show the store return policy","expected_mode":"fast_path","expected_task_type":"knowledge_qa"}
+]

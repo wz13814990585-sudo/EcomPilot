@@ -30,6 +30,12 @@ from ...core.security import (
     require_trusted_ingress,
 )
 from ...core.security.errors import AuthorizationError
+from ...modules.evidence import (
+    DocumentEvidence,
+    EvidenceStore,
+    SQLEvidence,
+    evidence_synthesis_service,
+)
 from ...platform.observability.context import TraceContext, set_trace_context
 from ...platform.observability.metrics import metrics
 from .executor import MasterPlanExecutor
@@ -281,6 +287,58 @@ def _execution_summary(execution: PlanExecutionResult) -> str:
     return f"任务部分完成，{success_count}/{len(terminal)} 个步骤成功。"
 
 
+async def _synthesize_composite_evidence(
+    *,
+    question: str,
+    execution: PlanExecutionResult,
+    security,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Convert bounded Query/RAG outputs to typed evidence, then ground claims."""
+    store = EvidenceStore(tenant_id=security.tenant_id, store_id=security.store_id)
+    for result in execution.step_results.values():
+        if not result.success:
+            continue
+        if result.task_type == "data_analysis" and isinstance(result.data.get("evidence"), dict):
+            try:
+                store.add(SQLEvidence.model_validate(result.data["evidence"]))
+            except (TypeError, ValueError):
+                continue
+        if result.task_type == "knowledge_qa":
+            for document in list(result.data.get("docs") or [])[:5]:
+                metadata = document.get("meta") or document.get("metadata") or {}
+                source_id = str(document.get("source_id") or metadata.get("document_id") or "")
+                citation_id = str(document.get("citation_id") or "")
+                if not source_id or not citation_id:
+                    continue
+                score = document.get("relevance_score")
+                if score is None:
+                    score = document.get("rrf_score", document.get("score"))
+                confidence = max(0.0, min(float(score), 1.0)) if score is not None else 0.7
+                store.add(
+                    DocumentEvidence(
+                        id=f"doc:{source_id}:{citation_id}",
+                        source_name=str(metadata.get("source") or "enterprise-knowledge-base"),
+                        confidence=confidence,
+                        tenant_id=security.tenant_id,
+                        store_id=security.store_id,
+                        document_id=str(metadata.get("document_id") or source_id),
+                        chunk_id=str(metadata.get("chunk_id") or source_id),
+                        citation_id=citation_id,
+                        content_preview=str(document.get("chunk_text") or "")[:500],
+                        retrieval_score=document.get("rrf_score") or document.get("score"),
+                        rerank_score=document.get("relevance_score"),
+                        metadata={
+                            "document_type": metadata.get("document_type"),
+                            "title": document.get("title") or metadata.get("title"),
+                            "version": metadata.get("version"),
+                            "effective_date": metadata.get("effective_date"),
+                        },
+                    )
+                )
+    analysis = await evidence_synthesis_service.synthesize(question, store)
+    return analysis.model_dump(mode="json"), store.bounded_package()
+
+
 async def _save_plan_memory(
     long_mem: AgentLongVectorMemory,
     *,
@@ -451,6 +509,19 @@ async def _process_complex_plan(
     if not summary:
         summary = _execution_summary(execution)
 
+    analysis = None
+    evidence_package: list[dict[str, Any]] = []
+    if plan.reason_code == "COMPOSITE_DATA_ANALYSIS" and msg.security is not None:
+        analysis, evidence_package = await _synthesize_composite_evidence(
+            question=str(task_input.get("query") or task_input.get("user_query") or ""),
+            execution=execution,
+            security=msg.security,
+        )
+        if analysis["grounding"]["valid"]:
+            summary = analysis["summary"]
+        else:
+            summary = "证据绑定校验未通过，无法安全输出分析结论。"
+
     usage = telemetry.snapshot().model_dump()
     calls = _compat_llm_calls(usage)
     step_results = {step_id: item.model_dump() for step_id, item in execution.step_results.items()}
@@ -488,6 +559,8 @@ async def _process_complex_plan(
         "step_results": step_results,
         "sub_results": list(step_results.values()),
         "summary": summary,
+        "analysis": analysis,
+        "evidence": evidence_package,
         "plan": plan.model_dump(),
         "route": route.model_dump(),
         "recovery": {

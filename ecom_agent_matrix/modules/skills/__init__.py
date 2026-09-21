@@ -4,6 +4,7 @@ from . import (
     ad_optimize,
     ai_prompt_gen,
     calc_tool,
+    business_api,
     competitor_price,
     crm_reply,  # CRM：答复生成（RAG + LLM）
     data_integrity_check,
@@ -23,6 +24,7 @@ __all__ = [
     "ad_optimize",
     "ai_prompt_gen",
     "calc_tool",
+    "business_api",
     "competitor_price",
     "crm_reply",
     "data_integrity_check",

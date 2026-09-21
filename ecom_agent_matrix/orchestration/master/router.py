@@ -11,6 +11,7 @@ from ...config.settings import settings
 from ...core.llm import is_llm_configured
 from .policy import (
     TASK_ROUTE_MAP,
+    is_composite_analysis,
     is_composite_customer_reply,
 )
 
@@ -28,10 +29,19 @@ class MasterRouteDecision(BaseModel):
 
 _RULES: tuple[tuple[str, str, re.Pattern[str]], ...] = (
     (
+        "data_analysis",
+        "RULE_DATA_ANALYSIS",
+        re.compile(
+            r"本月.*(?:销售额|订单数)|(?:销售额|订单数).*本月|"
+            r"销量最高.*商品|退款率|(?:revenue|refund\s+rate|top\s+\d+\s+products)",
+            re.I,
+        ),
+    ),
+    (
         "knowledge_qa",
         "RULE_KNOWLEDGE",
         re.compile(
-            r"退款规则|退货政策|店铺规则|运营手册|FAQ|知识库|怎么退|"
+            r"退款规则|退款政策|退货政策|店铺规则|运营手册|FAQ|知识库|怎么退|"
             r"refund\s+policy|return\s+policy|store\s+policy",
             re.I,
         ),
@@ -140,6 +150,13 @@ def route_master_task(task_input: dict) -> MasterRouteDecision:
             mode="planner",
             confidence=0.98,
             reason_code="COMPOSITE_CUSTOMER_REPLY",
+            source="rules_composite",
+        )
+    if is_composite_analysis(query):
+        return MasterRouteDecision(
+            mode="planner",
+            confidence=0.98,
+            reason_code="COMPOSITE_DATA_ANALYSIS",
             source="rules_composite",
         )
     matches = [rule for rule in _RULES if rule[2].search(query)]

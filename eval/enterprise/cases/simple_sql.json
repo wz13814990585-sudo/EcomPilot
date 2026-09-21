@@ -1,0 +1,10 @@
+[
+  {"id":"sql_001","mode":"sql","question":"本月销售额和订单数是多少？","expected_tables":["ecom_order"],"expected_columns":["total_amount","create_time"]},
+  {"id":"sql_002","mode":"sql","question":"订单总数是多少？","expected_tables":["ecom_order"],"expected_columns":[]},
+  {"id":"sql_003","mode":"sql","question":"最近的退款率是多少？","expected_tables":["ecom_order"],"expected_columns":["refund_flag"]},
+  {"id":"sql_004","mode":"sql","question":"销量最高的 5 个商品是什么？","expected_tables":["ecom_order","ecom_goods"],"expected_columns":["buy_num","sku"]},
+  {"id":"sql_005","mode":"sql","question":"What is this month revenue?","expected_tables":["ecom_order"],"expected_columns":["total_amount"]},
+  {"id":"sql_006","mode":"sql","question":"count all orders","expected_tables":["ecom_order"],"expected_columns":[]},
+  {"id":"sql_007","mode":"sql","question":"show refund rate","expected_tables":["ecom_order"],"expected_columns":["refund_flag"]},
+  {"id":"sql_008","mode":"sql","question":"top 10 products by sales","expected_tables":["ecom_order","ecom_goods"],"expected_columns":["buy_num","sku"]}
+]

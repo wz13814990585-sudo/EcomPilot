@@ -10,3 +10,4 @@ Business POST routes use a process-local tenant/user rate limiter. This is suita
 
 Readiness checks PostgreSQL, Redis and Agent runtime. An unavailable/unconfigured LLM is reported as degraded and does not fail readiness unless `LLM_REQUIRED_FOR_READINESS=true`.
 
+Data-intelligence telemetry adds bounded-label metrics for schema-link latency/candidate counts, SQL validation outcomes, safety rejection reason codes, execution latency, row counts, truncation and repair outcomes. Raw SQL, questions, task IDs, user IDs and tenant IDs are never Prometheus labels. The trace records selected sources, validation result, evidence IDs and safe error categories without persisting hidden model reasoning.

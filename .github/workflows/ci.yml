@@ -50,3 +50,6 @@ jobs:
 
       - name: Run deterministic Agent evaluation
         run: python -m eval.runner --suite deterministic --fail-on-regression
+
+      - name: Run Enterprise Data Agent benchmark
+        run: python -m eval.enterprise.runner --suite all --fail-on-regression

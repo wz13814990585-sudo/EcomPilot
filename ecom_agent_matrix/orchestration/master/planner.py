@@ -10,6 +10,7 @@ from ...config.settings import settings
 from ...core.llm import is_llm_configured, llm_chat_structured, resolve_mode
 from .policy import (
     MasterPlanValidationError,
+    is_composite_analysis,
     is_composite_customer_reply,
     validate_master_plan,
 )
@@ -25,9 +26,47 @@ def _query(task_input: dict) -> str:
     ).strip()
 
 
+def rewrite_composite_queries(query: str) -> tuple[str, str]:
+    """Bounded deterministic split; simple RAG and SQL requests are never rewritten."""
+    lowered = query.lower()
+    if "退款" in query or "refund" in lowered:
+        return (
+            f"{query} | monthly refund rate trend by SKU and category",
+            f"{query} | refund policy changes shipping incidents complaints operations notes",
+        )
+    return (
+        f"{query} | metric trend and segment contribution",
+        f"{query} | policy and operations context",
+    )
+
+
 def build_composite_plan(task_input: dict) -> MasterPlan | None:
     """订单事实 + 政策知识 → CRM 回复的高置信 DAG 模板。"""
     query = _query(task_input)
+    if is_composite_analysis(query):
+        sql_query, rag_query = rewrite_composite_queries(query)
+        return validate_master_plan(
+            MasterPlan(
+                decision="execute",
+                confidence=0.98,
+                reason_code="COMPOSITE_DATA_ANALYSIS",
+                planner_source="rules_composite",
+                steps=[
+                    PlanStep(
+                        step_id="structured_analysis",
+                        agent=AGENT_QUERY,
+                        task_type="data_analysis",
+                        payload={"query": sql_query, "original_query": query},
+                    ),
+                    PlanStep(
+                        step_id="document_context",
+                        agent=AGENT_RAG,
+                        task_type="knowledge_qa",
+                        payload={"query": rag_query, "original_query": query},
+                    ),
+                ],
+            )
+        )
     if not is_composite_customer_reply(query):
         return None
     plan = MasterPlan(
@@ -129,3 +168,11 @@ class TypedMasterPlanner:
 
 
 typed_master_planner = TypedMasterPlanner()
+
+
+__all__ = [
+    "TypedMasterPlanner",
+    "build_composite_plan",
+    "rewrite_composite_queries",
+    "typed_master_planner",
+]

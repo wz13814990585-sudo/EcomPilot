@@ -21,7 +21,7 @@ Return ONLY JSON matching this shape:
 }
 
 Allowed task type mapping:
-- data_query: goods_search, goods_catalog, stock_analysis, competitor_watch, data_check, order_query, ad_query
+- data_query: goods_search, goods_catalog, stock_analysis, competitor_watch, data_check, data_analysis, order_query, ad_query
 - biz_exec: customer_service, social_marketing, ad_optimize, ops_report, risk_control
 - knowledge_rag: knowledge_qa
 

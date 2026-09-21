@@ -31,6 +31,14 @@ class RAGDocument(BaseModel):
 
     citation_id: str
     source_id: str
+    document_id: str = ""
+    document_type: str = ""
+    version: str = ""
+    effective_date: str = ""
+    tenant_id: str = ""
+    store_id: str = ""
+    source: str = ""
+    chunk_id: str = ""
     sku: str | None = None
     title: str = ""
     chunk_text: str

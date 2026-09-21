@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     DB_POOL_MAX_SIZE: int = 10
     DB_ACQUIRE_TIMEOUT: float = 10.0
     DB_CONNECT_TIMEOUT: float = 10.0
+    SQL_MAX_JOIN_TABLES: int = 5
+    SQL_MAX_SELECTED_COLUMNS: int = 30
+    SQL_MAX_ROWS: int = 200
+    SQL_QUERY_TIMEOUT: float = 10.0
+    SQL_REPAIR_MAX_ATTEMPTS: int = 1
+    SQL_SCHEMA_LINK_TOP_K: int = 6
 
     # 模拟店铺标识（seed / 目录查询默认归属本店货盘）
     DEMO_STORE_ID: str = "demo_store"

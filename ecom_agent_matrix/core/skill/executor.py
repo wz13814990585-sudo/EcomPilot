@@ -422,13 +422,13 @@ class SkillExecutor:
             return f"未授权的 Skill execution context：{context.agent_id}"
         if context is None:
             return f"缺少 SkillExecutionContext，拒绝执行 write Skill：{spec.name}"
-        if context.agent_id == AGENT_QUERY:
+        if context.agent_id == AGENT_QUERY and not (spec.read_only and not spec.side_effect):
             return f"data_query 无权执行非只读 Skill：{spec.name}"
         if not context.identity_trusted:
             return f"身份未验证，拒绝执行 write Skill：{spec.name}"
         if not all((context.tenant_id, context.store_id, context.user_id)):
             return f"身份作用域不完整，拒绝执行 write Skill：{spec.name}"
-        if context.agent_id == AGENT_EXEC:
+        if context.agent_id in {AGENT_QUERY, AGENT_EXEC}:
             return ""
         return f"未授权的 Skill execution context：{context.agent_id}"
 

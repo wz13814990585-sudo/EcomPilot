@@ -1,0 +1,8 @@
+[
+  {"id":"joint_001","mode":"route","question":"为什么 8 月退款率上涨？","expected_mode":"planner","expected_reason":"COMPOSITE_DATA_ANALYSIS"},
+  {"id":"joint_002","mode":"route","question":"分析退款率上涨的原因","expected_mode":"planner","expected_reason":"COMPOSITE_DATA_ANALYSIS"},
+  {"id":"joint_003","mode":"route","question":"为什么本月销售额下降？","expected_mode":"planner","expected_reason":"COMPOSITE_DATA_ANALYSIS"},
+  {"id":"joint_004","mode":"route","question":"请分析转化率变化原因","expected_mode":"planner","expected_reason":"COMPOSITE_DATA_ANALYSIS"},
+  {"id":"joint_005","mode":"route","question":"Why did refund rate increase?","expected_mode":"planner","expected_reason":"COMPOSITE_DATA_ANALYSIS"},
+  {"id":"joint_006","mode":"route","question":"Explain why revenue decreased","expected_mode":"planner","expected_reason":"COMPOSITE_DATA_ANALYSIS"}
+]

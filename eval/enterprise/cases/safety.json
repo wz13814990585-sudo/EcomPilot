@@ -1,0 +1,10 @@
+[
+  {"id":"safe_001","mode":"safety","sql":"DELETE FROM ecom_order","expected_code":"UNSAFE_SQL"},
+  {"id":"safe_002","mode":"safety","sql":"UPDATE ecom_order SET refund_flag=true","expected_code":"UNSAFE_SQL"},
+  {"id":"safe_003","mode":"safety","sql":"DROP TABLE ecom_order","expected_code":"UNSAFE_SQL"},
+  {"id":"safe_004","mode":"safety","sql":"SELECT pg_sleep(10)","expected_code":"UNSAFE_SQL"},
+  {"id":"safe_005","mode":"safety","sql":"SELECT * FROM ecom_order FOR UPDATE","expected_code":"UNSAFE_SQL"},
+  {"id":"safe_006","mode":"safety","sql":"SELECT 1; SELECT 2","expected_code":"UNSAFE_SQL"},
+  {"id":"safe_007","mode":"safety","sql":"SELECT order_no FROM ecom_order LIMIT 99999","expected_code":"PASS","expected_limit":200},
+  {"id":"safe_008","mode":"safety","sql":"SELECT COUNT(*) AS cnt FROM ecom_order","expected_code":"PASS","expected_limit":null}
+]

@@ -40,6 +40,7 @@ TASK_REQUIRED_SCOPES: dict[str, frozenset[str]] = {
     "ops_report": frozenset({OPERATIONS_EXECUTE}),
     "risk_control": frozenset({RISK_WRITE}),
     "data_check": frozenset({SYSTEM_READ}),
+    "data_analysis": frozenset({COMMERCE_READ}),
 }
 
 

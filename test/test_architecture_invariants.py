@@ -10,6 +10,7 @@ from ecom_agent_matrix.agents.query.agent import execute_query
 from ecom_agent_matrix.config.constants import AGENT_EXEC, AGENT_MASTER, AGENT_QUERY, AGENT_RAG
 from ecom_agent_matrix.core.skill.skill_registry import skill_container
 from ecom_agent_matrix.runtime.messaging.registry import agent_registry
+from ecom_agent_matrix.modules.data_intelligence.service import DataIntelligenceService
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,3 +50,15 @@ def test_core_memory_does_not_depend_on_modules_rag():
     memory_root = ROOT / "ecom_agent_matrix" / "core" / "memory"
     source = "\n".join(path.read_text() for path in memory_root.rglob("*.py"))
     assert "modules.rag" not in source
+
+
+def test_generated_sql_validation_precedes_execution_in_active_service():
+    source = inspect.getsource(DataIntelligenceService.analyze)
+    assert source.index("self.validator.validate") < source.index("self._execute_with_repair")
+    repair_source = inspect.getsource(DataIntelligenceService._execute_with_repair)
+    assert "self.validator.validate" in repair_source
+
+
+def test_data_analysis_has_no_new_runtime_agent():
+    assert "data_analysis" not in agent_registry.definitions
+    assert set(agent_registry.definitions) == {AGENT_MASTER, AGENT_QUERY, AGENT_EXEC, AGENT_RAG}

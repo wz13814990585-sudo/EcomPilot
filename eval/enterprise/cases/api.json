@@ -1,0 +1,8 @@
+[
+  {"id":"api_001","mode":"api","operation":"get_order","resource_id":"ORD-20260301-001","expected_found":true},
+  {"id":"api_002","mode":"api","operation":"get_order","resource_id":"ORD-NOT-THERE","expected_found":false},
+  {"id":"api_003","mode":"api","operation":"get_inventory","resource_id":"SKU-BAG-001","expected_found":true},
+  {"id":"api_004","mode":"api","operation":"get_inventory","resource_id":"SKU-UNKNOWN","expected_found":false},
+  {"id":"api_005","mode":"route","question":"查看订单 ORD-20260301-001 当前物流状态","expected_mode":"fast_path","expected_task_type":"order_query"},
+  {"id":"api_006","mode":"route","question":"order status ORD-20260303-005","expected_mode":"fast_path","expected_task_type":"order_query"}
+]

@@ -29,6 +29,14 @@ _KNOWN_KEYS = {
     "metadata",
     "citation_id",
     "source_id",
+    "document_id",
+    "document_type",
+    "version",
+    "effective_date",
+    "tenant_id",
+    "store_id",
+    "source",
+    "chunk_id",
 }
 
 
@@ -80,6 +88,14 @@ def normalize_documents(raw_documents: list[dict[str, Any]]) -> list[RAGDocument
             RAGDocument(
                 citation_id=f"S{len(documents) + 1}",
                 source_id=stable_source_id(raw),
+                document_id=str(raw.get("document_id") or meta.get("document_id") or ""),
+                document_type=str(raw.get("document_type") or meta.get("document_type") or ""),
+                version=str(raw.get("version") or meta.get("version") or ""),
+                effective_date=str(raw.get("effective_date") or meta.get("effective_date") or ""),
+                tenant_id=str(raw.get("tenant_id") or meta.get("tenant_id") or ""),
+                store_id=str(raw.get("store_id") or meta.get("store_id") or ""),
+                source=str(raw.get("source") or meta.get("source") or ""),
+                chunk_id=str(raw.get("chunk_id") or meta.get("chunk_id") or ""),
                 sku=str(sku_value) if sku_value not in (None, "") else None,
                 title=title,
                 chunk_text=text,

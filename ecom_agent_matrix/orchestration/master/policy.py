@@ -37,6 +37,7 @@ TASK_ROUTE_MAP: dict[str, list[str]] = {
     "ad_optimize": [AGENT_EXEC],
     "ad_query": [AGENT_QUERY],
     "data_check": [AGENT_QUERY],
+    "data_analysis": [AGENT_QUERY],
     "order_query": [AGENT_QUERY],
     "ops_report": [AGENT_EXEC],
     "risk_control": [AGENT_EXEC],
@@ -73,6 +74,8 @@ INVALID_AGENT_ROUTE = "INVALID_AGENT_ROUTE"
 _ORDER_CONTEXT = re.compile(r"订单状态|物流|发货|tracking|order\s+status|ORD[-_][A-Z0-9_-]+", re.I)
 _POLICY_CONTEXT = re.compile(r"退款规则|退货政策|店铺规则|refund\s+policy|return\s+policy", re.I)
 _CUSTOMER_REPLY = re.compile(r"回复.*(?:客户|顾客|买家)|帮我回复|客服回复|customer\s+reply", re.I)
+_ANALYSIS_CAUSE = re.compile(r"为什么|原因|分析|why|explain", re.I)
+_ANALYTICAL_METRIC = re.compile(r"退款率|销售额|转化率|复购率|refund\s+rate|revenue", re.I)
 
 
 def is_composite_customer_reply(query: str) -> bool:
@@ -82,6 +85,11 @@ def is_composite_customer_reply(query: str) -> bool:
         and _POLICY_CONTEXT.search(query or "")
         and _CUSTOMER_REPLY.search(query or "")
     )
+
+
+def is_composite_analysis(query: str) -> bool:
+    """Quantitative metric plus explanatory intent requires SQL + document evidence."""
+    return bool(_ANALYSIS_CAUSE.search(query or "") and _ANALYTICAL_METRIC.search(query or ""))
 
 
 class MasterPlanValidationError(ValueError):
@@ -142,5 +150,6 @@ __all__ = [
     "TASK_ROUTE_MAP",
     "MasterPlanValidationError",
     "is_composite_customer_reply",
+    "is_composite_analysis",
     "validate_master_plan",
 ]

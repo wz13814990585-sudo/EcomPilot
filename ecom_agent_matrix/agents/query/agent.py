@@ -25,6 +25,8 @@ from ...core.security import ApprovalGrant
 from ...core.security import require_trusted_ingress
 from ...core.tasking import WorkflowResult
 from ...workflows.data_check import run_data_check_workflow
+from ...workflows.data_analysis import run_data_analysis_workflow
+from ...workflows.business_api import run_business_api_read_workflow
 from ...workflows.goods import run_goods_workflow
 from ...workflows.competitor import run_competitor_workflow
 from ...workflows.stock import run_stock_workflow
@@ -91,13 +93,15 @@ async def run_query(
     with skill_execution_context(
         AGENT_QUERY, task_context=ctx, security=security, approval=approval
     ):
-        typed = await execute_query(ctx)
+        typed = await execute_query(ctx, security=security)
         result = typed.as_legacy_tuple()  # Deprecated compatibility API; workers stay typed.
     metrics.observe_agent(AGENT_QUERY, result[0], time.perf_counter() - started)
     return result
 
 
-async def execute_query(ctx: TaskContext) -> WorkflowResult:
+async def execute_query(
+    ctx: TaskContext, *, security: SecurityContext | None = None
+) -> WorkflowResult:
     """Query workflow 实现；调用的所有 Skill 继承统一只读上下文。"""
     task_type = str(ctx.task_type or "").strip()
     kind = {
@@ -106,8 +110,9 @@ async def execute_query(ctx: TaskContext) -> WorkflowResult:
         "stock_analysis": "stock",
         "competitor_watch": "competitor",
         "data_check": "data_check",
-        "order_query": "data_check",
+        "order_query": "business_api",
         "ad_query": "data_check",
+        "data_analysis": "data_analysis",
     }.get(task_type)
     if kind is None:
         return WorkflowResult(
@@ -133,6 +138,12 @@ async def execute_query(ctx: TaskContext) -> WorkflowResult:
             new_params["multi_compare"] = True
             enriched = enriched.with_updates(params=new_params)
         return await run_competitor_workflow(enriched)
+
+    if kind == "data_analysis":
+        return await run_data_analysis_workflow(ctx, security=security)
+
+    if kind == "business_api":
+        return await run_business_api_read_workflow(ctx)
 
     return await run_data_check_workflow(ctx)
 
@@ -172,7 +183,8 @@ async def query_agent(msg_queue: asyncio.Queue, *, bus=message_bus):
                     AGENT_QUERY, task_context=ctx, security=msg.security, approval=msg.approval
                 ):
                     result = await asyncio.wait_for(
-                        execute_query(ctx), timeout=float(settings.QUERY_SKILL_TIMEOUT)
+                        execute_query(ctx, security=msg.security),
+                        timeout=float(settings.QUERY_SKILL_TIMEOUT),
                     )
                 ok, err = result.success, result.error_msg
                 data = {

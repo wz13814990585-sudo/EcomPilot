@@ -1,60 +1,70 @@
-# Interview demo guide
+# Enterprise Data Agent demo guide
 
-These requests target the real FastAPI schemas. They assume the Docker/local quick start is complete, product vectors have been rebuilt, and API-key development mode is enabled with your own local value.
+These five demos exercise the real four-Agent runtime. They assume the local/Docker quick start is complete and API-key development mode uses your own local value.
 
 ```bash
 export BASE_URL=http://127.0.0.1:8000
 export DEMO_API_KEY=your-local-demo-key
 ```
 
-## 1. Simple Query Fast Path
+## Demo 1 — Safe Text-to-SQL
 
 ```bash
 curl -sS "$BASE_URL/api/v1/tasks" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $DEMO_API_KEY" \
   -d '{
-    "query": "查询 SKU-BAG-001 商品信息",
-    "task_type": "goods_search",
-    "payload": {"sku": "SKU-BAG-001"}
+    "query": "本月销售额和订单数是多少？",
+    "task_type": "data_analysis"
   }'
 ```
 
-Inspect `data.mode` (`fast_path`), `data.route`, and the single Query sub-result. Planner LLM calls should remain zero for this deterministic route.
+Inspect the Query sub-result for `schema_link` tables/columns/reason codes, `generated_sql`, `validated_sql`, bounded `result`, SQL `evidence`, and `lineage`. The database call uses the read role, a read-only transaction, statement timeout and tenant/store RLS.
 
-## 2. Knowledge RAG
+## Demo 2 — SQL + RAG analysis
 
-Run the embedding/indexing step before this request.
+Run the document indexing step first, then ask:
 
 ```bash
-curl -sS "$BASE_URL/api/v1/customer/chat" \
+curl -sS "$BASE_URL/api/v1/tasks" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $DEMO_API_KEY" \
-  -d '{
-    "query": "防水户外背包有什么特点？",
-    "lang": "zh",
-    "use_rag": true
-  }'
+  -d '{"query": "为什么 8 月退款率上涨？"}'
 ```
 
-The seed contains `SKU-BAG-001` with waterproof/lightweight product text. Inspect the RAG sub-result for vector and lexical candidate counts, RRF/rerank metadata, grounding status, and citations such as `[S1]`. Exact answer wording depends on whether an LLM provider is configured; source-context fallback remains available.
+The deterministic composite policy builds two parallel steps: Query produces SQL evidence and RAG produces document evidence with citations. Master then runs its internal evidence-synthesis service. Inspect `data.evidence`, `data.analysis.claims`, `citations`, `uncertainties`, and `grounding`. The answer must say that contemporaneous evidence is correlated but does not alone prove causation.
 
-## 3. Composite DAG
+## Demo 3 — Business API read
+
+```bash
+curl -sS "$BASE_URL/api/v1/tasks" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $DEMO_API_KEY" \
+  -d '{"query": "查看订单 ORD-20260301-001 当前物流状态"}'
+```
+
+This Fast Path routes to Query and the `business_api_read` Skill. The response includes typed API evidence with provider, operation, resource ID, approved fields and retrieval time. The repository adapter is explicitly `demo-business-api`; it does not claim a production platform connection.
+
+## Demo 4 — Security rejection before execution
+
+Submit generated SQL through the analytical task contract:
 
 ```bash
 curl -sS "$BASE_URL/api/v1/tasks" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $DEMO_API_KEY" \
   -d '{
-    "query": "根据 ORD-20260301-001 的订单状态和退款规则帮我回复客户"
+    "query": "删除所有退款记录",
+    "task_type": "data_analysis",
+    "payload": {"sql": "DELETE FROM ecom_order"}
   }'
 ```
 
-This exact phrasing matches the deterministic composite policy. The typed DAG creates parallel `order_context` (Query) and `policy_context` (RAG) steps, then passes both through `_upstream_context` to the dependent Exec/CRM step. The indexing script includes one explicitly marked demo refund-policy fixture so this RAG branch has a real matching source.
+Expected result: `UNSAFE_SQL`, no database execution, and no repair attempt. Similar checks reject untrusted tenant scope, forbidden tables/columns, row locks, dangerous functions, multi-statements and excessive query shapes.
 
-## 4. Deterministic risk approval
+## Demo 5 — Human approval and idempotency
 
-The amount `501` deterministically exceeds the risk threshold. First request approval:
+The amount `501` deterministically exceeds the risk threshold. Request approval:
 
 ```bash
 RISK_RESPONSE=$(curl -sS "$BASE_URL/api/v1/tasks" \
@@ -63,29 +73,19 @@ RISK_RESPONSE=$(curl -sS "$BASE_URL/api/v1/tasks" \
   -d '{
     "query": "检查高风险订单 ORD-DEMO-RISK",
     "task_type": "risk_control",
-    "payload": {
-      "order_no": "ORD-DEMO-RISK",
-      "total_amount": 501,
-      "buy_count": 1
-    }
+    "payload": {"order_no": "ORD-DEMO-RISK", "total_amount": 501, "buy_count": 1}
   }')
-printf '%s\n' "$RISK_RESPONSE"
-```
-
-The response is intentionally not a completed success: `success=false`, `status=awaiting_approval`, and `error_code=APPROVAL_REQUIRED`. The approval ID is under the first Fast Path sub-result. With `jq`, capture it as:
-
-```bash
 APPROVAL_ID=$(printf '%s' "$RISK_RESPONSE" | jq -r '.data.sub_results[0].data.approval_id')
 ```
 
-Approve it with an identity that has `risk:approve` (the default demo `admin` role has this scope):
+The first response is `success=false`, `status=awaiting_approval`, `error_code=APPROVAL_REQUIRED`. Approve with an identity carrying `risk:approve`:
 
 ```bash
 curl -sS -X POST "$BASE_URL/api/v1/approvals/$APPROVAL_ID/approve" \
   -H "X-API-Key: $DEMO_API_KEY"
 ```
 
-Resubmit the exact same parameters and include the approval header:
+Resubmit the exact parameters with `X-Approval-Id`:
 
 ```bash
 curl -sS "$BASE_URL/api/v1/tasks" \
@@ -95,16 +95,16 @@ curl -sS "$BASE_URL/api/v1/tasks" \
   -d '{
     "query": "检查高风险订单 ORD-DEMO-RISK",
     "task_type": "risk_control",
-    "payload": {
-      "order_no": "ORD-DEMO-RISK",
-      "total_amount": 501,
-      "buy_count": 1
-    }
+    "payload": {"order_no": "ORD-DEMO-RISK", "total_amount": 501, "buy_count": 1}
   }'
 ```
 
-Changing any approved Skill parameter invalidates the grant. A consumed approval cannot be reused, and the write Skill is never automatically retried.
+Changing any approved parameter invalidates the grant. Approval is consumed once, the idempotency key prevents duplicate side effects, and Exec writes are never blindly retried.
 
-## Smoke and benchmark commands
+## Deterministic benchmark
 
-`smoke_e2e.py` returns structured failures for missing HTTP/dependency configuration instead of hiding them. `benchmark_demo.py` is limited to deterministic routing and does not claim end-to-end performance.
+```bash
+python -m eval.enterprise.runner --suite all --fail-on-regression
+```
+
+This runs 50 local cases. Live PostgreSQL execution accuracy, full RAG generation and external provider tests remain `NOT_RUN` unless their dependencies are actually available.
