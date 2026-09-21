@@ -22,10 +22,7 @@ _KNOWN_ALIASES = {
     "tiktok": "TikTok",
     "target": "Target",
 }
-_SKU_PATTERN = re.compile(
-    r"\b(?:SKU[-_])?(?:BAG|LAMP|BOTTLE|CHARGER|TENT|BEAUTY|HOME|ACC)[-_]\d{3}\b",
-    re.IGNORECASE,
-)
+_SKU_PATTERN = re.compile(r"\b(?:SKU[-_])?[A-Z][A-Z0-9]{1,15}[-_]\d{3}\b", re.IGNORECASE)
 _COMPETITOR_PATTERNS = (
     re.compile(
         r"(?:监控|关注|查看|比价)\s*([A-Za-z0-9][\w.&-]{1,40})\s*(?:上|的|里|店铺|平台)?", re.I

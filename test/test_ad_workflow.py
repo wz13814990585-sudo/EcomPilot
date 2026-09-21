@@ -187,3 +187,48 @@ def test_ad_legacy_tuple_compatibility():
 
     ok, _, data = asyncio.run(scenario())
     assert ok and data["_workflow"]["metadata"]["workflow"] == "ad"
+
+
+def test_generic_ad_optimization_uses_worst_active_campaign():
+    campaigns = [
+        {
+            "campaign_id": "CMP-GOOD",
+            "name": "Good Campaign",
+            "platform": "google",
+            "status": "active",
+            "spend": 100,
+            "clicks": 50,
+            "conversions": 10,
+            "revenue": 500,
+            "roas": 5,
+        },
+        {
+            "campaign_id": "CMP-WORST",
+            "name": "Worst Campaign",
+            "platform": "meta",
+            "status": "active",
+            "spend": 200,
+            "clicks": 40,
+            "conversions": 2,
+            "revenue": 50,
+            "roas": 0.25,
+        },
+    ]
+
+    async def skills(name, params):
+        if name == "business_api_read":
+            return SkillResult(success=True, data={"fields": {"campaigns": campaigns}})
+        assert name == "ad_optimize"
+        assert params["campaign_id"] == "CMP-WORST"
+        return _ad_success("decrease")
+
+    async def scenario():
+        with patch(
+            "ecom_agent_matrix.workflows.advertising.workflow.exec_skill", side_effect=skills
+        ):
+            return await run_ad_workflow({"query": "优化当前广告投放"})
+
+    result = asyncio.run(scenario())
+    assert result.success is True
+    assert result.data["campaign_id"] == "CMP-WORST"
+    assert result.data["campaign"]["name"] == "Worst Campaign"

@@ -8,10 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ...core.tasking import TaskContext
 
-_SKU_PATTERN = re.compile(
-    r"\b(?:SKU[-_])?(?:BAG|LAMP|BOTTLE|CHARGER|TENT|BEAUTY|HOME|ACC)[-_]\d{3}\b",
-    re.IGNORECASE,
-)
+_SKU_PATTERN = re.compile(r"\b(?:SKU[-_])?[A-Z][A-Z0-9]{1,15}[-_]\d{3}\b", re.IGNORECASE)
 
 
 class StockRequest(BaseModel):

@@ -18,6 +18,7 @@ from ..runtime.messaging.registry import agent_registry
 from ..core.security import SecurityContext
 from ..core.security import ApprovalGrant
 from ..modules.presentation import build_presentation
+from .errors import public_error, root_failure
 from ..platform.observability.context import get_trace_context, update_trace_context
 from ..platform.observability.context import get_performance_summary
 
@@ -32,6 +33,28 @@ _ERROR_HTTP_STATUS = {
     ErrorCode.AGENT_TIMEOUT: status.HTTP_504_GATEWAY_TIMEOUT,
     ErrorCode.RATE_LIMITED: status.HTTP_429_TOO_MANY_REQUESTS,
     ErrorCode.INVALID_REQUEST: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.UNSUPPORTED_TASK: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.VALIDATION_ERROR: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.MISSING_PRODUCT: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.MISSING_SKU: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.MISSING_COMPETITOR: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.UNSUPPORTED_PLATFORM: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.UNSUPPORTED_REPORT_TYPE: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.PRICE_UNAVAILABLE: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.WORKFLOW_TIMEOUT: status.HTTP_504_GATEWAY_TIMEOUT,
+    ErrorCode.SKILL_TIMEOUT: status.HTTP_504_GATEWAY_TIMEOUT,
+    ErrorCode.RETRIEVAL_ERROR: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ErrorCode.LLM_UNAVAILABLE: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ErrorCode.LLM_PROVIDER_ERROR: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ErrorCode.BUSINESS_API_UNAVAILABLE: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ErrorCode.SQL_EXECUTION_ERROR: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ErrorCode.DEPENDENCY_FAILED: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ErrorCode.SKILL_FAILED: status.HTTP_502_BAD_GATEWAY,
+    ErrorCode.SKILL_EXECUTION_ERROR: status.HTTP_502_BAD_GATEWAY,
+    ErrorCode.OUTPUT_VALIDATION_ERROR: status.HTTP_502_BAD_GATEWAY,
+    ErrorCode.GENERATION_ERROR: status.HTTP_502_BAD_GATEWAY,
+    ErrorCode.AGENT_FAILED: status.HTTP_502_BAD_GATEWAY,
+    ErrorCode.INTERNAL_ERROR: status.HTTP_500_INTERNAL_SERVER_ERROR,
 }
 
 
@@ -68,12 +91,15 @@ async def dispatch_and_wait(
     )
     mapped_status = _ERROR_HTTP_STATUS.get(response.error_code)
     if mapped_status is not None:
+        root_message, context = root_failure(response.data, response.error_message)
         raise HTTPException(
             status_code=mapped_status,
-            detail={
-                "error_code": response.error_code.value,
-                "message": response.error_message,
-            },
+            detail=public_error(
+                response.error_code,
+                message=root_message,
+                task_id=task_id,
+                context=context,
+            ),
             headers={"X-Task-Id": task_id},
         )
 
@@ -86,9 +112,7 @@ async def dispatch_and_wait(
 
     presentation = build_presentation(success=success, data=data, error_msg=error_msg)
     deterministic_answer = str(presentation.get("answer") or "").strip()
-    if deterministic_answer and (
-        str(presentation.get("category") or "").startswith("data_analysis") or not success
-    ):
+    if deterministic_answer and deterministic_answer not in {"任务已完成。", "分析已完成。"}:
         summary = deterministic_answer
     else:
         summary = await polish_final_output(

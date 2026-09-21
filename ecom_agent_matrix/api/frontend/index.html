@@ -23,6 +23,7 @@
         <button class="nav-item" data-view="competitor">竞品监控</button>
         <button class="nav-item" data-view="approval">人工审批</button>
         <button class="nav-item" data-view="system">系统状态</button>
+        <button class="nav-item admin-nav" data-view="admin">管理员</button>
       </nav>
 
       <div class="auth-card">
@@ -222,6 +223,92 @@
         </div>
       </section>
 
+      <section id="adminView" class="view">
+        <section class="panel admin-hero">
+          <div>
+            <span class="section-kicker">Admin workspace</span>
+            <h3>数据与知识库管理</h3>
+            <p class="muted">仅管理员可访问。所有读写操作都限定在当前租户和店铺。</p>
+          </div>
+          <button id="refreshAdmin" class="button secondary">刷新数据</button>
+        </section>
+
+        <div id="adminNotice" class="notice hidden"></div>
+        <div id="adminStats" class="stats-grid" aria-label="数据库概览"></div>
+
+        <section class="panel admin-section">
+          <div class="panel-head">
+            <div>
+              <span class="section-kicker">Product database</span>
+              <h3>商品数据</h3>
+            </div>
+            <div class="inline-tools">
+              <input id="productSearch" placeholder="搜索 SKU、名称或分类" />
+              <button id="searchProducts" class="button secondary">搜索</button>
+              <button id="newProduct" class="button primary">新增商品</button>
+            </div>
+          </div>
+          <div class="table-wrap admin-table-wrap">
+            <table>
+              <thead><tr><th>SKU</th><th>商品</th><th>分类</th><th>售价</th><th>库存</th><th>补货线</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="productRows"><tr><td colspan="8" class="empty-cell">进入管理员页面后加载商品。</td></tr></tbody>
+            </table>
+          </div>
+          <form id="productForm" class="editor hidden">
+            <div class="editor-head"><h4 id="productFormTitle">新增商品</h4><button type="button" id="closeProductForm" class="button ghost">关闭</button></div>
+            <div class="grid three compact">
+              <label>SKU<input id="productSku" required placeholder="例如 HIKE-001" /></label>
+              <label>中文名称<input id="productTitleZh" required /></label>
+              <label>英文名称<input id="productTitleEn" /></label>
+              <label>分类<input id="productCategory" value="general" /></label>
+              <label>售价<input id="productPrice" type="number" min="0" step="0.01" required /></label>
+              <label>成本<input id="productCost" type="number" min="0" step="0.01" /></label>
+              <label>库存<input id="productStock" type="number" min="0" value="0" required /></label>
+              <label>补货线<input id="productReorder" type="number" min="0" value="20" required /></label>
+              <label>状态<select id="productStatus"><option value="active">上架</option><option value="draft">草稿</option><option value="archived">归档</option></select></label>
+              <label>供应商<input id="productSupplier" /></label>
+              <label class="span-two">标签（逗号分隔）<input id="productTags" placeholder="户外, 防水, 热卖" /></label>
+            </div>
+            <label>商品描述<textarea id="productDescription" rows="4"></textarea></label>
+            <button class="button primary" type="submit">保存商品</button>
+          </form>
+        </section>
+
+        <section class="panel admin-section">
+          <div class="panel-head">
+            <div>
+              <span class="section-kicker">Knowledge base</span>
+              <h3>RAG 知识文档</h3>
+            </div>
+            <div class="inline-tools">
+              <input id="ragSearch" placeholder="搜索标题或正文" />
+              <button id="searchRag" class="button secondary">搜索</button>
+              <button id="newRag" class="button primary">新增文档</button>
+            </div>
+          </div>
+          <div class="table-wrap admin-table-wrap">
+            <table>
+              <thead><tr><th>文档</th><th>分类</th><th>语言</th><th>分块</th><th>检索方式</th><th>摘要</th><th>操作</th></tr></thead>
+              <tbody id="ragRows"><tr><td colspan="7" class="empty-cell">进入管理员页面后加载知识库。</td></tr></tbody>
+            </table>
+          </div>
+          <form id="ragForm" class="editor hidden">
+            <div class="editor-head"><h4 id="ragFormTitle">新增知识文档</h4><button type="button" id="closeRagForm" class="button ghost">关闭</button></div>
+            <div class="grid three compact">
+              <label>文档 ID（可选）<input id="ragDocumentId" placeholder="自动生成" /></label>
+              <label>标题<input id="ragTitle" required /></label>
+              <label>分类<input id="ragCategory" value="general" /></label>
+              <label>语言<input id="ragLanguage" value="zh" /></label>
+              <label>关联 SKU<input id="ragSku" value="GENERAL" /></label>
+              <label>生效日期<input id="ragEffectiveDate" type="date" /></label>
+            </div>
+            <label>文档正文<textarea id="ragContent" rows="10" required placeholder="输入政策、产品知识、SOP 或 FAQ 正文"></textarea></label>
+            <p class="hint">保存后系统自动清洗和分块；没有本地向量模型时仍可立即使用关键词检索。</p>
+            <button class="button primary" type="submit">保存文档</button>
+          </form>
+        </section>
+      </section>
+
       <section class="response panel">
         <div class="panel-head">
           <div>
@@ -236,7 +323,7 @@
         <div id="summaryBox" class="summary-box">结论、关键指标、建议与证据会显示在这里。</div>
         <div id="resultCards" class="result-cards"></div>
         <details>
-          <summary>证据 / 路由 / SQL / 原始响应</summary>
+          <summary>技术详情（证据、路由、SQL 与原始响应）</summary>
           <pre id="responseJson">{}</pre>
         </details>
       </section>

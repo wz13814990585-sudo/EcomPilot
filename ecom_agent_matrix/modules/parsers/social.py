@@ -107,7 +107,7 @@ def _extract_product_name(task: TaskContext) -> str | None:
     if not text:
         return None
     sku_match = re.search(
-        r"\b(?:SKU[-_])?(?:BAG|LAMP|BOTTLE|CHARGER|TENT|BEAUTY|HOME|ACC)[-_]\d{3}\b",
+        r"\b(?:SKU[-_])?[A-Z][A-Z0-9]{1,15}[-_]\d{3}\b",
         text,
         re.IGNORECASE,
     )

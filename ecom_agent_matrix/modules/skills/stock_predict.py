@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ...core.skill.base_skill import BaseSkill, SkillResult
 from ...core.skill.skill_registry import register_skill
+from ...core.security import tenant_scope_from_skill_context
 from ...db.base import AsyncPGClient
 
 
@@ -55,20 +56,33 @@ class InventoryRiskListTool(BaseSkill):
     skill_desc = "List low-stock products with observed recent demand and replenishment gap"
 
     async def run(self, params: dict) -> SkillResult:
+        scope = tenant_scope_from_skill_context()
+        query_params: list[Any] = [
+            int(params.get("threshold", 25)),
+        ]
+        scope_sql = ""
+        if scope.usable:
+            scope_sql = " AND g.tenant_id = %s AND g.store_id = %s"
+            query_params.extend([scope.tenant_id, scope.store_id])
+        query_params.append(int(params.get("limit", 20)))
         rows = await AsyncPGClient.execute_read(
-            """
+            f"""
             SELECT g.sku, g.title_zh, g.category, g.stock_num,
                    COALESCE(SUM(o.buy_num) FILTER (
                      WHERE o.create_time >= CURRENT_DATE - INTERVAL '30 days'
+                       AND o.create_time <= NOW()
                        AND o.refund_flag=false), 0) AS demand_30d
             FROM ecom_goods g
             LEFT JOIN ecom_order o ON o.sku=g.sku
+              AND o.tenant_id=g.tenant_id AND o.store_id=g.store_id
             WHERE g.stock_num <= %s
+              {scope_sql}
             GROUP BY g.sku, g.title_zh, g.category, g.stock_num
             ORDER BY g.stock_num ASC, demand_30d DESC
             LIMIT %s
             """,
-            [int(params.get("threshold", 25)), int(params.get("limit", 20))],
+            query_params,
+            scope=scope,
         )
         items = []
         for sku, title, category, stock, demand in rows:
@@ -106,15 +120,25 @@ class StockPredictTool(BaseSkill):
         try:
             sku = params["sku"]
             predict_days = int(params.get("predict_days", 7))
+            scope = tenant_scope_from_skill_context()
+            query_params: list[Any] = [sku]
+            scope_sql = ""
+            if scope.usable:
+                scope_sql = " AND tenant_id = %s AND store_id = %s"
+                query_params.extend([scope.tenant_id, scope.store_id])
             # history_records 可继续传入，但历史模型预测不是 observed truth，故完全忽略。
 
             # 统计近30天有效销量（剔除退款订单）
-            stat_sql = """
+            stat_sql = f"""
             SELECT COALESCE(SUM(buy_num), 0)
             FROM ecom_order
-            WHERE sku = %s AND create_time >= NOW() - INTERVAL '30 days' AND refund_flag = false;
+            WHERE sku = %s
+              AND create_time >= NOW() - INTERVAL '30 days'
+              AND create_time <= NOW()
+              AND refund_flag = false
+              {scope_sql};
             """
-            stat_res = await AsyncPGClient.execute_read(stat_sql, [sku])
+            stat_res = await AsyncPGClient.execute_read(stat_sql, query_params, scope=scope)
             total_30d_sales = float(stat_res[0][0] or 0)
             daily_avg = total_30d_sales / 30
             safety_stock_rate = 1.2

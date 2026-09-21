@@ -23,15 +23,33 @@ const views = {
   customer: $("customerView"),
   competitor: $("competitorView"),
   approval: $("approvalView"),
-  system: $("systemView")
+  system: $("systemView"),
+  admin: $("adminView")
 };
 const titles = {
   task: "通用 Agent 任务",
   customer: "客服 / RAG",
   competitor: "竞品监控",
   approval: "人工审批",
-  system: "系统状态"
+  system: "系统状态",
+  admin: "管理员控制台"
 };
+
+let editingProductSku = "";
+let editingRagDocumentId = "";
+let productCache = [];
+
+function normalizedError(data) {
+  const source = data?.detail && typeof data.detail === "object" ? data.detail : data || {};
+  const fallbackMessage = typeof data?.detail === "string" ? data.detail : data?.error_msg || data?.error || "请求没有完成。";
+  return {
+    title: source.title || "暂时无法完成",
+    message: source.message || fallbackMessage,
+    nextAction: source.next_action || "请检查输入后重试；持续失败时请联系管理员。",
+    taskId: source.task_id || "",
+    code: source.error_code || "REQUEST_FAILED"
+  };
+}
 
 function authHeaders(extra = {}) {
   const mode = sessionStorage.getItem("agent_auth_mode") || $("authMode").value;
@@ -62,14 +80,17 @@ function approvalFrom(data) {
 }
 
 function renderResponse(title, data, latency, ok) {
-  $("responseTitle").textContent = title;
+  const error = ok ? null : normalizedError(data);
+  $("responseTitle").textContent = ok ? "处理完成" : error.title;
   $("responseLatency").textContent = `${Math.round(latency)} ms`;
-  $("responseStatus").textContent = ok ? "SUCCESS" : "FAILED";
+  $("responseStatus").textContent = ok ? "已完成" : "需要处理";
   $("responseStatus").className = `status ${ok ? "ok" : "bad"}`;
   $("responseJson").textContent = JSON.stringify(data, null, 2);
+  $("responseJson").dataset.endpoint = title;
 
   const presentation = data?.presentation || {};
   const summary =
+    error?.message ||
     presentation?.answer ||
     data?.summary ||
     data?.data?.summary ||
@@ -78,7 +99,8 @@ function renderResponse(title, data, latency, ok) {
     data?.error ||
     (ok ? "请求执行成功。" : "请求执行失败。");
   $("summaryBox").textContent = typeof summary === "string" ? summary : JSON.stringify(summary);
-  renderPresentation(presentation, data);
+  $("summaryBox").className = `summary-box${ok ? "" : " error"}`;
+  renderPresentation(presentation, data, error);
 
   const approvalId = approvalFrom(data);
   if (approvalId) {
@@ -95,9 +117,19 @@ function addMessage(role, text) {
   node.scrollIntoView({behavior: "smooth", block: "nearest"});
 }
 
-function renderPresentation(presentation, raw) {
+function renderPresentation(presentation, raw, error = null) {
   const root = $("resultCards");
   root.replaceChildren();
+  if (error) {
+    const card = document.createElement("section"); card.className = "result-card error-card";
+    const heading = document.createElement("h4"); heading.textContent = "你可以这样处理"; card.appendChild(heading);
+    const action = document.createElement("p"); action.className = "next-action"; action.textContent = error.nextAction; card.appendChild(action);
+    if (error.taskId) {
+      const ref = document.createElement("p"); ref.className = "task-reference"; ref.textContent = `任务编号：${error.taskId}`; card.appendChild(ref);
+    }
+    root.appendChild(card);
+    return;
+  }
   const sections = [
     ["关键发现", presentation?.highlights],
     ["建议", presentation?.recommendations],
@@ -139,7 +171,7 @@ function renderPresentation(presentation, raw) {
   }
 }
 
-async function apiFetch(path, options = {}) {
+async function apiFetch(path, options = {}, display = true) {
   const started = performance.now();
   try {
     const response = await fetch(path, options);
@@ -148,11 +180,11 @@ async function apiFetch(path, options = {}) {
     try { data = raw ? JSON.parse(raw) : {}; }
     catch { data = {raw}; }
     const semanticSuccess = data?.success !== false;
-    renderResponse(path, data, performance.now() - started, response.ok && semanticSuccess);
+    if (display) renderResponse(path, data, performance.now() - started, response.ok && semanticSuccess);
     return {response, data};
   } catch (error) {
     const data = {error: String(error)};
-    renderResponse(path, data, performance.now() - started, false);
+    if (display) renderResponse(path, data, performance.now() - started, false);
     return {response: null, data};
   }
 }
@@ -193,6 +225,7 @@ document.querySelectorAll(".nav-item").forEach((button) => {
     Object.values(views).forEach((view) => view.classList.remove("active"));
     views[button.dataset.view].classList.add("active");
     $("viewTitle").textContent = titles[button.dataset.view];
+    if (button.dataset.view === "admin") loadAdmin();
   });
 });
 
@@ -227,7 +260,10 @@ $("sendTask").addEventListener("click", async () => {
       headers: authHeaders(extra),
       body: JSON.stringify(body)
     });
-    addMessage("assistant", result.data?.presentation?.answer || result.data?.summary || result.data?.error_msg || "任务已处理。");
+    const friendly = result.response?.ok
+      ? result.data?.presentation?.answer || result.data?.summary || "任务已处理。"
+      : `${normalizedError(result.data).message}\n${normalizedError(result.data).nextAction}`;
+    addMessage("assistant", friendly);
   } catch (error) {
     renderResponse("任务参数错误", {error: String(error)}, 0, false);
   }
@@ -289,6 +325,205 @@ $("approveButton").addEventListener("click", async () => {
 $("copyApprovalToTask").addEventListener("click", () => {
   $("taskApprovalId").value = $("approvalId").value.trim();
   document.querySelector('[data-view="task"]').click();
+});
+
+function adminNotice(message, kind = "success") {
+  const node = $("adminNotice");
+  node.textContent = message;
+  node.className = `notice ${kind}`;
+}
+
+function clearAdminNotice() {
+  $("adminNotice").className = "notice hidden";
+}
+
+function cell(text, className = "") {
+  const node = document.createElement("td");
+  node.textContent = String(text ?? "");
+  if (className) node.className = className;
+  return node;
+}
+
+function actionButton(label, handler, danger = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `button small ${danger ? "danger" : "secondary"}`;
+  button.textContent = label;
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function renderAdminStats(data) {
+  const labels = [
+    ["products", "商品"], ["orders", "订单"], ["low_stock_products", "低库存"],
+    ["rag_documents", "RAG 文档"], ["rag_chunks", `知识分块 · ${data.retrieval_mode || "none"}`]
+  ];
+  const root = $("adminStats"); root.replaceChildren();
+  labels.forEach(([key, label]) => {
+    const card = document.createElement("div"); card.className = "stat-card";
+    const value = document.createElement("strong"); value.textContent = String(data[key] ?? 0);
+    const caption = document.createElement("span"); caption.textContent = label;
+    card.append(value, caption); root.appendChild(card);
+  });
+}
+
+function renderProducts(items) {
+  productCache = items;
+  const root = $("productRows"); root.replaceChildren();
+  if (!items.length) {
+    const row = document.createElement("tr"); const empty = cell("没有匹配的商品。", "empty-cell"); empty.colSpan = 8; row.appendChild(empty); root.appendChild(row); return;
+  }
+  items.forEach((item) => {
+    const row = document.createElement("tr");
+    row.append(cell(item.sku), cell(item.title_zh || item.title_en), cell(item.category), cell(`$${Number(item.price).toFixed(2)}`));
+    row.append(cell(item.stock_num, item.stock_num <= item.reorder_level ? "stock-low" : ""), cell(item.reorder_level), cell(item.status));
+    const actions = cell(""); actions.className = "row-actions";
+    actions.append(actionButton("编辑", () => editProduct(item)), actionButton("删除", () => removeProduct(item.sku), true));
+    row.appendChild(actions); root.appendChild(row);
+  });
+}
+
+function renderRagDocuments(items) {
+  const root = $("ragRows"); root.replaceChildren();
+  if (!items.length) {
+    const row = document.createElement("tr"); const empty = cell("没有匹配的知识文档。", "empty-cell"); empty.colSpan = 7; row.appendChild(empty); root.appendChild(row); return;
+  }
+  items.forEach((item) => {
+    const row = document.createElement("tr");
+    row.append(cell(item.title), cell(item.category), cell(item.language), cell(item.chunks));
+    const mode = cell(item.vector_chunks ? "向量 + 关键词" : "关键词");
+    row.append(mode, cell(item.preview));
+    const actions = cell(""); actions.className = "row-actions";
+    actions.append(actionButton("查看/编辑", () => editRag(item.document_id)), actionButton("删除", () => removeRag(item.document_id), true));
+    row.appendChild(actions); root.appendChild(row);
+  });
+}
+
+async function loadProducts() {
+  const query = encodeURIComponent($("productSearch").value.trim());
+  const result = await apiFetch(`/api/v1/admin/products?query=${query}&limit=100`, {headers: authHeaders()}, false);
+  if (!result.response?.ok) throw result.data;
+  renderProducts(result.data.items || []);
+}
+
+async function loadRagDocuments() {
+  const query = encodeURIComponent($("ragSearch").value.trim());
+  const result = await apiFetch(`/api/v1/admin/rag/documents?query=${query}`, {headers: authHeaders()}, false);
+  if (!result.response?.ok) throw result.data;
+  renderRagDocuments(result.data.items || []);
+}
+
+async function loadAdmin() {
+  clearAdminNotice();
+  try {
+    const identity = await apiFetch("/api/v1/admin/me", {headers: authHeaders()}, false);
+    if (!identity.response?.ok) throw identity.data;
+    const overview = await apiFetch("/api/v1/admin/overview", {headers: authHeaders()}, false);
+    if (!overview.response?.ok) throw overview.data;
+    renderAdminStats(overview.data);
+    await Promise.all([loadProducts(), loadRagDocuments()]);
+    adminNotice(`管理员 ${identity.data.user_id} · 店铺 ${identity.data.store_id}`, "success");
+  } catch (data) {
+    const error = normalizedError(data);
+    adminNotice(`${error.message} ${error.nextAction}`, "error");
+    $("adminStats").replaceChildren();
+  }
+}
+
+function resetProductForm() {
+  editingProductSku = "";
+  $("productForm").reset();
+  $("productCategory").value = "general";
+  $("productStock").value = "0";
+  $("productReorder").value = "20";
+  $("productStatus").value = "active";
+  $("productSku").disabled = false;
+  $("productFormTitle").textContent = "新增商品";
+}
+
+function editProduct(item) {
+  editingProductSku = item.sku;
+  $("productForm").classList.remove("hidden");
+  $("productFormTitle").textContent = `编辑 ${item.sku}`;
+  $("productSku").value = item.sku; $("productSku").disabled = true;
+  $("productTitleZh").value = item.title_zh || ""; $("productTitleEn").value = item.title_en || "";
+  $("productCategory").value = item.category || "general"; $("productPrice").value = item.price;
+  $("productCost").value = item.cost_price ?? ""; $("productStock").value = item.stock_num;
+  $("productReorder").value = item.reorder_level; $("productStatus").value = item.status || "active";
+  $("productSupplier").value = item.supplier || ""; $("productTags").value = (item.tags || []).join(", ");
+  $("productDescription").value = item.description || "";
+  $("productForm").scrollIntoView({behavior: "smooth", block: "center"});
+}
+
+function productPayload() {
+  return {
+    sku: $("productSku").value.trim(), title_zh: $("productTitleZh").value.trim(), title_en: $("productTitleEn").value.trim(),
+    category: $("productCategory").value.trim() || "general", price: Number($("productPrice").value),
+    cost_price: $("productCost").value === "" ? null : Number($("productCost").value), stock_num: Number($("productStock").value),
+    reorder_level: Number($("productReorder").value), status: $("productStatus").value, supplier: $("productSupplier").value.trim(),
+    tags: $("productTags").value.split(",").map((tag) => tag.trim()).filter(Boolean), description: $("productDescription").value.trim()
+  };
+}
+
+async function removeProduct(sku) {
+  if (!window.confirm(`确定删除商品 ${sku}？该操作无法从页面撤销。`)) return;
+  const result = await apiFetch(`/api/v1/admin/products/${encodeURIComponent(sku)}`, {method: "DELETE", headers: authHeaders()}, false);
+  if (!result.response?.ok) return adminNotice(`${normalizedError(result.data).message} ${normalizedError(result.data).nextAction}`, "error");
+  adminNotice(result.data.message || "商品已删除。", "success"); await loadProducts();
+}
+
+function resetRagForm() {
+  editingRagDocumentId = ""; $("ragForm").reset(); $("ragLanguage").value = "zh"; $("ragCategory").value = "general";
+  $("ragSku").value = "GENERAL"; $("ragEffectiveDate").value = new Date().toISOString().slice(0, 10);
+  $("ragDocumentId").disabled = false; $("ragFormTitle").textContent = "新增知识文档";
+}
+
+async function editRag(documentId) {
+  const result = await apiFetch(`/api/v1/admin/rag/documents/${encodeURIComponent(documentId)}`, {headers: authHeaders()}, false);
+  if (!result.response?.ok) return adminNotice(normalizedError(result.data).message, "error");
+  const item = result.data; editingRagDocumentId = documentId; $("ragForm").classList.remove("hidden");
+  $("ragFormTitle").textContent = `编辑 ${documentId}`; $("ragDocumentId").value = documentId; $("ragDocumentId").disabled = true;
+  $("ragTitle").value = item.title || ""; $("ragCategory").value = item.category || "general"; $("ragLanguage").value = item.language || "zh";
+  $("ragSku").value = item.sku || "GENERAL"; $("ragEffectiveDate").value = item.effective_date || ""; $("ragContent").value = item.content || "";
+  $("ragForm").scrollIntoView({behavior: "smooth", block: "center"});
+}
+
+async function removeRag(documentId) {
+  if (!window.confirm(`确定删除知识文档 ${documentId}？`)) return;
+  const result = await apiFetch(`/api/v1/admin/rag/documents/${encodeURIComponent(documentId)}`, {method: "DELETE", headers: authHeaders()}, false);
+  if (!result.response?.ok) return adminNotice(`${normalizedError(result.data).message} ${normalizedError(result.data).nextAction}`, "error");
+  adminNotice(result.data.message || "知识文档已删除。", "success"); await loadRagDocuments();
+}
+
+$("refreshAdmin").addEventListener("click", loadAdmin);
+$("searchProducts").addEventListener("click", () => loadProducts().catch((data) => adminNotice(normalizedError(data).message, "error")));
+$("searchRag").addEventListener("click", () => loadRagDocuments().catch((data) => adminNotice(normalizedError(data).message, "error")));
+$("newProduct").addEventListener("click", () => { resetProductForm(); $("productForm").classList.remove("hidden"); });
+$("closeProductForm").addEventListener("click", () => $("productForm").classList.add("hidden"));
+$("newRag").addEventListener("click", () => { resetRagForm(); $("ragForm").classList.remove("hidden"); });
+$("closeRagForm").addEventListener("click", () => $("ragForm").classList.add("hidden"));
+
+$("productForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const method = editingProductSku ? "PUT" : "POST";
+  const path = editingProductSku ? `/api/v1/admin/products/${encodeURIComponent(editingProductSku)}` : "/api/v1/admin/products";
+  const result = await apiFetch(path, {method, headers: authHeaders(), body: JSON.stringify(productPayload())}, false);
+  if (!result.response?.ok) return adminNotice(`${normalizedError(result.data).message} ${normalizedError(result.data).nextAction}`, "error");
+  adminNotice(result.data.message || "商品已保存。", "success"); $("productForm").classList.add("hidden"); await loadAdmin();
+});
+
+$("ragForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    document_id: editingRagDocumentId ? null : ($("ragDocumentId").value.trim() || null), title: $("ragTitle").value.trim(),
+    category: $("ragCategory").value.trim() || "general", language: $("ragLanguage").value.trim() || "zh", sku: $("ragSku").value.trim() || "GENERAL",
+    effective_date: $("ragEffectiveDate").value || new Date().toISOString().slice(0, 10), content: $("ragContent").value.trim()
+  };
+  const method = editingRagDocumentId ? "PUT" : "POST";
+  const path = editingRagDocumentId ? `/api/v1/admin/rag/documents/${encodeURIComponent(editingRagDocumentId)}` : "/api/v1/admin/rag/documents";
+  const result = await apiFetch(path, {method, headers: authHeaders(), body: JSON.stringify(payload)}, false);
+  if (!result.response?.ok) return adminNotice(`${normalizedError(result.data).message} ${normalizedError(result.data).nextAction}`, "error");
+  adminNotice(result.data.message || "知识文档已保存。", "success"); $("ragForm").classList.add("hidden"); await loadAdmin();
 });
 
 $("loadHealth").addEventListener("click", () => apiFetch("/health"));

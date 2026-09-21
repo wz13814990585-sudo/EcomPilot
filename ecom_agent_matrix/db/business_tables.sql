@@ -10,6 +10,11 @@ CREATE TABLE IF NOT EXISTS ecom_goods (
     stock_num INT,
     title_en TEXT, title_zh TEXT, title_es TEXT, title_fr TEXT, -- 四国语言标题
     desc_multi TEXT,
+    cost_price DECIMAL(10,2),
+    reorder_level INT NOT NULL DEFAULT 20,
+    supplier VARCHAR(128) DEFAULT '',
+    status VARCHAR(16) NOT NULL DEFAULT 'active',
+    tags TEXT[] NOT NULL DEFAULT '{}',
     store_name VARCHAR(128) DEFAULT '我的模拟独立站',
     is_demo BOOLEAN DEFAULT true,                   -- true=演示数据，非真实上架
     create_time TIMESTAMP DEFAULT NOW(),
@@ -22,6 +27,11 @@ ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS store_id VARCHAR(64) DEFAULT 'de
 ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) DEFAULT 'demo_tenant';
 ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS store_name VARCHAR(128) DEFAULT '我的模拟独立站';
 ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS is_demo BOOLEAN DEFAULT true;
+ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS cost_price DECIMAL(10,2);
+ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS reorder_level INT NOT NULL DEFAULT 20;
+ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS supplier VARCHAR(128) DEFAULT '';
+ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS status VARCHAR(16) NOT NULL DEFAULT 'active';
+ALTER TABLE ecom_goods ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
 
 -- 2.订单表：库存预测Agent数据源
 CREATE TABLE IF NOT EXISTS ecom_order (
@@ -33,9 +43,21 @@ CREATE TABLE IF NOT EXISTS ecom_order (
     buy_num INT,
     total_amount DECIMAL(10,2),
     refund_flag BOOLEAN DEFAULT false,
+    status VARCHAR(32) DEFAULT 'processing',
+    customer_name VARCHAR(128) DEFAULT '',
+    country VARCHAR(8) DEFAULT '',
+    payment_status VARCHAR(32) DEFAULT 'paid',
+    fulfillment_status VARCHAR(32) DEFAULT 'unfulfilled',
+    tracking_no VARCHAR(128) DEFAULT '',
     create_time TIMESTAMP DEFAULT NOW(),
     UNIQUE (tenant_id, store_id, order_no)
 );
+ALTER TABLE ecom_order ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'processing';
+ALTER TABLE ecom_order ADD COLUMN IF NOT EXISTS customer_name VARCHAR(128) DEFAULT '';
+ALTER TABLE ecom_order ADD COLUMN IF NOT EXISTS country VARCHAR(8) DEFAULT '';
+ALTER TABLE ecom_order ADD COLUMN IF NOT EXISTS payment_status VARCHAR(32) DEFAULT 'paid';
+ALTER TABLE ecom_order ADD COLUMN IF NOT EXISTS fulfillment_status VARCHAR(32) DEFAULT 'unfulfilled';
+ALTER TABLE ecom_order ADD COLUMN IF NOT EXISTS tracking_no VARCHAR(128) DEFAULT '';
 
 -- 3.竞品监控表：竞品 Agent 写入价格快照（crawl_time 为入库时间字段名，兼容历史 schema）
 CREATE TABLE IF NOT EXISTS competitor_price (

@@ -24,6 +24,9 @@ def test_agent_console_exposes_supported_agent_capabilities():
         "/api/v1/warn/competitor",
         "/api/v1/approvals/",
         "/api/v1/agents",
+        "/api/v1/admin/overview",
+        "/api/v1/admin/products",
+        "/api/v1/admin/rag/documents",
         "/health/ready",
     ):
         assert endpoint in script or endpoint in html
@@ -53,3 +56,15 @@ def test_frontend_never_persists_credentials_to_local_storage():
     ).read_text()
     assert "sessionStorage" in script
     assert "localStorage" not in script
+
+
+def test_admin_console_and_human_error_ui_are_present():
+    frontend = Path(__file__).parents[1] / "ecom_agent_matrix" / "api" / "frontend"
+    html = (frontend / "index.html").read_text()
+    script = (frontend / "app.js").read_text()
+    assert 'data-view="admin"' in html
+    assert 'id="adminView"' in html
+    assert 'id="productForm"' in html
+    assert 'id="ragForm"' in html
+    assert "normalizedError" in script
+    assert "next_action" in script

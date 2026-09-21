@@ -20,6 +20,7 @@ from ...config.constants import TABLE_COMPETITOR, TABLE_GOODS
 from ...config.settings import settings
 from ...core.skill.base_skill import BaseSkill, SkillResult
 from ...core.skill.skill_registry import register_skill
+from ...core.security import tenant_scope_from_skill_context
 from ...db.base import AsyncPGClient
 from ..utils.competitor_parse import extract_sku
 
@@ -97,23 +98,36 @@ def _price_mode() -> str:
 
 async def _latest_db_price(sku: str, competitor: str) -> float | None:
     """优先复用库内该竞品最近一次报价。"""
+    scope = tenant_scope_from_skill_context()
+    params = [sku, competitor]
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
     sql = f"""
     SELECT compete_price
     FROM {TABLE_COMPETITOR}
     WHERE target_sku = %s
       AND LOWER(competitor_name) = LOWER(%s)
+      {scope_sql}
     ORDER BY crawl_time DESC NULLS LAST, id DESC
     LIMIT 1
     """
-    rows = await AsyncPGClient.execute_read(sql, [sku, competitor])
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     if rows and rows[0][0] is not None:
         return float(rows[0][0])
     return None
 
 
 async def _our_goods_price(sku: str) -> float | None:
-    sql = f"SELECT price FROM {TABLE_GOODS} WHERE sku = %s LIMIT 1"
-    rows = await AsyncPGClient.execute_read(sql, [sku])
+    scope = tenant_scope_from_skill_context()
+    params = [sku]
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
+    sql = f"SELECT price FROM {TABLE_GOODS} WHERE sku = %s {scope_sql} LIMIT 1"
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     if rows and rows[0][0] is not None:
         return float(rows[0][0])
     return None

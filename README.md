@@ -45,7 +45,7 @@ python -m ecom_agent_matrix.scripts.bootstrap_demo
 python -m uvicorn ecom_agent_matrix.api.main:app --reload --port 8002
 ```
 
-打开 <http://127.0.0.1:8002/app>，填入 API Key，直接提问。默认引导会创建 24 个商品、240 个 2026 年 6–9 月订单、80 条竞品观测、8 条风险记录与 20 份知识文档。无本地 embedding 依赖时会明确运行为 `lexical_only`；要启用混合检索：
+打开 <http://127.0.0.1:8002/app>，填入 API Key，直接提问。默认引导会创建 48 个商品、720 个覆盖 2026 年 1‑9 月的订单、160 条竞品观测、12 条风险记录与 30 份知识文档。无本地 embedding 依赖时会明确运行为 `lexical_only`；要启用混合检索：
 
 ```bash
 pip install -e ".[rag-local]"
@@ -53,6 +53,8 @@ python -m ecom_agent_matrix.scripts.bootstrap_demo --with-embeddings
 ```
 
 LLM 是可选的：明显意图、SQL 模板、RAG 检索和展示均有确定性降级路径。需要更自然的综合时，在 `.env` 设置已有的 `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY`，不需要更换架构。
+
+拥有 `admin` 角色的账号可从左侧“管理员”进入数据后台，查看业务数据概览、搜索/新增/编辑/删除商品，并查看、编辑或新增 RAG 知识文档。所有管理员 API 都在服务端校验角色并受租户/店铺 RLS 隔离，不能依靠前端按钮绕过权限。
 
 可直接尝试：
 

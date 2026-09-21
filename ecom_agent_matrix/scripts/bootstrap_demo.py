@@ -43,6 +43,30 @@ PRODUCTS = (
     ("ACC-003", "accessories", 42.0, 47, "Polarized Sunglasses", "偏光户外墨镜"),
     ("ACC-004", "accessories", 16.0, 160, "Waterproof Phone Pouch", "防水手机袋"),
     ("ACC-005", "accessories", 14.0, 23, "Compact First Aid Kit", "便携急救包"),
+    ("COOK-001", "camp_kitchen", 58.0, 42, "Compact Camp Stove", "便携式露营炉"),
+    ("COOK-002", "camp_kitchen", 36.0, 18, "Titanium Cook Set", "钛合金户外锅具"),
+    ("COOK-003", "camp_kitchen", 21.0, 96, "Insulated Camp Mug", "保温露营杯"),
+    ("SLEEP-001", "sleep_system", 119.0, 14, "Ultralight Sleeping Bag", "超轻保暖睡袋"),
+    ("SLEEP-002", "sleep_system", 72.0, 28, "Self Inflating Mat", "自充气睡垫"),
+    ("SLEEP-003", "sleep_system", 34.0, 67, "Packable Travel Pillow", "可压缩旅行枕"),
+    ("HIKE-001", "hiking", 89.0, 31, "Carbon Trekking Poles", "碳纤维登山杖"),
+    ("HIKE-002", "hiking", 46.0, 12, "Trail Gaiters", "防泥沙徒步鞋套"),
+    ("HIKE-003", "hiking", 27.0, 83, "Merino Hiking Socks", "美利奴徒步袜"),
+    ("RAIN-001", "rainwear", 109.0, 19, "StormShell Rain Jacket", "StormShell 防雨夹克"),
+    ("RAIN-002", "rainwear", 44.0, 58, "Packable Rain Poncho", "便携式防雨斗篷"),
+    ("TECH-001", "electronics", 139.0, 22, "GPS Trail Watch", "GPS 户外运动手表"),
+    ("TECH-002", "electronics", 64.0, 37, "Emergency Radio", "太阳能应急收音机"),
+    ("TECH-003", "electronics", 31.0, 71, "Waterproof Headlamp", "防水头灯"),
+    ("PET-001", "pet_outdoor", 52.0, 26, "Trail Dog Harness", "户外犬用胸背带"),
+    ("PET-002", "pet_outdoor", 23.0, 49, "Collapsible Pet Bowl", "折叠宠物碗套装"),
+    ("KIDS-001", "kids_outdoor", 42.0, 35, "Kids Explorer Backpack", "儿童探索背包"),
+    ("KIDS-002", "kids_outdoor", 18.0, 92, "Kids Sun Explorer Hat", "儿童防晒探险帽"),
+    ("TRAVEL-001", "travel", 68.0, 24, "Carry On Travel Duffel", "随身旅行圆筒包"),
+    ("TRAVEL-002", "travel", 26.0, 116, "RFID Passport Organizer", "RFID 护照收纳包"),
+    ("TRAVEL-003", "travel", 17.0, 150, "Digital Luggage Scale", "电子行李秤"),
+    ("CYCLE-001", "cycling", 76.0, 17, "Commuter Bike Pannier", "通勤自行车驮包"),
+    ("CYCLE-002", "cycling", 33.0, 63, "Rechargeable Bike Light", "充电式自行车灯"),
+    ("CYCLE-003", "cycling", 29.0, 44, "Compact Bike Repair Kit", "便携自行车维修套装"),
 )
 
 
@@ -72,12 +96,16 @@ async def _seed_products() -> None:
             """
             INSERT INTO ecom_goods
               (tenant_id,store_id,sku,category,price,stock_num,title_en,title_zh,title_es,title_fr,
-               desc_multi,store_name,is_demo,create_time,update_time)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true,%s,%s)
+               desc_multi,cost_price,reorder_level,supplier,status,tags,
+               store_name,is_demo,create_time,update_time)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'active',%s,%s,true,%s,%s)
             ON CONFLICT (tenant_id,store_id,sku) DO UPDATE SET
               category=EXCLUDED.category,price=EXCLUDED.price,stock_num=EXCLUDED.stock_num,
               title_en=EXCLUDED.title_en,title_zh=EXCLUDED.title_zh,
-              desc_multi=EXCLUDED.desc_multi,store_name=EXCLUDED.store_name,update_time=EXCLUDED.update_time
+              desc_multi=EXCLUDED.desc_multi,cost_price=EXCLUDED.cost_price,
+              reorder_level=EXCLUDED.reorder_level,supplier=EXCLUDED.supplier,
+              status=EXCLUDED.status,tags=EXCLUDED.tags,
+              store_name=EXCLUDED.store_name,update_time=EXCLUDED.update_time
             """,
             [
                 TENANT,
@@ -90,7 +118,11 @@ async def _seed_products() -> None:
                 title_zh,
                 title_en,
                 title_en,
-                f"{title_zh}。Northstar Outdoor 演示商品，SKU {sku}。",
+                f"{title_zh}。适用于跨境独立站商品搜索、库存、利润和运营分析演示，SKU {sku}。",
+                round(price * 0.43, 2),
+                20 if price < 100 else 10,
+                f"Northstar Supplier {(category[:1] or 'G').upper()}",
+                [category, "demo", "outdoor"],
                 STORE_NAME,
                 datetime(2026, 5, 1),
                 datetime(2026, 9, 20),
@@ -100,25 +132,34 @@ async def _seed_products() -> None:
 
 async def _seed_orders() -> None:
     skus = [item[0] for item in PRODUCTS]
-    refund_targets = {6: 5, 7: 6, 8: 18, 9: 7}
-    for month in (6, 7, 8, 9):
+    # 2026-09 之后的未来订单会污染“近 7/30 天”报表。因此用 1‑9 月
+    # 的高密度历史数据保持 720 条总量，并保留 7 月 10% -> 8 月 30% 的退款异常。
+    refund_targets = {1: 7, 2: 5, 3: 8, 4: 7, 5: 6, 6: 7, 7: 8, 8: 24, 9: 9}
+    statuses = ("delivered", "shipped", "processing", "delivered")
+    countries = ("AU", "US", "GB", "CA", "DE", "FR")
+    for month in range(1, 10):
         refund_count = refund_targets[month]
-        for index in range(60):
+        for index in range(80):
             if month == 8 and index < refund_count:
                 sku = "BAG-002" if index < 11 else "CHARGER-001"
             else:
                 sku = skus[(index * 5 + month) % len(skus)]
             product = next(item for item in PRODUCTS if item[0] == sku)
             quantity = 1 + (index % 3)
-            created = datetime(2026, month, 1) + timedelta(hours=index * 10)
+            # 9 月数据截止在 20 日，避免当前时钟下出现未来交易。
+            created = datetime(2026, month, 1) + timedelta(hours=index * (6 if month == 9 else 8))
             await AsyncPGClient.execute_sql(
                 """
                 INSERT INTO ecom_order
-                  (tenant_id,store_id,order_no,sku,buy_num,total_amount,refund_flag,create_time)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                  (tenant_id,store_id,order_no,sku,buy_num,total_amount,refund_flag,create_time,
+                   status,customer_name,country,payment_status,fulfillment_status,tracking_no)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'paid',%s,%s)
                 ON CONFLICT (tenant_id,store_id,order_no) DO UPDATE SET
                   sku=EXCLUDED.sku,buy_num=EXCLUDED.buy_num,total_amount=EXCLUDED.total_amount,
-                  refund_flag=EXCLUDED.refund_flag,create_time=EXCLUDED.create_time
+                  refund_flag=EXCLUDED.refund_flag,create_time=EXCLUDED.create_time,
+                  status=EXCLUDED.status,customer_name=EXCLUDED.customer_name,country=EXCLUDED.country,
+                  payment_status=EXCLUDED.payment_status,
+                  fulfillment_status=EXCLUDED.fulfillment_status,tracking_no=EXCLUDED.tracking_no
                 """,
                 [
                     TENANT,
@@ -129,13 +170,18 @@ async def _seed_orders() -> None:
                     round(product[2] * quantity, 2),
                     index < refund_count,
                     created,
+                    "refund_requested" if index < refund_count else statuses[index % len(statuses)],
+                    f"Demo Customer {month:02d}-{index + 1:03d}",
+                    countries[(index + month) % len(countries)],
+                    "held" if index < refund_count else "fulfilled",
+                    f"NS{month:02d}{index + 1:06d}" if index % 4 != 2 else "",
                 ],
             )
 
 
 async def _seed_competitor_and_risk() -> None:
     platforms = ("Amazon", "Temu", "AliExpress", "eBay")
-    for index, product in enumerate(PRODUCTS[:20]):
+    for index, product in enumerate(PRODUCTS[:40]):
         for offset, platform in enumerate(platforms):
             factor = (0.82, 0.76, 0.88, 1.08)[offset] + (index % 3) * 0.03
             await AsyncPGClient.execute_sql(
@@ -160,6 +206,10 @@ async def _seed_competitor_and_risk() -> None:
         ("ORD-DEMO-202608-004", "manual_review", "演示人工复核订单"),
         ("ORD-DEMO-202608-005", "velocity", "短时间高频下单"),
         ("ORD-DEMO-202608-006", "address_check", "收货信息需人工核对"),
+        ("ORD-DEMO-202608-007", "payment_review", "支付行为与历史模式不一致"),
+        ("ORD-DEMO-202608-008", "device_mismatch", "登录设备发生异常变化"),
+        ("ORD-DEMO-202611-014", "promotion_abuse", "优惠券使用频率异常"),
+        ("ORD-DEMO-202612-021", "reship_review", "重复补发申请需复核"),
     )
     for index, row in enumerate(risks):
         await AsyncPGClient.execute_sql(

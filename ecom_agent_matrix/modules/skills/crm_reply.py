@@ -77,6 +77,26 @@ def fallback_answer(user_query: str, *, is_fallback_route: bool) -> str:
     )
 
 
+def smalltalk_answer(user_query: str, lang: str = "zh") -> str:
+    """Return a direct, human reply for common conversational messages."""
+    text = str(user_query or "").strip().lower()
+    if lang != "zh":
+        if any(word in text for word in ("tired", "exhausted", "overwhelmed")):
+            return "That sounds exhausting. Take a short break if you can—I can help with the store work when you're ready."
+        if any(word in text for word in ("hello", "hi", "hey")):
+            return "Hi! What can I help you with today?"
+        if any(word in text for word in ("thank", "thanks")):
+            return "You're welcome. Let me know whenever you need a hand."
+        return ""
+    if any(word in text for word in ("好累", "累死", "疲惫", "压力好大", "撑不住")):
+        return "辛苦了，先让自己休息一下吧。等你缓过来，我可以帮你处理订单、库存、广告或客服工作。"
+    if any(word in text for word in ("你好", "嗨", "hello", "hi")) and len(text) <= 20:
+        return "你好！今天想先处理哪件事？我可以帮你查订单、看库存、分析广告或回复客户。"
+    if any(word in text for word in ("谢谢", "感谢", "多谢")) and len(text) <= 30:
+        return "不客气，需要时随时叫我。"
+    return ""
+
+
 @register_skill
 class CrmReplyTool(BaseSkill):
     read_only = True
@@ -121,6 +141,20 @@ class CrmReplyTool(BaseSkill):
             citations = [item for item in citations if isinstance(item, dict)][:20]
             rag_used = bool(knowledge_context)
             rag_error = ""
+
+            conversational = smalltalk_answer(user_query, lang)
+            if conversational:
+                return SkillResult(
+                    success=True,
+                    data={
+                        "answer": conversational,
+                        "llm_ok": True,
+                        "rag_used": False,
+                        "rag_doc_count": 0,
+                        "rag_error": "",
+                        "citations": [],
+                    },
+                )
 
             answer_text = ""
             llm_ok = False

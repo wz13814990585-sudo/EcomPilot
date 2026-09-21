@@ -48,6 +48,9 @@ def test_dispatch_maps_typed_error_codes_to_http_status(code, expected_status):
 
     assert raised.value.status_code == expected_status
     assert raised.value.detail["error_code"] == code.value
+    assert raised.value.detail["title"]
+    assert raised.value.detail["next_action"]
+    assert raised.value.detail["task_id"]
 
 
 def test_successful_api_result_has_none_error_code():
@@ -113,3 +116,35 @@ def test_application_service_normalizes_success_and_malformed_failure_codes(body
         return await service.execute(target="data_query", content={}, priority=1)
 
     assert asyncio.run(scenario()).error_code is expected
+
+
+def test_dispatch_preserves_safe_root_business_error_for_people():
+    service = AsyncMock()
+    service.execute.return_value = AgentResponse(
+        task_id="task-1",
+        target="master_planning",
+        reply_from="master_planning",
+        success=False,
+        data={
+            "sub_results": [
+                {
+                    "success": False,
+                    "error_msg": "缺少投放数据，请提供广告活动或指标。",
+                    "data": {"campaign_id": ""},
+                }
+            ]
+        },
+        error_code=ErrorCode.INVALID_REQUEST,
+        error_message="任务未能完成。",
+    )
+    with patch("ecom_agent_matrix.api.dispatch.application_service", service):
+        with pytest.raises(HTTPException) as raised:
+            asyncio.run(
+                dispatch_and_wait(
+                    target="master_planning",
+                    content={"query": "优化广告"},
+                    priority=1,
+                )
+            )
+    assert raised.value.detail["message"] == "缺少投放数据，请提供广告活动或指标。"
+    assert "子任务" not in raised.value.detail["message"]

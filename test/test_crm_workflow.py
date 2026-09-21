@@ -12,6 +12,7 @@ from ecom_agent_matrix.core.tasking.result import PARTIAL_SUCCESS, SKILL_FAILED
 from ecom_agent_matrix.workflows.crm import workflow as crm_handler
 from ecom_agent_matrix.workflows.crm.workflow import handle_crm, run_crm_workflow
 from ecom_agent_matrix.modules.parsers.crm import parse_crm_request
+from ecom_agent_matrix.modules.skills.crm_reply import smalltalk_answer
 
 
 def _memory():
@@ -34,6 +35,13 @@ def _reply(*, llm_ok=True, success=True, answer="answer"):
             "rag_error": "",
         },
     )
+
+
+def test_emotional_smalltalk_gets_a_direct_human_answer():
+    answer = smalltalk_answer("我现在好累啊", "zh")
+    assert "辛苦了" in answer
+    assert "任务成功" not in answer
+    assert "CRM" not in answer
 
 
 def test_crm_canonical_fields_and_task_session_fallback():

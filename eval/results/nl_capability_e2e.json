@@ -21,7 +21,7 @@
       "answer_nonempty": true,
       "evidence_present": true,
       "pass": true,
-      "summary": "分析已完成（FULL_SUCCESS）：revenue: 8552.00"
+      "summary": "分析已完成（FULL_SUCCESS）：revenue: 20876.00"
     },
     {
       "capability": "knowledge_qa",
@@ -35,7 +35,7 @@
       "answer_nonempty": true,
       "evidence_present": true,
       "pass": true,
-      "summary": "退款政策查询成功，知识库已命中相关条款。\n\n· 退货条件：商品未使用、配件齐全且保持原状，签收后 30 天内可申请退货\n· 运费归属：质量问题经客服核验照片后免退货运费；非质量原因由客户承担\n· 退款时效：退件入库后 5–7 个工作日原路退回\n· 退款金额：按实付金额计算，优惠码不叠加限时特价（活动页明确说明除外）\n· 命中 6 条知识文档，响应约 1.7 秒，命中缓存\n\n建议：客服回复时先致歉并核对订单号、SKU 与问题照片，仅承诺政策明确支持的范围，勿编造时效或补偿。"
+      "summary": "根据所提供的文档，退款政策要点如下：\n\n- **退货时限**：未使用、配件齐全且保持原状的商品，可在签收后 30 天内申请退货 [S3]。退款处理时需确认签收日期是否在 30 天内，并核验商品状态 [S4]。\n- **退货运费**：质量问题由客服核验照片后免退货运费；非质量原因的退货运费由客户承担 [S3]。\n- **退款金额**：退款按实付金额计算；运费是否退回依据退款政策和责任归属 [S1]。\n- **退款时效**：退款在退件入库后 5–7 个工作日原路退回 [S3][S4]。\n- **客服处理要求**：先表示理解和歉意，再核对订单号、SKU、问题照片与期望方案；只承诺政策明确支持的退款、"
     },
     {
       "capability": "goods_search",
@@ -49,7 +49,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "已成功找到 1 款防水户外背包。\n\n· 最佳匹配：TrailDry 防水户外背包（SKU：BAG-001）\n· 价格 79.0，库存 120 件，库存充足\n· 匹配方式为字面匹配，未启用语义兜底\n· 查询耗时约 2.65 毫秒\n\n建议：可直接向客户推荐该款。"
+      "summary": "找到 1 个匹配商品，最相关的是 BAG-001。"
     },
     {
       "capability": "goods_catalog",
@@ -63,7 +63,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "查询成功：当前店铺共 24 件商品。\n\n· 店铺：我的模拟独立站（demo_store，演示数据）\n· 商品总数：24 件，覆盖配饰、美妆、家居、电子等类目\n· 示例：便携急救包（$14，库存23）、防水手机袋（$16，库存160）、偏光墨镜（$42，库存47）、户外运动相机（$129，库存4）、太阳能移动电源（$45，库存140）\n· 提示：库存偏低的有速干旅行毛巾（6）、矿物防晒棒（9）、运动相机（4），建议关注补货\n· 返回结果被截断，仅展示部分商品明细，如需完整清单可再次查询"
+      "summary": "【Northstar Outdoor】共 48 件（模拟数据）；已返回全部 48 件"
     },
     {
       "capability": "stock_analysis",
@@ -77,7 +77,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "结论：查询成功，共发现 11 个低库存商品，其中 6 个为高风险，需优先补货。\n\n· 高风险 6 个：BAG-003 轻便斜挎包（库存 0，建议补 4）、CAMERA-001 户外运动相机（库存 4，建议补 2）、BAG-002 旅行背包（库存 8，建议补 1）；ACC-002 速干毛巾、TENT-001 云帐、BEAUTY-001 防晒棒库存与需求持平，建议关注。\n· 中风险 5 个：充电器、台灯、露营灯、水瓶、急救包，库存尚可，暂无需补货。\n· 建议：优先处理 BAG-003（已断货），其次 CAMERA-001、BAG-002。"
+      "summary": "发现 18 个需要关注的低库存商品。"
     },
     {
       "capability": "competitor_watch",
@@ -91,7 +91,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "BAG-001 多平台比价已完成，查询成功。\n\n· Temu 售价 60.04 美元，为五个平台中最低价。\n· 其余平台：Amazon 65.43、Shein 65.81、AliExpress 70.22、Walmart 75.05（美元）。\n· 整体价带集中在 60–75 美元，Temu 比最高价低约 15 美元（约 20%），比第二梯队低约 5–6 美元。\n· 建议：不建议直接跟价至 60.04。若与 Amazon/Shein 同档，可参考 65 美元左右；若主打品牌或材质差异化，可维持 70 美元以上。\n· 注意：以上为演示缓存/合成价格，未含成本数据，实际定价需结合自身成本与毛利目标判"
+      "summary": "SKU BAG-001 多平台比价：Temu=60.04；Amazon=65.43；AliExpress=70.22；Shein=65.81；Walmart=75.05。最低价 Temu 60.04"
     },
     {
       "capability": "order_query",
@@ -105,7 +105,7 @@
       "answer_nonempty": true,
       "evidence_present": true,
       "pass": true,
-      "summary": "查询成功：订单 ORD-DEMO-001 当前状态为「已发货（shipped）」。\n\n· 支付状态：已付款（paid）\n· 履约状态：已完成（fulfilled）\n· 物流状态：运输中（in_transit），承运商 Australia Post，线路 SYD-MEL\n· 退款状态：无退款\n· 商品：BAG-001 × 1，订单金额 79.0\n· 数据来源：demo-business-api（演示数据），置信度 100%\n\n建议：订单正常在途，无需人工干预；如需可跟进物流轨迹。"
+      "summary": "订单 ORD-DEMO-001 当前状态：shipped"
     },
     {
       "capability": "ad_query",
@@ -119,7 +119,7 @@
       "answer_nonempty": true,
       "evidence_present": true,
       "pass": true,
-      "summary": "结论：查询成功，ROAS 最低的广告活动是 Summer Outdoor Sale。\n\n· 最低 ROAS：Summer Outdoor Sale（CMP-SUMMER-SALE，Meta），ROAS 仅 0.36\n· 花费 2760 美元，仅带来 990 美元收入，转化 18 次，CPA 高达 153.33\n· 对比参考：Meta Retargeting ROAS 0.96，TikTok Backpack Launch 5.0，Google Brand Search 6.88\n· 建议：该活动持续亏损，建议优先排查素材与受众定向，或考虑暂停/缩减预算，将预算转向高 ROAS 的 Google"
+      "summary": "ROAS 最低的广告是 Summer Outdoor Sale（CMP-SUMMER-SALE），ROAS 0.36。"
     },
     {
       "capability": "ad_optimize",
@@ -147,7 +147,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "结论：检查成功，当前电商数据未发现异常。\n\n· 校验范围：全量数据\n· 完整性问题：0 个，校验通过\n· 未发现任何问题类型，无需修复\n· SQL 校验：本次已跳过，未执行\n\n建议：数据可正常使用；如需更全面保障，可补充执行 SQL 校验。"
+      "summary": "校验汇总（scope=full）：\n\n- 完整性问题：0 项，校验通过，无问题类型分布。\n- SQL 校验：已跳过，未执行。\n\n修复建议：\n- 当前无需修复，可保持现有数据流程。\n- 如需更全面保障，建议补充 SQL 校验并针对具体 sku / order_no 做定向校验。"
     },
     {
       "capability": "ops_report",
@@ -161,7 +161,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "今日运营报告已生成成功（近7天数据）。\n\n· 销售：订单26笔，售出53件，GMV 3394.0，退款率0\n· 热销SKU：BEAUTY-001、CAMERA-001、ACC-001、TENT-001、HOME-001\n· 库存：24个SKU共1473件，1个缺货、8个偏低\n· 风险事件：0；竞品监控：20个SKU、4个竞品、80条价格记录\n\n异常与建议：\n· 缺货与低库存或因销售较快、补货不及时\n· 建议立即处理缺货SKU（补货或下架），对8个低库存SKU设预警并制定补货计划，并结合竞品价格评估热销SKU定价"
+      "summary": "过去7天，订单量23单，售出45件，GMV 2406美元，无退款。Top SKU销量均为3件，GMV最高为HIKE-002（138美元）。库存方面，48个SKU总库存2687件，1个SKU缺货，13个SKU低库存。风险事件0起。竞品监控覆盖40个SKU、4个竞品，共159条价格记录。\n异常点：\n- 1个SKU缺货\n- 13个SKU低库存\n可能原因：\n- 缺货SKU可能因近期销售或补货延迟导致\n- 低库存SKU可能因需求增加或补货不及时\n建议动作：\n1) 立即补货缺货SKU，并检查其销售趋势\n2) 对13个低库存SKU设置补货预警，优先处理销量较高的SKU\n3) 分析竞品价格数据，调整定价或促销"
     },
     {
       "capability": "social_marketing",
@@ -175,7 +175,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "任务成功：BAG-001 的 TikTok 推广文案与配图提示词均已生成。\n\n· 文案（英文）：主打“畅销+高品质”，含开箱手感卖点与抢购号召，附 #TikTokMadeMeBuyIt 等标签\n· 配图提示词：白底明亮商业棚拍风，85mm 镜头、f/8，突出质感与光泽，可直接用于电商主图\n· 两项技能均执行成功，无报错，耗时约 1.15 秒\n\n建议：文案可直接发布；配图提示词可交给设计或 AI 出图工具生成主图。"
+      "summary": "任务成功：已为 BAG-001 生成 TikTok 英文推广文案及配套出图提示词。\n\n· 文案已产出，主打「高品质畅销款」，含 #TikTokMadeMeBuyIt 等话题标签，可直接发布\n· 同步生成商品图 AI 提示词：白底、明亮商业棚拍、85mm 镜头，适合电商主图\n· 文案与提示词均由 deepseek 生成，无报错\n· 两项技能（社媒文案、AI 提示词）均执行成功，耗时约 1.3 秒\n\n建议：文案可直接使用，如需更贴合品牌调性可再微调语气。"
     },
     {
       "capability": "customer_service",
@@ -189,7 +189,7 @@
       "answer_nonempty": true,
       "evidence_present": false,
       "pass": true,
-      "summary": "结论：处理成功，已生成 BAG-002 拉链损坏退款的标准回复话术。\n\n· 回复要点：先致歉共情，再请客户提供订单号及损坏照片/视频，说明核实后可安排退款或换货。\n· 注意：不要承诺具体到账时间，避免“立刻退款”等未确认表述；无订单号时先请客户补充。\n· 参考话术：非常抱歉 BAG-002 出现拉链损坏，请提供订单号和损坏部位照片/视频，核实后尽快为您处理退款或换货，敬请谅解。\n· 本次未使用知识库检索，无引用来源；执行正常，无报错。"
+      "summary": "您好，关于 BAG-002 拉链损坏并申请退款，建议这样回复客户：\n\n1. **先致歉并确认问题**\n   “非常抱歉给您带来不便，BAG-002 拉链出现问题我们很重视。”\n\n2. **请客户提供凭证**\n   “麻烦您提供订单号，以及拉链损坏的照片或视频，方便我们核实处理。”\n\n3. **说明处理方向，但不要直接承诺到账时间**\n   “核实后我们会为您安排退款或换货等解决方案，具体以审核结果为准。”\n\n4. **避免编造**\n   不要直接承诺“几天到账”或给出物流/退款单号，除非系统已确认。\n\n可参考回复模板：\n\n> 您好，非常抱歉 BAG-002 出现拉链损坏问题。请您提供订单号和损"
     },
     {
       "capability": "risk_control",

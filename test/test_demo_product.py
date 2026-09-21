@@ -36,10 +36,10 @@ def test_natural_language_capability_routes(query, expected):
     assert decision.mode == "fast_path"
 
 
-def test_demo_corpus_has_twenty_real_documents():
+def test_demo_corpus_has_thirty_real_documents():
     root = Path(__file__).resolve().parents[1] / "demo" / "knowledge"
     documents = sorted(root.glob("*.md"))
-    assert len(documents) == 20
+    assert len(documents) == 30
     assert all(path.read_text(encoding="utf-8").startswith("# ") for path in documents)
 
 
@@ -67,11 +67,11 @@ def test_analytical_presentation_preserves_metrics_and_evidence():
 
 def test_rag_status_reports_demo_counts_and_lexical_fallback():
     execute = AsyncMock(
-        side_effect=[[(20, 20, 0)], [(24, 240, 80, 8)]],
+        side_effect=[[(30, 30, 0)], [(48, 720, 160, 12)]],
     )
     with patch("ecom_agent_matrix.api.main.AsyncPGClient.execute_sql", new=execute):
         result = asyncio.run(rag_status())
-    assert result["documents"] == 20
+    assert result["documents"] == 30
     assert result["retrieval_mode"] == "lexical_only"
     assert result["demo_data"]["loaded"] is True
 

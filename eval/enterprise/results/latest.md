@@ -14,7 +14,7 @@
   "fast_path_rate": 0.571429,
   "planner_rate": 0.428571,
   "routing_accuracy": 1.0,
-  "schema_link_latency_ms": 0.246375,
+  "schema_link_latency_ms": 0.309625,
   "sql_parse_valid": 1.0,
   "sql_safety_pass": 1.0,
   "table_precision": 0.979167,

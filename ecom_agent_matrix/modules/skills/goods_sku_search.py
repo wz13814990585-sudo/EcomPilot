@@ -10,6 +10,7 @@ from ...config.constants import TABLE_GOODS, TABLE_VECTOR_GOODS
 from ...config.settings import settings
 from ...core.skill.base_skill import BaseSkill, SkillResult
 from ...core.skill.skill_registry import register_skill
+from ...core.security import tenant_scope_from_skill_context
 from ...db.base import AsyncPGClient
 from ...infrastructure.embedding.provider import get_text_embedding
 
@@ -69,21 +70,27 @@ def _row_to_candidate(
 async def _literal_ilike_only(product_name: str, top_k: int) -> list[dict]:
     """无 pg_trgm 时的降级：纯 ILIKE（大数据量会慢，仅兜底）。"""
     pattern = f"%{product_name}%"
+    scope = tenant_scope_from_skill_context()
+    params: list[Any] = [pattern] * 6
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
+    params.append(top_k)
     sql = f"""
     SELECT sku, title_zh, title_en, category, price, stock_num
     FROM {TABLE_GOODS}
-    WHERE title_zh ILIKE %s
+    WHERE (title_zh ILIKE %s
        OR title_en ILIKE %s
        OR title_es ILIKE %s
        OR title_fr ILIKE %s
        OR sku ILIKE %s
-       OR COALESCE(desc_multi, '') ILIKE %s
+       OR COALESCE(desc_multi, '') ILIKE %s)
+      {scope_sql}
     ORDER BY stock_num DESC NULLS LAST
     LIMIT %s
     """
-    rows = await AsyncPGClient.execute_read(
-        sql, [pattern, pattern, pattern, pattern, pattern, pattern, top_k]
-    )
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     return [_row_to_candidate(r, match_mode="literal_ilike") for r in rows]
 
 
@@ -95,6 +102,10 @@ async def _literal_trgm_search(product_name: str, top_k: int) -> list[dict]:
     """
     pattern = f"%{product_name}%"
     min_sim = float(settings.GOODS_SEARCH_TRGM_MIN_SIM)
+    scope = tenant_scope_from_skill_context()
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND tenant_id = %s AND store_id = %s"
     sql = f"""
     SELECT sku, title_zh, title_en, category, price, stock_num,
            GREATEST(
@@ -106,7 +117,7 @@ async def _literal_trgm_search(product_name: str, top_k: int) -> list[dict]:
              similarity(COALESCE(desc_multi, ''), %s)
            ) AS sim
     FROM {TABLE_GOODS}
-    WHERE title_zh ILIKE %s
+    WHERE (title_zh ILIKE %s
        OR title_en ILIKE %s
        OR title_es ILIKE %s
        OR title_fr ILIKE %s
@@ -116,7 +127,8 @@ async def _literal_trgm_search(product_name: str, top_k: int) -> list[dict]:
        OR title_en %% %s
        OR title_es %% %s
        OR title_fr %% %s
-       OR sku %% %s
+       OR sku %% %s)
+      {scope_sql}
     ORDER BY sim DESC, stock_num DESC NULLS LAST
     LIMIT %s
     """
@@ -138,9 +150,11 @@ async def _literal_trgm_search(product_name: str, top_k: int) -> list[dict]:
         product_name,
         product_name,
         product_name,
-        max(top_k * 3, top_k),
     ]
-    rows = await AsyncPGClient.execute_read(sql, params)
+    if scope.usable:
+        params.extend([scope.tenant_id, scope.store_id])
+    params.append(max(top_k * 3, top_k))
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     candidates = []
     for r in rows:
         sim = float(r[6] or 0)
@@ -163,6 +177,13 @@ async def _semantic_vector_search(product_name: str, top_k: int) -> list[dict]:
     query_vec = await get_text_embedding(product_name)
     max_dist = float(settings.GOODS_SEARCH_VECTOR_MAX_DIST)
     recall_k = max(int(settings.GOODS_SEARCH_VECTOR_TOP_K), top_k)
+    scope = tenant_scope_from_skill_context()
+    params: list[Any] = [query_vec, query_vec, max_dist]
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = "WHERE v.tenant_id = %s AND v.store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
+    params.append(recall_k)
 
     sql = f"""
     SELECT
@@ -175,13 +196,15 @@ async def _semantic_vector_search(product_name: str, top_k: int) -> list[dict]:
         MIN(v.embedding <-> %s::vector) AS dist
     FROM {TABLE_VECTOR_GOODS} v
     LEFT JOIN {TABLE_GOODS} g ON g.sku = v.goods_sku
+      AND g.tenant_id = v.tenant_id AND g.store_id = v.store_id
+    {scope_sql}
     GROUP BY COALESCE(g.sku, v.goods_sku), g.title_zh, g.title_en,
              COALESCE(g.category, v.meta_json->>'category'), g.price, g.stock_num
     HAVING MIN(v.embedding <-> %s::vector) <= %s
     ORDER BY dist ASC
     LIMIT %s
     """
-    rows = await AsyncPGClient.execute_read(sql, [query_vec, query_vec, max_dist, recall_k])
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     return [
         _row_to_candidate(r, match_mode="semantic_vector", dist=float(r[6]))
         for r in rows[:top_k]

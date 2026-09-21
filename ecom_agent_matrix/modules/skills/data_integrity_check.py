@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ...config.constants import TABLE_GOODS, TABLE_ORDER
 from ...core.skill.base_skill import BaseSkill, SkillResult
 from ...core.skill.skill_registry import register_skill
+from ...core.security import tenant_scope_from_skill_context
 from ...db.base import AsyncPGClient
 
 SUPPORTED_SCOPES = frozenset({"goods", "order", "full"})
@@ -40,6 +41,10 @@ async def _check_goods(sku: str | None = None, limit: int = 50) -> list[dict]:
     issues: list[dict] = []
     params: list = []
     where = "WHERE 1=1"
+    scope = tenant_scope_from_skill_context()
+    if scope.usable:
+        where += " AND tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
     if sku:
         where += " AND sku = %s"
         params.append(sku)
@@ -52,7 +57,7 @@ async def _check_goods(sku: str | None = None, limit: int = 50) -> list[dict]:
     LIMIT %s
     """
     params.append(limit)
-    rows = await AsyncPGClient.execute_read(sql, params)
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     for r in rows:
         g_sku, price, stock, title_zh, title_en, category = r
         problems = []
@@ -83,6 +88,10 @@ async def _check_orders(
     issues: list[dict] = []
     params: list = []
     where = "WHERE 1=1"
+    scope = tenant_scope_from_skill_context()
+    if scope.usable:
+        where += " AND o.tenant_id = %s AND o.store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
     if order_no:
         where += " AND o.order_no = %s"
         params.append(order_no)
@@ -94,12 +103,13 @@ async def _check_orders(
     SELECT o.order_no, o.sku, o.buy_num, o.total_amount, o.refund_flag, g.sku AS goods_sku, g.price
     FROM {TABLE_ORDER} o
     LEFT JOIN {TABLE_GOODS} g ON g.sku = o.sku
+      AND g.tenant_id = o.tenant_id AND g.store_id = o.store_id
     {where}
     ORDER BY o.id DESC
     LIMIT %s
     """
     params.append(limit)
-    rows = await AsyncPGClient.execute_read(sql, params)
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     for r in rows:
         ono, o_sku, buy_num, total_amount, refund_flag, goods_sku, goods_price = r
         problems = []

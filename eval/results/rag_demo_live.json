@@ -4,8 +4,8 @@
   "case_count": 4,
   "hit_rate_at_k": 1.0,
   "recall_at_k": 1.0,
-  "mrr_at_k": 0.875,
-  "ndcg_at_k": 0.9077324383928644,
+  "mrr_at_k": 0.8333333333333333,
+  "ndcg_at_k": 0.875,
   "citation_validity": 1.0,
   "grounded_answer_rate": 1.0,
   "retrieval_modes": [
@@ -20,7 +20,11 @@
       "ranked": [
         "01_return_refund_policy",
         "08_refund_handling_sop",
+        "24_loyalty_program",
+        "30_escalation_matrix",
+        "25_supplier_and_quality_sop",
         "15_august_operations_incident",
+        "26_market_localization_guide",
         "10_inventory_replenishment_policy"
       ],
       "success": true,
@@ -36,10 +40,11 @@
       ],
       "ranked": [
         "05_product_backpack_bag002",
-        "04_product_backpack_bag001",
         "06_product_care_guide",
+        "04_product_backpack_bag001",
         "18_customer_complaint_summary_august",
         "16_logistics_delay_august",
+        "21_size_and_fit_guide",
         "15_august_operations_incident",
         "17_product_quality_incident"
       ],
@@ -59,9 +64,10 @@
         "18_customer_complaint_summary_august",
         "16_logistics_delay_august",
         "17_product_quality_incident",
-        "03_warranty_policy",
+        "29_peak_season_operations",
+        "28_conversion_experiment_playbook",
         "19_store_operations_manual",
-        "05_product_backpack_bag002"
+        "30_escalation_matrix"
       ],
       "success": true,
       "answer_nonempty": true,
@@ -76,11 +82,13 @@
       ],
       "ranked": [
         "09_high_risk_order_sop",
-        "08_refund_handling_sop",
+        "24_loyalty_program",
         "10_inventory_replenishment_policy",
-        "17_product_quality_incident",
+        "26_market_localization_guide",
         "19_store_operations_manual",
-        "02_shipping_policy"
+        "30_escalation_matrix",
+        "02_shipping_policy",
+        "08_refund_handling_sop"
       ],
       "success": true,
       "answer_nonempty": true,

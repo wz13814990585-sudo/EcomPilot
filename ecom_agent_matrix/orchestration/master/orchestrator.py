@@ -642,7 +642,9 @@ async def execute_fast_path(
     partial = observation.get("status") == TaskStatus.PARTIAL.value
     success = bool(observation.get("success")) and not timed_out and not partial
     summary = _existing_summary(observation.get("data") or {})
-    if not summary:
+    if not summary and not success:
+        summary = str(observation.get("error_msg") or "任务未能完成。")
+    elif not summary:
         summary = await polish_final_output(
             success=success,
             data=observation.get("data") or {},
@@ -799,6 +801,14 @@ async def process_master_task(
             partial=final_result.get("partial_success", False),
         )
         final_result["status"] = completion.status.value
+        root_error = next(
+            (
+                str(item.get("error_msg") or "").strip()
+                for item in final_result.get("sub_results") or []
+                if isinstance(item, dict) and not item.get("success") and item.get("error_msg")
+            ),
+            "",
+        )
         await active_bus.send(
             build_reply(
                 msg,
@@ -806,7 +816,12 @@ async def process_master_task(
                 success=final_result["all_success"] and not final_result["timed_out"],
                 data=final_result,
                 error_msg=(
-                    "子任务超时或未成功"
+                    root_error
+                    or (
+                        "任务处理超时，请稍后重试。"
+                        if final_result["timed_out"]
+                        else "任务未能完成。"
+                    )
                     if final_result["timed_out"] or not final_result["all_success"]
                     else ""
                 ),

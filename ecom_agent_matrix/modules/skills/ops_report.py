@@ -16,6 +16,7 @@ from ...config.constants import (
 )
 from ...config.settings import settings
 from ...core.llm import current_provider_name, is_llm_configured, llm_chat
+from ...core.security import tenant_scope_from_skill_context
 from ...core.skill.base_skill import BaseSkill, SkillResult
 from ...core.skill.skill_registry import register_skill
 from ...db.base import AsyncPGClient
@@ -58,6 +59,12 @@ def _extract_json(text: str) -> dict:
 
 
 async def _sales_stats(days: int) -> dict:
+    scope = tenant_scope_from_skill_context()
+    params: list[Any] = [days]
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
     sql = f"""
     SELECT
       COUNT(*) AS order_cnt,
@@ -66,8 +73,10 @@ async def _sales_stats(days: int) -> dict:
       COALESCE(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END), 0) AS refund_orders
     FROM {TABLE_ORDER}
     WHERE create_time >= NOW() - make_interval(days => %s)
+      AND create_time <= NOW()
+      {scope_sql}
     """
-    rows = await AsyncPGClient.execute_read(sql, [days])
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     r = rows[0] if rows else (0, 0, 0, 0)
     order_cnt, units, gmv, refund_orders = r
     gmv_f = float(gmv or 0)
@@ -82,20 +91,35 @@ async def _sales_stats(days: int) -> dict:
 
 
 async def _top_skus(days: int, top_k: int = 5) -> list[dict]:
+    scope = tenant_scope_from_skill_context()
+    params: list[Any] = [days]
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND o.tenant_id = %s AND o.store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
+    params.append(top_k)
     sql = f"""
     SELECT o.sku, COALESCE(SUM(o.buy_num), 0) AS units, COALESCE(SUM(o.total_amount), 0) AS gmv
     FROM {TABLE_ORDER} o
     WHERE o.create_time >= NOW() - make_interval(days => %s)
+      AND o.create_time <= NOW()
       AND COALESCE(o.refund_flag, false) = false
+      {scope_sql}
     GROUP BY o.sku
     ORDER BY units DESC
     LIMIT %s
     """
-    rows = await AsyncPGClient.execute_read(sql, [days, top_k])
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     return [{"sku": r[0], "units": int(r[1] or 0), "gmv": round(float(r[2] or 0), 2)} for r in rows]
 
 
 async def _stock_stats() -> dict:
+    scope = tenant_scope_from_skill_context()
+    params: list[Any] = []
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = "WHERE tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
     sql = f"""
     SELECT
       COUNT(*) AS sku_cnt,
@@ -103,8 +127,9 @@ async def _stock_stats() -> dict:
       COALESCE(SUM(CASE WHEN stock_num <= 0 THEN 1 ELSE 0 END), 0) AS oos_cnt,
       COALESCE(SUM(CASE WHEN stock_num > 0 AND stock_num < 20 THEN 1 ELSE 0 END), 0) AS low_stock_cnt
     FROM {TABLE_GOODS}
+    {scope_sql}
     """
-    rows = await AsyncPGClient.execute_read(sql, [])
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     r = rows[0] if rows else (0, 0, 0, 0)
     return {
         "sku_count": int(r[0] or 0),
@@ -115,25 +140,41 @@ async def _stock_stats() -> dict:
 
 
 async def _risk_stats(days: int) -> dict:
+    scope = tenant_scope_from_skill_context()
+    params: list[Any] = [days]
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
     sql = f"""
     SELECT risk_type, COUNT(*) AS cnt
     FROM {TABLE_RISK_LOG}
     WHERE create_time >= NOW() - make_interval(days => %s)
+      AND create_time <= NOW()
+      {scope_sql}
     GROUP BY risk_type
     ORDER BY cnt DESC
     """
-    rows = await AsyncPGClient.execute_read(sql, [days])
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     by_type = {str(r[0]): int(r[1] or 0) for r in rows}
     return {"days": days, "total": sum(by_type.values()), "by_type": by_type}
 
 
 async def _competitor_stats(days: int) -> dict:
+    scope = tenant_scope_from_skill_context()
+    params: list[Any] = [days]
+    scope_sql = ""
+    if scope.usable:
+        scope_sql = " AND tenant_id = %s AND store_id = %s"
+        params.extend([scope.tenant_id, scope.store_id])
     sql = f"""
     SELECT COUNT(*) AS records, COUNT(DISTINCT target_sku) AS skus, COUNT(DISTINCT competitor_name) AS shops
     FROM {TABLE_COMPETITOR}
     WHERE crawl_time >= NOW() - make_interval(days => %s)
+      AND crawl_time <= NOW()
+      {scope_sql}
     """
-    rows = await AsyncPGClient.execute_read(sql, [days])
+    rows = await AsyncPGClient.execute_read(sql, params, scope=scope)
     r = rows[0] if rows else (0, 0, 0)
     return {
         "days": days,

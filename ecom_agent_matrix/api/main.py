@@ -10,7 +10,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 # 侧载注册 Agent / Skill
@@ -26,6 +27,8 @@ from .route_customer import router as customer_router
 from .route_task import router as task_router
 from .route_warn import router as warn_router
 from .route_approval import router as approval_router
+from .route_admin import router as admin_router
+from .errors import public_error
 from ..config.settings import settings
 from ..core.logging_config import setup_logger
 from ..core.errors import ErrorCode
@@ -58,6 +61,7 @@ _OPENAPI_TAGS = [
     {"name": "customer", "description": "店铺规则 / 售后问答（经 Master → RAG 或查询）"},
     {"name": "warn", "description": "竞品价格查询（经 Master 或直达 Query）"},
     {"name": "approvals", "description": "高风险写操作人工审批"},
+    {"name": "admin", "description": "管理员商品与知识库维护"},
 ]
 
 
@@ -136,9 +140,60 @@ app.include_router(task_router)
 app.include_router(customer_router)
 app.include_router(warn_router)
 app.include_router(approval_router)
+app.include_router(admin_router)
 
 _FRONTEND_DIR = Path(__file__).with_name("frontend")
 app.mount("/app/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="agent-console-static")
+
+
+def _error_code_for_status(status_code: int) -> ErrorCode:
+    if status_code == 401:
+        return ErrorCode.AUTHENTICATION_REQUIRED
+    if status_code == 403:
+        return ErrorCode.PERMISSION_DENIED
+    if status_code == 429:
+        return ErrorCode.RATE_LIMITED
+    if status_code == 504:
+        return ErrorCode.AGENT_TIMEOUT
+    if status_code in {502, 503}:
+        return ErrorCode.AGENT_UNAVAILABLE
+    if status_code in {400, 404, 409, 422}:
+        return ErrorCode.INVALID_REQUEST
+    return ErrorCode.INTERNAL_ERROR
+
+
+@app.exception_handler(HTTPException)
+async def human_http_error(_request: Request, exc: HTTPException):
+    detail = exc.detail
+    if isinstance(detail, dict) and detail.get("error_code"):
+        payload = {**detail, "success": False}
+    else:
+        payload = public_error(
+            _error_code_for_status(exc.status_code),
+            message=str(detail) if exc.status_code in {400, 404, 409, 422} else "",
+            task_id=get_trace_context().task_id,
+        )
+    headers = dict(exc.headers or {})
+    if payload.get("task_id"):
+        headers.setdefault("X-Task-Id", str(payload["task_id"]))
+    return JSONResponse(status_code=exc.status_code, content=payload, headers=headers)
+
+
+@app.exception_handler(RequestValidationError)
+async def human_validation_error(_request: Request, exc: RequestValidationError):
+    fields = [
+        {
+            "field": ".".join(str(part) for part in item.get("loc", [])[1:]),
+            "message": item.get("msg", "输入不正确"),
+        }
+        for item in exc.errors()[:10]
+    ]
+    payload = public_error(
+        ErrorCode.VALIDATION_ERROR,
+        task_id=get_trace_context().task_id,
+        context={"fields": fields},
+    )
+    return JSONResponse(status_code=422, content=payload)
 
 
 @app.get("/", include_in_schema=False)

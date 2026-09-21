@@ -49,7 +49,15 @@ async def run_ad_workflow(task: dict | TaskContext) -> WorkflowResult:
     ctx = ensure_task_context(task)
     requested_pause = any(word in ctx.query.lower() for word in ("暂停", "停止", "pause"))
     fixture_campaign: dict = {}
-    if requested_pause and not ctx.campaign_id:
+    supplied_signal = bool(
+        ctx.campaign_id
+        or ctx.sku
+        or any(
+            ctx.params.get(key) not in (None, "", 0, 0.0)
+            for key in ("spend", "clicks", "conversions", "revenue")
+        )
+    )
+    if not supplied_signal:
         lookup = await exec_skill(
             "business_api_read", {"operation": "list_campaigns", "resource_id": "all"}
         )
@@ -231,6 +239,18 @@ async def run_ad_workflow(task: dict | TaskContext) -> WorkflowResult:
             memory_errors.append(f"save:{type(exc).__name__}")
 
     partial = bool(errors or memory_errors)
+    plan = (ad_result.data or {}).get("plan") or {}
+    campaign_name = fixture_campaign.get("name") or request.campaign_id or request.sku or "当前广告"
+    action_labels = {
+        "pause": "暂停投放",
+        "decrease": "降低预算或出价",
+        "scale_down": "降低预算和出价",
+        "increase": "适度增加预算",
+        "scale_up": "适度增加预算",
+        "hold": "保持当前设置并继续观察",
+    }
+    action_label = action_labels.get(str(plan.get("action") or ""), "复核当前设置")
+    summary = f"已分析 {campaign_name}：建议{action_label}。"
     return WorkflowResult(
         success=True,
         partial_success=partial,
@@ -251,6 +271,7 @@ async def run_ad_workflow(task: dict | TaskContext) -> WorkflowResult:
             "campaign": fixture_campaign,
             "write": write_data,
             "approval_required": False,
+            "summary": summary,
         },
         metadata=_metadata(
             started,
