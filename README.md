@@ -4,7 +4,7 @@
 
 ## 安全、可解释、可本地运行的 RAG 与 Text-to-SQL 智能运营平台
 
-[![CI](https://github.com/wz13814990585-sudo/ecom-ops-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wz13814990585-sudo/ecom-ops-agent/actions/workflows/ci.yml)
+[![CI](https://github.com/wz13814990585-sudo/EcomPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/wz13814990585-sudo/EcomPilot/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)
