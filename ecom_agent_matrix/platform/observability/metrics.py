@@ -67,6 +67,9 @@ class Metrics:
         self.schema_link_candidates = Counter(
             "schema_link_candidates_total", "Schema candidates considered", registry=r
         )
+        self.schema_link_modes = Counter(
+            "schema_link_mode_total", "Schema-link retrieval modes", ["mode"], registry=r
+        )
         self.sql_validations = Counter(
             "sql_validation_total", "SQL validations", ["status", "reason"], registry=r
         )
@@ -87,6 +90,15 @@ class Metrics:
         )
         self.sql_safety_rejections = Counter(
             "sql_safety_rejections_total", "Rejected generated SQL", ["reason"], registry=r
+        )
+        self.analytical_plans = Counter(
+            "analytical_plan_steps_total", "Analytical subquery outcomes", ["status"], registry=r
+        )
+        self.evidence_records = Counter(
+            "evidence_records_total", "Evidence records synthesized", ["source"], registry=r
+        )
+        self.grounding_failures = Counter(
+            "grounding_failures_total", "Grounding failures", ["reason"], registry=r
         )
 
     def observe_http(self, method: str, route: str, status: int, seconds: float) -> None:
@@ -126,9 +138,25 @@ class Metrics:
         if cost is not None:
             self.llm_cost.labels(provider).inc(max(0.0, cost))
 
-    def observe_schema_link(self, candidates: int, seconds: float) -> None:
+    def observe_schema_link(
+        self, candidates: int, seconds: float, mode: str = "lexical_only"
+    ) -> None:
         self.schema_link_candidates.inc(max(0, candidates))
         self.schema_link_duration.observe(max(0.0, seconds))
+        bounded_mode = mode if mode in {"hybrid", "lexical_only"} else "unknown"
+        self.schema_link_modes.labels(bounded_mode).inc()
+
+    def observe_analytical_plan(self, planned: int, succeeded: int) -> None:
+        self.analytical_plans.labels("success").inc(max(0, succeeded))
+        self.analytical_plans.labels("failure").inc(max(0, planned - succeeded))
+
+    def observe_evidence(self, source: str, count: int = 1) -> None:
+        bounded_source = source if source in {"sql", "document", "api", "computed"} else "unknown"
+        self.evidence_records.labels(bounded_source).inc(max(0, count))
+
+    def observe_grounding_failure(self, reason: str) -> None:
+        bounded = str(reason or "unknown")[:64]
+        self.grounding_failures.labels(bounded).inc()
 
     def observe_sql_validation(self, success: bool, reason: str) -> None:
         bounded_reason = str(reason or "unknown")[:64]

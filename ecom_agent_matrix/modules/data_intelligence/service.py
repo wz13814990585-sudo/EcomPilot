@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from ...config.settings import settings
@@ -9,12 +10,17 @@ from ...core.errors import ErrorCode
 from ...core.security import SecurityContext, tenant_scope_from_security
 from ...platform.observability.metrics import metrics
 from ..evidence import SQLEvidence
+from .analytical_planner import AnalyticalQueryPlanner
 from .catalog import SchemaCatalogProvider, filter_catalog_for_security, schema_catalog_provider
 from .schema_linker import HybridSchemaLinker
+from .semantic_schema import default_schema_semantic_scorer
 from .schemas import (
+    AnalyticalAnalysisResult,
     DataAnalysisRequest,
     DataAnalysisResult,
     GeneratedSQL,
+    AnalyticalStepResult,
+    AnalyticalStepType,
     SQLGenerationRequest,
     SchemaCatalog,
 )
@@ -34,9 +40,10 @@ class DataIntelligenceService:
         validator: SQLSafetyValidator | None = None,
         executor: SafeSQLExecutor | None = None,
         repairer: SQLRepairer | None = None,
+        analytical_planner: AnalyticalQueryPlanner | None = None,
     ) -> None:
         self.catalog_provider = catalog_provider or schema_catalog_provider
-        self.linker = linker or HybridSchemaLinker()
+        self.linker = linker or HybridSchemaLinker(default_schema_semantic_scorer())
         self.generator = generator or SQLGenerator()
         self.validator = validator or SQLSafetyValidator(
             SQLGuardConfig(
@@ -47,8 +54,100 @@ class DataIntelligenceService:
         )
         self.executor = executor or SafeSQLExecutor()
         self.repairer = repairer or SQLRepairer()
+        self.analytical_planner = analytical_planner or AnalyticalQueryPlanner()
 
     async def analyze(
+        self,
+        request: DataAnalysisRequest,
+        *,
+        security: SecurityContext,
+    ) -> DataAnalysisResult:
+        if security.authenticated and request.sql is None:
+            allowed_catalog = filter_catalog_for_security(self.catalog_provider.get(), security)
+            plan = self.analytical_planner.plan_if_supported(request.question, allowed_catalog)
+            if plan is not None:
+                return await self._analyze_plan(request, security=security, plan=plan)
+        return await self._analyze_single(request, security=security)
+
+    async def _analyze_plan(
+        self,
+        request: DataAnalysisRequest,
+        *,
+        security: SecurityContext,
+        plan,
+    ) -> DataAnalysisResult:
+        semaphore = asyncio.Semaphore(max(1, int(settings.ANALYSIS_MAX_CONCURRENT)))
+
+        async def run_step(step):
+            async with semaphore:
+                child = request.model_copy(update={"question": step.question, "sql": None})
+                return step, await self._analyze_single(child, security=security)
+
+        pairs = await asyncio.gather(*(run_step(step) for step in plan.steps))
+        step_results: list[AnalyticalStepResult] = []
+        evidence_records: list[dict] = []
+        metric_trend: list[dict] = []
+        contributions: dict[str, list[dict]] = {}
+        warnings = list(plan.warnings)
+        first_success: DataAnalysisResult | None = None
+        for step, result in pairs:
+            if result.success and result.execution is not None:
+                first_success = first_success or result
+                rows = result.execution.rows[:50]
+                evidence_records.extend(result.evidence_records)
+                if step.step_type == AnalyticalStepType.METRIC_TREND:
+                    metric_trend = rows
+                else:
+                    contributions[step.step_type.value] = rows
+                step_results.append(
+                    AnalyticalStepResult(
+                        step_id=step.id,
+                        step_type=step.step_type,
+                        success=True,
+                        rows=rows,
+                        evidence_id=str((result.evidence or {}).get("id") or ""),
+                        lineage=result.execution.lineage,
+                        warnings=result.execution.warnings,
+                    )
+                )
+            else:
+                warnings.append(f"{step.id}:{result.error_code or 'FAILED'}")
+                step_results.append(
+                    AnalyticalStepResult(
+                        step_id=step.id,
+                        step_type=step.step_type,
+                        success=False,
+                        error_code=result.error_code,
+                        warnings=[result.error_msg] if result.error_msg else [],
+                    )
+                )
+        metrics.observe_analytical_plan(len(plan.steps), sum(item.success for item in step_results))
+        analytical = AnalyticalAnalysisResult(
+            plan=plan,
+            steps=step_results,
+            metric_trend=metric_trend,
+            segment_contributions=contributions,
+            anomalies=[],
+            evidence_ids=[record["id"] for record in evidence_records if record.get("id")],
+            warnings=warnings,
+        )
+        all_success = bool(step_results) and all(item.success for item in step_results)
+        return DataAnalysisResult(
+            success=all_success,
+            question=request.question,
+            catalog_source=self.catalog_provider.get().source,
+            schema_link=first_success.schema_link if first_success else None,
+            generated_sql=first_success.generated_sql if first_success else None,
+            validated_sql=first_success.validated_sql if first_success else None,
+            execution=first_success.execution if first_success else None,
+            evidence=evidence_records[0] if evidence_records else None,
+            evidence_records=evidence_records,
+            analytical=analytical,
+            error_code="" if all_success else ErrorCode.SQL_EXECUTION_ERROR.value,
+            error_msg="" if all_success else "One or more analytical subqueries failed",
+        )
+
+    async def _analyze_single(
         self,
         request: DataAnalysisRequest,
         *,
@@ -77,7 +176,9 @@ class DataIntelligenceService:
                 task_type=request.task_type,
                 top_k=settings.SQL_SCHEMA_LINK_TOP_K,
             )
-            metrics.observe_schema_link(link.candidate_count, link.latency_ms / 1000)
+            metrics.observe_schema_link(
+                link.candidate_count, link.latency_ms / 1000, link.retrieval_mode
+            )
             linked_names = set(link.table_names)
             generation_catalog = SchemaCatalog(
                 tables=tuple(
@@ -144,11 +245,13 @@ class DataIntelligenceService:
             return DataAnalysisResult(
                 success=True,
                 question=request.question,
+                catalog_source=allowed_catalog.source,
                 schema_link=link,
                 generated_sql=final_generated,
                 validated_sql=final_validated,
                 execution=result,
                 evidence=evidence,
+                evidence_records=[evidence],
                 repair_attempts=repairs,
             )
         except SQLValidationError as exc:

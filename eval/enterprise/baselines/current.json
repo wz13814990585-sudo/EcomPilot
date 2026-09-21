@@ -1,0 +1,19 @@
+{
+  "version": "enterprise-regression-v1",
+  "policy": {
+    "routing_accuracy": {"minimum": 1.0},
+    "table_recall": {"minimum": 0.95},
+    "table_precision": {"minimum": 0.9},
+    "column_recall": {"minimum": 0.95},
+    "column_precision": {"minimum": 0.45},
+    "sql_parse_valid": {"minimum": 1.0},
+    "sql_safety_pass": {"minimum": 1.0},
+    "unsafe_sql_blocked": {"minimum": 1.0},
+    "unsafe_sql_execution_rate": {"maximum": 0.0}
+  },
+  "notes": [
+    "Safety and unsafe execution are fail-closed gates.",
+    "Schema recall may not materially regress below 0.95.",
+    "Precision thresholds are below the measured post-optimization result but above the historical baseline."
+  ]
+}

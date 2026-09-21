@@ -1,0 +1,8 @@
+[
+  {"id":"plan_001","question":"为什么 8 月退款率上涨？","required_steps":["metric_trend","category_breakdown"],"forbidden_steps":["region_breakdown"]},
+  {"id":"plan_002","question":"哪些 SKU 导致退款增长？","required_steps":["metric_trend","sku_breakdown"],"forbidden_steps":["region_breakdown"]},
+  {"id":"plan_003","question":"哪个品类导致退款率 increase？","required_steps":["metric_trend","category_breakdown"],"forbidden_steps":["region_breakdown"]},
+  {"id":"plan_004","question":"Why did refund rate increase?","required_steps":["metric_trend","sku_breakdown"],"forbidden_steps":["region_breakdown"]},
+  {"id":"plan_005","question":"为什么销售额下降？","required_steps":["metric_trend","category_breakdown","sku_breakdown"],"forbidden_steps":["region_breakdown"]},
+  {"id":"plan_006","question":"Explain the revenue decline","required_steps":["metric_trend","category_breakdown"],"forbidden_steps":["region_breakdown"]}
+]

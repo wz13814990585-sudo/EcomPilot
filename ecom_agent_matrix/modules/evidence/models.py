@@ -18,6 +18,7 @@ class EvidenceType(StrEnum):
 
 class ClaimType(StrEnum):
     FACT = "fact"
+    CO_OCCURRENCE = "co_occurrence"
     CORRELATION = "correlation"
     HYPOTHESIS = "hypothesis"
     RECOMMENDATION = "recommendation"

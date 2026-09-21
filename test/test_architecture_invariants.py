@@ -53,10 +53,12 @@ def test_core_memory_does_not_depend_on_modules_rag():
 
 
 def test_generated_sql_validation_precedes_execution_in_active_service():
-    source = inspect.getsource(DataIntelligenceService.analyze)
+    source = inspect.getsource(DataIntelligenceService._analyze_single)
     assert source.index("self.validator.validate") < source.index("self._execute_with_repair")
     repair_source = inspect.getsource(DataIntelligenceService._execute_with_repair)
     assert "self.validator.validate" in repair_source
+    plan_source = inspect.getsource(DataIntelligenceService._analyze_plan)
+    assert "self._analyze_single" in plan_source
 
 
 def test_data_analysis_has_no_new_runtime_agent():

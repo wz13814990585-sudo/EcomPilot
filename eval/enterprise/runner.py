@@ -5,6 +5,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ecom_agent_matrix.core.security import SecurityContext, TenantScope
@@ -25,6 +28,8 @@ from .metrics import mean, precision_recall
 from .report import write_report
 
 CASES = Path(__file__).parent / "cases"
+ROOT = Path(__file__).resolve().parents[2]
+BASELINE = Path(__file__).parent / "baselines" / "current.json"
 CATEGORIES = ("simple_sql", "complex_sql", "rag", "sql_rag", "api", "permission", "safety")
 
 
@@ -57,20 +62,39 @@ async def _evaluate_case(category: str, item: dict) -> tuple[dict, dict[str, flo
             if "expected_reason" in item:
                 passed = passed and decision.reason_code == item["expected_reason"]
             detail = f"{decision.mode}:{decision.task_type or decision.reason_code}"
+            metrics = {
+                "routing_accuracy": float(passed),
+                "fast_path_rate": float(decision.mode == "fast_path"),
+                "planner_rate": float(decision.mode == "planner"),
+                "unnecessary_planner_rate": float(
+                    decision.mode == "planner" and item.get("expected_mode") != "planner"
+                ),
+            }
         elif mode in {"schema", "sql"}:
             catalog = _catalog_for(item)
             linked = await HybridSchemaLinker().link(item["question"], catalog, top_k=6)
             actual_tables = set(linked.table_names)
             expected_tables = set(item["expected_tables"])
-            table_precision, table_recall = precision_recall(actual_tables, expected_tables)
+            optional_tables = set(item.get("optional_tables") or [])
+            table_precision, _ = precision_recall(
+                actual_tables, expected_tables.union(optional_tables)
+            )
+            _, table_recall = precision_recall(actual_tables, expected_tables)
             actual_columns = {column.name for table in linked.tables for column in table.columns}
-            expected_columns = set(item.get("expected_columns") or [])
-            column_precision, column_recall = precision_recall(actual_columns, expected_columns)
+            expected_columns = set(
+                item.get("required_columns") or item.get("expected_columns") or []
+            )
+            optional_columns = set(item.get("optional_columns") or [])
+            column_precision, _ = precision_recall(
+                actual_columns, expected_columns.union(optional_columns)
+            )
+            _, column_recall = precision_recall(actual_columns, expected_columns)
             metrics = {
                 "table_precision": table_precision,
                 "table_recall": table_recall,
                 "column_precision": column_precision,
                 "column_recall": column_recall,
+                "schema_link_latency_ms": linked.latency_ms,
             }
             passed = expected_tables.issubset(actual_tables) and expected_columns.issubset(
                 actual_columns
@@ -157,6 +181,14 @@ async def run(selected: tuple[str, ...] = CATEGORIES) -> dict:
     passed = sum(case["status"] == "PASS" for case in results)
     failed = len(results) - passed
     metrics = {name: mean(values) for name, values in sorted(metric_values.items())}
+    for prefix in ("table", "column"):
+        precision = metrics.get(f"{prefix}_precision")
+        recall = metrics.get(f"{prefix}_recall")
+        metrics[f"{prefix}_f1"] = (
+            round(2 * precision * recall / (precision + recall), 6)
+            if precision is not None and recall is not None and precision + recall
+            else None
+        )
     metrics.update(
         {
             "task_success_rate": round(passed / len(results), 6) if results else None,
@@ -167,10 +199,40 @@ async def run(selected: tuple[str, ...] = CATEGORIES) -> dict:
             "live_sql_status": "NOT_RUN",
             "rag_generation_status": "NOT_RUN",
             "external_api_status": "NOT_RUN",
+            "unsafe_sql_execution_rate": 0.0 if metrics.get("unsafe_sql_blocked") == 1.0 else None,
+            "llm_calls": 0,
+            "token_cost_usd": 0.0,
         }
     )
+    policy = json.loads(BASELINE.read_text())["policy"] if BASELINE.exists() else {}
+    regressions = []
+    for name, rule in policy.items():
+        value = metrics.get(name)
+        if value is None:
+            continue
+        if "minimum" in rule and value < rule["minimum"]:
+            regressions.append(f"{name}={value} below {rule['minimum']}")
+        if "maximum" in rule and value > rule["maximum"]:
+            regressions.append(f"{name}={value} above {rule['maximum']}")
+    try:
+        git_sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        git_sha = "unknown"
     return {
-        "status": "PASS" if not failed else "FAIL",
+        "metadata": {
+            "git_sha": git_sha,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "environment": os.getenv("APP_ENV", "development"),
+            "deterministic": True,
+        },
+        "status": "PASS" if not failed and not regressions else "FAIL",
+        "regression": {"status": "PASS" if not regressions else "FAIL", "issues": regressions},
         "totals": {"cases": len(results), "pass": passed, "fail": failed},
         "metrics": metrics,
         "cases": results,

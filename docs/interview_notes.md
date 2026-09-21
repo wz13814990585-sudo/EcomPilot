@@ -60,34 +60,65 @@ First define measured SLOs, load characteristics, durability needs, and failure 
 
 String prefixes cannot safely understand CTEs, nested writes, multiple statements, row locks, `SELECT INTO`, table aliases, functions or LIMIT semantics. SQLGlot produces an AST that the validator can inspect and rewrite deterministically. The project rejects DDL/DML, unsafe functions, forbidden tables/columns and expensive shapes before the database sees the statement.
 
-## 16. Why schema linking, and why not send the full schema to the model?
+## 16. Why is SQL inside Query rather than a separate SQL Agent?
 
-Full-schema prompts increase tokens, ambiguity and accidental exposure of forbidden metadata. The catalog is filtered by authenticated role/scope before linking. Lexical/BM25 signals, exact business aliases, optional semantic scores, column metadata and FK expansion produce a small, inspectable schema context with scores and reason codes.
+Text-to-SQL is a read-only structured-data capability, so it belongs to Query's existing security boundary. A separate SQL Agent would add routing and protocol surface without creating a new trust boundary. Query owns permission-filtered schema linking, generation, validation, execution and lineage; Exec remains the only protected-write boundary.
 
-## 17. How is analytical SQL kept safe?
+## 17. Why schema linking, and why not send the full schema to the model?
+
+Full-schema prompts increase tokens, ambiguity and accidental exposure of forbidden metadata. The catalog is filtered by authenticated role/scope before linking. Exact aliases and lexical/BM25 signals always work; when the existing embedding provider is locally available, cached semantic vectors add true hybrid retrieval. Adaptive thresholds, column ranking and intent-controlled FK expansion produce a small, inspectable context. The result explicitly says `hybrid` or `lexical_only`.
+
+## 18. Why does permission filtering happen before Schema Linking?
+
+Linking over forbidden metadata could leak table names, column names or business concepts even if final execution were later rejected. Filtering first ensures ranking, semantic embeddings and the LLM generation context only see authorized schema. AST validation and PostgreSQL RLS remain later independent controls.
+
+## 19. How is analytical SQL kept safe?
 
 The chain is defense in depth: trusted SecurityContext, table/column filtering, bounded generation context, SQLGlot AST parsing, allowlists, sensitive-column policy, JOIN/column/row guards, read-only transaction, statement timeout, a separate read role, and PostgreSQL tenant/store RLS. The LLM makes none of these authorization decisions.
 
-## 18. How does SQL evidence become a claim?
+`SELECT` alone is not sufficient: PostgreSQL SELECT expressions can invoke executable functions. Generated SQL therefore uses a fail-closed function allowlist for known-safe aggregates, date, numeric and text functions. Unknown and administrative functions are rejected even when the root statement is SELECT. `CAST`, `CASE`, comparisons and arithmetic are recognized as SQL constructs.
+
+## 20. How does bounded SQL repair work?
+
+Only safe technical failures such as an undefined identifier may trigger one repair. The repaired SQL repeats schema permission checks, function policy, SQLGlot validation and cost guards before execution. Permission, RLS, timeout, read-only and cost failures are never repaired because changing SQL cannot legitimately grant authority and retrying may amplify risk.
+
+## 21. What is an AnalyticalQueryPlan?
+
+It is a typed, bounded plan inside `DataIntelligenceService`, not another Agent or planner. Known diagnostic intents use deterministic templates. For “why did refund rate rise?”, the plan includes a metric trend and only schema-supported segmentations such as category and SKU; it does not invent region. At most four independent read queries run with concurrency three, and every subquery traverses the complete safety and lineage path.
+
+A why-question needs more than one SQL because a trend proves that a metric changed but does not localize contribution. Category and SKU breakdowns identify where the change is concentrated. They still do not prove business causation.
+
+## 22. How does SQL evidence become a claim?
 
 Every successful result creates SQL evidence with query ID, normalized rows, generated SQL, referenced tables/columns, tenant/store scope, row count, truncation and latency. Master adds it to an in-request EvidenceStore. Claims reference evidence IDs, and deterministic grounding verifies that referenced evidence exists in the same tenant scope before output.
 
-## 19. Why combine SQL and RAG?
+## 23. Why combine SQL and RAG?
 
 SQL answers what changed and where it is concentrated. RAG supplies policies, incident reports, SOPs and operational context. A composite DAG retrieves both in parallel, then a Master-owned synthesis service combines bounded evidence. This is more useful than asking either a database or document retriever to explain the whole business question alone.
 
-## 20. How are unsupported claims detected?
+## 24. How are unsupported claims detected?
 
-The grounding layer verifies evidence IDs, citation IDs, tenant ownership and evidence requirements by claim type. Facts require evidence; correlations require quantitative or temporal evidence; numeric metric claims require SQL, API or computed evidence; fake citations and contradictory evidence produce explicit issue codes.
+The grounding layer verifies evidence IDs, citation IDs, tenant ownership and evidence requirements by claim type. Facts require direct evidence. Co-occurrence requires both structured and document sources. Correlation requires computed or explicitly association-supporting evidence. Numeric facts require SQL, API or computed evidence. Fake citations and contradictions produce explicit issue codes.
 
-## 21. Why is correlation not causation?
+## 25. What is the difference between FACT, CO_OCCURRENCE, CORRELATION and HYPOTHESIS?
+
+- `FACT` is directly supported by cited evidence.
+- `CO_OCCURRENCE` means observations share a relevant time or business context, without a measured association.
+- `CORRELATION` requires quantitative or repeated evidence supporting an association.
+- `HYPOTHESIS` is an uncertain possible explanation that still needs validation.
+
+SQL plus a contemporaneous RAG document is therefore co-occurrence, not automatically correlation and never automatic causation.
+
+## 26. Why is correlation not causation?
 
 Metric movement and a contemporaneous policy or logistics event establish a useful hypothesis, not proof that one caused the other. The synthesis contract labels facts, correlations and hypotheses separately, states uncertainty, and recommends follow-up segmentation or experiments rather than asserting deterministic causality.
 
-## 22. How is Text-to-SQL evaluated?
+## 27. How is Text-to-SQL evaluated?
 
-The repository includes 50 enterprise cases across simple/complex SQL, RAG, SQL+RAG, API, permissions and safety. It reports table/column precision and recall, parse validity, safety pass and unsafe-block rates. Live execution success/accuracy and repair rates remain `NOT_RUN` unless a seeded PostgreSQL environment is actually exercised.
+The deterministic suite covers routing, schema table/column precision, recall and F1, SQL parse/safety, analytical-plan validity, evidence grounding, security and 35 adversarial SQL cases. A separate seeded PostgreSQL suite contains 32 normalized gold-result cases over July, August and September orders, products, refunds and competitor prices. It compares result values rather than SQL strings and reports execution success, accuracy, attempts and latency.
 
-## 23. What changes at production scale?
+Deterministic and integration evaluation are separate because the main CI gate must not need a database, external APIs or large model downloads. The integration job starts PostgreSQL/pgvector and runs the seed. If PostgreSQL or a populated RAG index is absent, the status is `NOT_RUN`, never an inferred pass.
+
+## 28. What changes at production scale?
 
 Replace the demo Business API adapter with authenticated provider adapters, load the catalog from governed metadata at startup, add explicit catalog refresh/versioning, and enable safe `EXPLAIN (FORMAT JSON)` cost estimates where supported. Durable transport or process separation should only follow measured throughput, availability or replay requirements; the four Agent boundaries stay stable.

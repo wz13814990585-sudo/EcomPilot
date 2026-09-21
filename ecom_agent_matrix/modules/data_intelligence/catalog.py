@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from ...core.security import SecurityContext
 from ...core.security.policy import effective_scopes
+from ...db.base import AsyncPGClient
 from .schemas import (
     ColumnAccess,
     SchemaCatalog,
@@ -80,7 +84,7 @@ def default_catalog() -> SchemaCatalog:
                     _column("sku", "varchar", "product SKU", "商品编码"),
                     _column("category", "varchar", "product category", "品类"),
                     _column("price", "decimal", "unit selling price", "价格", "value"),
-                    _column("stock_num", "integer", "available inventory", "库存"),
+                    _column("stock_num", "integer", "available inventory", "库存", "inventory"),
                     _column("title_zh", "text", "Chinese product title", "商品名"),
                     _column("title_en", "text", "English product title"),
                     _column("store_name", "varchar", "store display name", "店铺"),
@@ -197,7 +201,159 @@ def filter_catalog_for_security(catalog: SchemaCatalog, security: SecurityContex
         for relation in catalog.relations
         if relation.from_table in table_names and relation.to_table in table_names
     )
-    return SchemaCatalog(tables=tuple(tables), relations=relations, version=catalog.version)
+    return SchemaCatalog(
+        tables=tuple(tables),
+        relations=relations,
+        version=catalog.version,
+        source=catalog.source,
+    )
+
+
+def _value(row: Any, index: int, name: str) -> Any:
+    return row.get(name) if isinstance(row, dict) else row[index]
+
+
+class PostgresSchemaCatalogLoader:
+    """Discover technical metadata once and merge it with the static business glossary."""
+
+    def __init__(
+        self,
+        execute: Callable[[str, list | None], Awaitable[list[Any]]] | None = None,
+        *,
+        glossary: SchemaCatalog | None = None,
+        schemas: tuple[str, ...] = ("public",),
+    ) -> None:
+        self.execute = execute or AsyncPGClient.execute_metadata
+        self.glossary = glossary or default_catalog()
+        self.schemas = schemas
+
+    async def load(self) -> SchemaCatalog:
+        placeholders = ", ".join(["%s"] * len(self.schemas))
+        params = list(self.schemas)
+        table_rows = await self.execute(
+            "SELECT t.table_schema, t.table_name, obj_description(c.oid) AS comment "
+            "FROM information_schema.tables t "
+            "LEFT JOIN pg_catalog.pg_class c ON c.relname=t.table_name "
+            f"WHERE t.table_type='BASE TABLE' AND t.table_schema IN ({placeholders}) "
+            "ORDER BY t.table_schema, t.table_name",
+            params,
+        )
+        column_rows = await self.execute(
+            "SELECT c.table_schema, c.table_name, c.column_name, c.data_type, "
+            "c.ordinal_position, pgd.description "
+            "FROM information_schema.columns c "
+            "LEFT JOIN pg_catalog.pg_class pc ON pc.relname=c.table_name "
+            "LEFT JOIN pg_catalog.pg_attribute pa ON pa.attrelid=pc.oid "
+            "AND pa.attname=c.column_name "
+            "LEFT JOIN pg_catalog.pg_description pgd ON pgd.objoid=pc.oid "
+            "AND pgd.objsubid=pa.attnum "
+            f"WHERE c.table_schema IN ({placeholders}) "
+            "ORDER BY c.table_schema, c.table_name, c.ordinal_position",
+            params,
+        )
+        relation_rows = await self.execute(
+            "SELECT tc.table_name, kcu.column_name, "
+            "ccu.table_name AS foreign_table_name, "
+            "ccu.column_name AS foreign_column_name "
+            "FROM information_schema.table_constraints tc "
+            "JOIN information_schema.key_column_usage kcu "
+            "ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema "
+            "JOIN information_schema.constraint_column_usage ccu "
+            "ON ccu.constraint_name=tc.constraint_name AND ccu.table_schema=tc.table_schema "
+            "WHERE tc.constraint_type='FOREIGN KEY' "
+            f"AND tc.table_schema IN ({placeholders}) ORDER BY tc.constraint_name",
+            params,
+        )
+        primary_rows = await self.execute(
+            "SELECT tc.table_name, kcu.column_name "
+            "FROM information_schema.table_constraints tc "
+            "JOIN information_schema.key_column_usage kcu "
+            "ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema "
+            "WHERE tc.constraint_type='PRIMARY KEY' "
+            f"AND tc.table_schema IN ({placeholders})",
+            params,
+        )
+        if not table_rows:
+            raise RuntimeError("postgres schema catalog is empty")
+
+        primary_keys = {
+            (str(_value(row, 0, "table_name")), str(_value(row, 1, "column_name")))
+            for row in primary_rows
+        }
+        columns_by_table: dict[str, list[SchemaColumn]] = {}
+        for row in column_rows:
+            table_name = str(_value(row, 1, "table_name"))
+            column_name = str(_value(row, 2, "column_name"))
+            glossary_table = self.glossary.table(table_name)
+            glossary_column = glossary_table.column(column_name) if glossary_table else None
+            technical = SchemaColumn(
+                name=column_name,
+                data_type=str(_value(row, 3, "data_type")),
+                description=str(_value(row, 5, "description") or ""),
+                primary_key=(table_name, column_name) in primary_keys,
+            )
+            if glossary_column:
+                technical = glossary_column.model_copy(
+                    update={
+                        "data_type": technical.data_type,
+                        "description": technical.description or glossary_column.description,
+                        "primary_key": technical.primary_key or glossary_column.primary_key,
+                    }
+                )
+            columns_by_table.setdefault(table_name, []).append(technical)
+
+        tables: list[SchemaTable] = []
+        for row in table_rows:
+            table_name = str(_value(row, 1, "table_name"))
+            columns = tuple(columns_by_table.get(table_name, ()))
+            if not columns:
+                continue
+            glossary_table = self.glossary.table(table_name)
+            description = str(_value(row, 2, "comment") or "")
+            if glossary_table:
+                tables.append(
+                    glossary_table.model_copy(
+                        update={
+                            "description": description or glossary_table.description,
+                            "columns": columns,
+                        }
+                    )
+                )
+            else:
+                tables.append(
+                    SchemaTable(
+                        name=table_name,
+                        description=description,
+                        columns=columns,
+                        allowed_roles=frozenset({"admin"}),
+                    )
+                )
+        relations = tuple(
+            SchemaRelation(
+                from_table=str(_value(row, 0, "table_name")),
+                from_column=str(_value(row, 1, "column_name")),
+                to_table=str(_value(row, 2, "foreign_table_name")),
+                to_column=str(_value(row, 3, "foreign_column_name")),
+            )
+            for row in relation_rows
+        )
+        fingerprint = json.dumps(
+            {
+                "tables": [table.model_dump(mode="json") for table in tables],
+                "relations": [relation.model_dump(mode="json") for relation in relations],
+            },
+            sort_keys=True,
+        )
+        version = "postgres-" + hashlib.sha256(fingerprint.encode()).hexdigest()[:16]
+        return SchemaCatalog(
+            tables=tuple(tables), relations=relations, version=version, source="postgres"
+        )
+
+    async def load_or_fallback(self) -> SchemaCatalog:
+        try:
+            return await self.load()
+        except Exception:
+            return self.glossary.model_copy(update={"source": "static_fallback"})
 
 
 class SchemaCatalogProvider:
@@ -216,12 +372,19 @@ class SchemaCatalogProvider:
             self._catalog = loaded
             return loaded
 
+    async def refresh_from_postgres(
+        self, loader: PostgresSchemaCatalogLoader | None = None
+    ) -> SchemaCatalog:
+        active_loader = loader or PostgresSchemaCatalogLoader()
+        return await self.refresh(active_loader.load_or_fallback)
+
 
 schema_catalog_provider = SchemaCatalogProvider()
 
 
 __all__ = [
     "SchemaCatalogProvider",
+    "PostgresSchemaCatalogLoader",
     "default_catalog",
     "filter_catalog_for_security",
     "schema_catalog_provider",

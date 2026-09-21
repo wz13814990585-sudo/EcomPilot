@@ -1,8 +1,20 @@
 """Enterprise data-intelligence facade."""
 
-from .catalog import SchemaCatalogProvider, default_catalog, filter_catalog_for_security
+from .analytical_planner import AnalyticalQueryPlanner
+from .catalog import (
+    PostgresSchemaCatalogLoader,
+    SchemaCatalogProvider,
+    default_catalog,
+    filter_catalog_for_security,
+)
 from .schema_linker import HybridSchemaLinker
+from .semantic_schema import SchemaSemanticScorer
 from .schemas import (
+    AnalyticalAnalysisResult,
+    AnalyticalQueryPlan,
+    AnalyticalQueryStep,
+    AnalyticalStepResult,
+    AnalyticalStepType,
     ColumnAccess,
     DataAnalysisRequest,
     DataAnalysisResult,
@@ -18,7 +30,12 @@ from .schemas import (
     Sensitivity,
     ValidatedSQL,
 )
-from .sql_validator import SQLGuardConfig, SQLSafetyValidator, SQLValidationError
+from .sql_validator import (
+    SQLFunctionPolicy,
+    SQLGuardConfig,
+    SQLSafetyValidator,
+    SQLValidationError,
+)
 from .service import DataIntelligenceService, data_intelligence_service
 from .sql_executor import SQLExecutionFailure, SafeSQLExecutor
 from .sql_generator import SQLGenerationError, SQLGenerator
@@ -26,14 +43,22 @@ from .sql_repair import SQLRepairer
 
 __all__ = [
     "ColumnAccess",
+    "AnalyticalAnalysisResult",
+    "AnalyticalQueryPlan",
+    "AnalyticalQueryPlanner",
+    "AnalyticalQueryStep",
+    "AnalyticalStepResult",
+    "AnalyticalStepType",
     "DataAnalysisRequest",
     "DataAnalysisResult",
     "DataIntelligenceService",
     "GeneratedSQL",
     "HybridSchemaLinker",
+    "PostgresSchemaCatalogLoader",
     "SQLExecutionResult",
     "SQLExecutionFailure",
     "SQLGenerationRequest",
+    "SQLFunctionPolicy",
     "SQLGuardConfig",
     "SQLLineage",
     "SQLSafetyValidator",
@@ -44,6 +69,7 @@ __all__ = [
     "SafeSQLExecutor",
     "SchemaCatalog",
     "SchemaCatalogProvider",
+    "SchemaSemanticScorer",
     "SchemaColumn",
     "SchemaLinkResult",
     "SchemaRelation",

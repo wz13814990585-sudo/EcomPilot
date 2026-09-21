@@ -39,10 +39,25 @@ def validate_claims(claims: list[Claim], store: EvidenceStore) -> GroundingRepor
                 )
         if claim.claim_type == ClaimType.FACT and not records:
             issues.append(GroundingIssue(code="UNSUPPORTED_CLAIM", claim_index=index))
+        if claim.claim_type == ClaimType.CO_OCCURRENCE:
+            source_types = {record.source_type for record in records}
+            if len(records) < 2 or not {
+                EvidenceType.SQL,
+                EvidenceType.DOCUMENT,
+            }.issubset(source_types):
+                issues.append(
+                    GroundingIssue(code="MISSING_COOCCURRENCE_EVIDENCE", claim_index=index)
+                )
         if claim.claim_type == ClaimType.CORRELATION and not any(
-            record.source_type in {EvidenceType.SQL, EvidenceType.COMPUTED} for record in records
+            record.source_type == EvidenceType.COMPUTED
+            or bool(record.metadata.get("association_supported"))
+            for record in records
         ):
-            issues.append(GroundingIssue(code="MISSING_QUANTITATIVE_EVIDENCE", claim_index=index))
+            issues.append(GroundingIssue(code="MISSING_ASSOCIATION_EVIDENCE", claim_index=index))
+        if claim.claim_type == ClaimType.HYPOTHESIS and claim.confidence >= 1:
+            issues.append(GroundingIssue(code="HYPOTHESIS_NOT_UNCERTAIN", claim_index=index))
+        if claim.claim_type == ClaimType.RECOMMENDATION and not records:
+            issues.append(GroundingIssue(code="UNSUPPORTED_RECOMMENDATION", claim_index=index))
         quantitative_claim = re.search(
             r"(?:\d+(?:\.\d+)?\s*%|(?:率|金额|数量|销售额|count|revenue)[^\n]{0,24}\d)",
             claim.text,

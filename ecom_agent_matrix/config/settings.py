@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     SQL_QUERY_TIMEOUT: float = 10.0
     SQL_REPAIR_MAX_ATTEMPTS: int = 1
     SQL_SCHEMA_LINK_TOP_K: int = 6
+    SQL_SCHEMA_LINK_ABSOLUTE_THRESHOLD: float = 0.35
+    SQL_SCHEMA_LINK_RELATIVE_THRESHOLD: float = 0.45
+    SCHEMA_SEMANTIC_ENABLED: bool = True
+    ANALYSIS_MAX_SUBQUERIES: int = 4
+    ANALYSIS_MAX_CONCURRENT: int = 3
 
     # 模拟店铺标识（seed / 目录查询默认归属本店货盘）
     DEMO_STORE_ID: str = "demo_store"

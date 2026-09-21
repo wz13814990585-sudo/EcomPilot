@@ -9,13 +9,20 @@
 
 ```json
 {
-  "column_precision": 0.354018,
+  "column_precision": 0.885417,
   "column_recall": 1.0,
+  "fast_path_rate": 0.571429,
+  "planner_rate": 0.428571,
+  "routing_accuracy": 1.0,
+  "schema_link_latency_ms": 0.2395,
   "sql_parse_valid": 1.0,
   "sql_safety_pass": 1.0,
-  "table_precision": 0.510417,
+  "table_precision": 0.979167,
   "table_recall": 1.0,
+  "unnecessary_planner_rate": 0.0,
   "unsafe_sql_blocked": 1.0,
+  "table_f1": 0.989474,
+  "column_f1": 0.939227,
   "task_success_rate": 1.0,
   "execution_success_rate": null,
   "execution_accuracy": null,
@@ -23,7 +30,10 @@
   "repair_success_rate": null,
   "live_sql_status": "NOT_RUN",
   "rag_generation_status": "NOT_RUN",
-  "external_api_status": "NOT_RUN"
+  "external_api_status": "NOT_RUN",
+  "unsafe_sql_execution_rate": 0.0,
+  "llm_calls": 0,
+  "token_cost_usd": 0.0
 }
 ```
 
@@ -31,22 +41,22 @@
 
 | ID | Category | Status | Detail |
 |---|---|---:|---|
-| sql_001 | simple_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['create_time', 'id', 'order_no', 'total_amount'], sql=SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS order_count FROM ecom_order WHERE DATE_TRUNC('MONTH', create_time) = DATE_TRUNC('MONTH', CURRENT_DATE) |
-| sql_002 | simple_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['id', 'order_no'], sql=SELECT COUNT(*) AS order_count FROM ecom_order |
-| sql_003 | simple_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['id', 'refund_flag'], sql=SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month DESC LIMIT 12 |
-| sql_004 | simple_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['buy_num', 'id', 'sku', 'title_zh'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 5 |
-| sql_005 | simple_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['create_time', 'id', 'total_amount'], sql=SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS order_count FROM ecom_order WHERE DATE_TRUNC('MONTH', create_time) = DATE_TRUNC('MONTH', CURRENT_DATE) |
-| sql_006 | simple_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['create_time', 'id', 'order_no', 'refund_flag', 'total_amount'], sql=SELECT COUNT(*) AS order_count FROM ecom_order |
-| sql_007 | simple_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['id', 'refund_flag'], sql=SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month DESC LIMIT 12 |
-| sql_008 | simple_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['buy_num', 'category', 'create_time', 'id', 'sku', 'target_sku', 'title_en', 'title_zh'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 10 |
-| complex_001 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['category', 'id', 'sku', 'title_zh', 'total_amount'] |
-| complex_002 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['category', 'id', 'sku', 'stock_num', 'title_zh'] |
-| complex_003 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['buy_num', 'id', 'order_no', 'sku', 'target_sku'] |
-| complex_004 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['compete_price', 'competitor_name', 'id', 'price', 'sku', 'title_zh'] |
-| complex_005 | complex_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['create_time', 'id', 'order_no', 'refund_flag'] |
-| complex_006 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['category', 'create_time', 'id', 'price', 'sku', 'stock_num', 'target_sku', 'title_en', 'title_zh'] |
-| complex_007 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['compete_price', 'competitor_name', 'crawl_time', 'id', 'price', 'sku', 'target_sku'] |
-| complex_008 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['buy_num', 'create_time', 'id', 'order_no', 'price', 'refund_flag', 'total_amount'] |
+| sql_001 | simple_sql | PASS | tables=['ecom_order'], columns=['create_time', 'total_amount'], sql=SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS order_count FROM ecom_order WHERE DATE_TRUNC('MONTH', create_time) = DATE_TRUNC('MONTH', CURRENT_DATE) |
+| sql_002 | simple_sql | PASS | tables=['ecom_order'], columns=[], sql=SELECT COUNT(*) AS order_count FROM ecom_order |
+| sql_003 | simple_sql | PASS | tables=['ecom_order'], columns=['refund_flag'], sql=SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month DESC LIMIT 12 |
+| sql_004 | simple_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 5 |
+| sql_005 | simple_sql | PASS | tables=['ecom_order'], columns=['create_time', 'total_amount'], sql=SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS order_count FROM ecom_order WHERE DATE_TRUNC('MONTH', create_time) = DATE_TRUNC('MONTH', CURRENT_DATE) |
+| sql_006 | simple_sql | PASS | tables=['ecom_order'], columns=[], sql=SELECT COUNT(*) AS order_count FROM ecom_order |
+| sql_007 | simple_sql | PASS | tables=['ecom_order'], columns=['refund_flag'], sql=SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month DESC LIMIT 12 |
+| sql_008 | simple_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 10 |
+| complex_001 | complex_sql | PASS | tables=['ecom_goods', 'ecom_order'], columns=['category', 'sku', 'total_amount'] |
+| complex_002 | complex_sql | PASS | tables=['ecom_goods'], columns=['category', 'stock_num'] |
+| complex_003 | complex_sql | PASS | tables=['ecom_order'], columns=['buy_num', 'sku'] |
+| complex_004 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['compete_price', 'competitor_name', 'price', 'sku', 'target_sku'] |
+| complex_005 | complex_sql | PASS | tables=['ecom_order'], columns=['create_time', 'refund_flag'] |
+| complex_006 | complex_sql | PASS | tables=['ecom_goods'], columns=['category', 'price', 'stock_num'] |
+| complex_007 | complex_sql | PASS | tables=['competitor_price', 'ecom_goods'], columns=['compete_price', 'crawl_time', 'price', 'sku', 'target_sku'] |
+| complex_008 | complex_sql | PASS | tables=['ecom_order'], columns=['buy_num', 'total_amount'] |
 | rag_001 | rag | PASS | fast_path:knowledge_qa |
 | rag_002 | rag | PASS | fast_path:knowledge_qa |
 | rag_003 | rag | PASS | fast_path:knowledge_qa |

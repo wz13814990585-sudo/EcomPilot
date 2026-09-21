@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -65,7 +65,8 @@ class SchemaTable(BaseModel):
     @property
     def searchable_text(self) -> str:
         description = self.description or self.name.replace("_", " ")
-        return " ".join((self.name, description, *self.business_terms)).lower()
+        column_text = " ".join(column.searchable_text for column in self.columns)
+        return " ".join((self.name, description, *self.business_terms, column_text)).lower()
 
     def column(self, name: str) -> SchemaColumn | None:
         normalized = name.lower()
@@ -78,6 +79,7 @@ class SchemaCatalog(BaseModel):
     tables: tuple[SchemaTable, ...]
     relations: tuple[SchemaRelation, ...] = ()
     version: str = "1"
+    source: Literal["postgres", "static", "static_fallback"] = "static"
     loaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def table(self, name: str) -> SchemaTable | None:
@@ -109,6 +111,7 @@ class SchemaLinkResult(BaseModel):
     relations: tuple[SchemaRelation, ...] = ()
     candidate_count: int = Field(default=0, ge=0)
     latency_ms: float = Field(default=0, ge=0)
+    retrieval_mode: Literal["hybrid", "lexical_only"] = "lexical_only"
 
     @property
     def table_names(self) -> list[str]:
@@ -191,22 +194,83 @@ class SQLExecutionResult(BaseModel):
     lineage: SQLLineage
 
 
+class AnalyticalStepType(StrEnum):
+    METRIC_TREND = "metric_trend"
+    CATEGORY_BREAKDOWN = "category_breakdown"
+    SKU_BREAKDOWN = "sku_breakdown"
+    REGION_BREAKDOWN = "region_breakdown"
+    CUSTOM_SEGMENT = "custom_segment"
+
+
+class AnalyticalQueryStep(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str = Field(min_length=1)
+    step_type: AnalyticalStepType
+    question: str = Field(min_length=1)
+    required_tables: tuple[str, ...] = ()
+    required_columns: tuple[str, ...] = ()
+
+
+class AnalyticalQueryPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    question: str = Field(min_length=1)
+    metric: str
+    steps: tuple[AnalyticalQueryStep, ...]
+    planner_source: Literal["deterministic", "llm"] = "deterministic"
+    warnings: tuple[str, ...] = ()
+
+
+class AnalyticalStepResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    step_id: str
+    step_type: AnalyticalStepType
+    success: bool
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_id: str = ""
+    lineage: SQLLineage | None = None
+    warnings: list[str] = Field(default_factory=list)
+    error_code: str = ""
+
+
+class AnalyticalAnalysisResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan: AnalyticalQueryPlan
+    steps: list[AnalyticalStepResult] = Field(default_factory=list)
+    metric_trend: list[dict[str, Any]] = Field(default_factory=list)
+    segment_contributions: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    anomalies: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class DataAnalysisResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     success: bool
     question: str
+    catalog_source: str = ""
     schema_link: SchemaLinkResult | None = None
     generated_sql: GeneratedSQL | None = None
     validated_sql: ValidatedSQL | None = None
     execution: SQLExecutionResult | None = None
     evidence: dict[str, Any] | None = None
+    evidence_records: list[dict[str, Any]] = Field(default_factory=list)
+    analytical: AnalyticalAnalysisResult | None = None
     repair_attempts: int = Field(default=0, ge=0)
     error_code: str = ""
     error_msg: str = ""
 
 
 __all__ = [
+    "AnalyticalAnalysisResult",
+    "AnalyticalQueryPlan",
+    "AnalyticalQueryStep",
+    "AnalyticalStepResult",
+    "AnalyticalStepType",
     "ColumnAccess",
     "DataAnalysisRequest",
     "DataAnalysisResult",

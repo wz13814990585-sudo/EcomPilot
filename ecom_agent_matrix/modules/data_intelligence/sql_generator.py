@@ -18,6 +18,48 @@ class SQLGenerationError(RuntimeError):
 def _deterministic_sql(question: str) -> str | None:
     """High-confidence fast path for common metrics; not a general keyword router."""
     query = question.lower()
+    if "analysis_step:metric_trend" in query and "refund_rate" in query:
+        return (
+            "SELECT DATE_TRUNC('month', create_time) AS month, COUNT(*) AS order_count, "
+            "SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, "
+            "ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric / "
+            "NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order "
+            "GROUP BY DATE_TRUNC('month', create_time) ORDER BY month"
+        )
+    if "analysis_step:category_breakdown" in query and "refund_rate" in query:
+        return (
+            "SELECT g.category, COUNT(*) AS order_count, "
+            "SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END) AS refund_count, "
+            "ROUND(SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END)::numeric / "
+            "NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order o "
+            "JOIN ecom_goods g ON g.sku=o.sku GROUP BY g.category "
+            "ORDER BY refund_count DESC LIMIT 20"
+        )
+    if "analysis_step:sku_breakdown" in query and "refund_rate" in query:
+        return (
+            "SELECT sku, COUNT(*) AS order_count, "
+            "SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, "
+            "ROUND(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END)::numeric / "
+            "NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order "
+            "GROUP BY sku ORDER BY refund_count DESC LIMIT 20"
+        )
+    if "analysis_step:metric_trend" in query and "revenue" in query:
+        return (
+            "SELECT DATE_TRUNC('month', create_time) AS month, "
+            "SUM(total_amount) AS revenue FROM ecom_order "
+            "GROUP BY DATE_TRUNC('month', create_time) ORDER BY month"
+        )
+    if "analysis_step:category_breakdown" in query and "revenue" in query:
+        return (
+            "SELECT g.category, SUM(o.total_amount) AS revenue FROM ecom_order o "
+            "JOIN ecom_goods g ON g.sku=o.sku GROUP BY g.category "
+            "ORDER BY revenue DESC LIMIT 20"
+        )
+    if "analysis_step:sku_breakdown" in query and "revenue" in query:
+        return (
+            "SELECT sku, SUM(total_amount) AS revenue FROM ecom_order "
+            "GROUP BY sku ORDER BY revenue DESC LIMIT 20"
+        )
     current_month = "DATE_TRUNC('month', create_time) = DATE_TRUNC('month', CURRENT_DATE)"
     if re.search(r"(销售额|revenue|gmv)", query) and re.search(r"(本月|this month)", query):
         return (

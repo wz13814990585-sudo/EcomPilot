@@ -25,11 +25,12 @@
 | Fail-closed 执行 | 未认证身份、越权 Skill、无效审批和不可用 Agent 均显式失败 |
 | Human-in-the-loop | 高风险写操作绑定租户、Skill、精确参数哈希、有效期和一次性消费 |
 | Hybrid RAG | Vector + lexical recall、RRF、batch rerank、citation validation |
-| Safe Text-to-SQL | 权限前置 Schema Linking、结构化生成、SQLGlot AST 校验、只读执行 |
+| Safe Text-to-SQL | 权限前置 Schema Linking、函数 allowlist、SQLGlot AST 校验、只读执行 |
 | Query Guard | 表/列白名单、租户 scope、JOIN/列/行上限、statement timeout |
 | SQL Lineage | claim 可追溯到 query ID、SQL、表/列、行数、截断与执行延迟 |
 | Unified Evidence | SQL / Document / API / Computed 统一证据模型与请求内 EvidenceStore |
-| Joint Analysis | Query + RAG 并行取证，Master 分析服务区分事实、相关性、假设与未知 |
+| Analytical Planning | Query 内置有界多 SQL 分解，并发执行 trend/category/SKU 分析 |
+| Joint Analysis | Query + RAG 并行取证，区分事实、共现、相关性、假设与未知 |
 | Business API Tools | Query 读适配器与 Exec 受保护写适配器（当前为明确标记的 demo provider） |
 | 多租户隔离 | SecurityContext、PostgreSQL RLS、cache、memory、approval 全链路携带 scope |
 | 可观测性 | 结构化日志、Prometheus 指标、task/correlation tracing、真实 LLM usage |
@@ -39,16 +40,17 @@
 
 当前分支已通过：
 
-- 458 个自动化测试（最终数量以当前 `pytest -q` 为准）
+- 476 个自动化测试（当前 `pytest -q` 实测）
 - Ruff lint 与 format gate
 - Python compileall
 - 13/13 deterministic routing cases
 - 6/6 typed planning cases
 - 16/16 safety cases
 - 50/50 Enterprise Data Agent deterministic benchmark cases
+- 16/16 Schema Linking、6/6 Analytical Plan、35/35 SQL Safety 对抗、3/3 Evidence 用例
 - Docker Compose 配置校验
 
-最新评估输出见 [Agent report](eval/results/latest.json) 和 [Enterprise report](eval/enterprise/results/latest.json)。依赖真实 API、数据库执行或已填充向量索引的指标会明确显示 `NOT_RUN`。
+最新评估输出见 [Agent report](eval/results/latest.json)、[Enterprise report](eval/enterprise/results/latest.json) 和 [before/after report](eval/enterprise/results/final.md)。依赖真实 API、数据库执行或已填充向量索引的指标会明确显示 `NOT_RUN`。
 
 ## 系统架构
 
@@ -130,7 +132,9 @@ Question -> permission-filtered Schema Catalog -> Hybrid Schema Linking
          -> SQL evidence + lineage
 ```
 
-Schema Catalog 在启动时加载并缓存，只在显式 refresh 时更新；每次请求不会把整个 `information_schema` 丢给 LLM。生成 SQL 仅能看到用户当前可访问且与问题相关的表、列、关系和指标定义。
+Schema Catalog 从 PostgreSQL `information_schema` 显式刷新并与静态业务词汇合并；数据库不可用时明确标记 `static_fallback`。Catalog 和 schema embedding 都按版本缓存，不在每次请求中重扫 `information_schema`。
+
+Schema Linking 在已配置且本地可用的 embedding provider 上使用 semantic + lexical + alias；默认 CI 不下载模型，因此显式返回 `lexical_only`。自适应阈值、受控 FK 扩展和列级选择会限制生成上下文。
 
 ## 为什么同时使用 Fast Path 和 Typed DAG？
 
@@ -263,6 +267,8 @@ python -m eval.runner --suite routing
 python -m eval.runner --suite deterministic --fail-on-regression
 python -m eval.runner --suite all
 python -m eval.enterprise.runner --suite all --fail-on-regression
+python -m eval.enterprise.advanced_runner --suite all --fail-on-regression
+python -m eval.enterprise.live_sql.runner --fail-on-regression
 ```
 
 评估维度：
@@ -276,6 +282,20 @@ python -m eval.enterprise.runner --suite all --fail-on-regression
 - SQL：parse/safety pass、table/column precision/recall、unsafe SQL rate
 - Enterprise：SQL、RAG、SQL+RAG、API、permission 与 safety 共 50 个用例
 
+当前确定性实测：
+
+| Metric | Result |
+|---|---:|
+| Table Precision / Recall / F1 | 0.979167 / 1.0 / 0.989474 |
+| Column Precision / Recall / F1 | 0.885417 / 1.0 / 0.939227 |
+| SQL Parse Valid / Safety Pass | 1.0 / 1.0 |
+| Analytical Plan Validity | 1.0 |
+| Grounding Pass Rate | 1.0 |
+| Unsafe SQL Execution Rate | 0.0 |
+| Enterprise Cases | 50/50 |
+| SQL Execution Accuracy | NOT_RUN（当前本机无可用 PostgreSQL） |
+| RAG Live Eval | NOT_RUN（无已填充向量索引） |
+
 报告写入 `eval/results/latest.json` 和 `eval/results/latest.md`，并严格区分 `PASS`、`FAIL`、`DEGRADED` 与 `NOT_RUN`。
 
 ## 开发与质量门
@@ -287,6 +307,7 @@ ruff format --check ecom_agent_matrix test eval
 pytest -q
 python -m eval.runner --suite deterministic --fail-on-regression
 python -m eval.enterprise.runner --suite all --fail-on-regression
+python -m eval.enterprise.advanced_runner --suite all --fail-on-regression
 ```
 
 默认 CI 不下载 embedding/CrossEncoder 模型，也不依赖外部 API、PostgreSQL 或 Redis 集成环境。
@@ -332,7 +353,7 @@ docs/                   architecture, demo, observability, interview notes
 - MessageBus、rate limiter、circuit breaker 和 reply registry 是进程内状态。
 - 默认 Docker 镜像不包含本地 Transformer 模型。
 - 完整 RAG 质量评估需要真实填充的向量索引与 ranked results。
-- Enterprise benchmark 的 SQL execution accuracy 需要真实 PostgreSQL seeded dataset；当前报告为 `NOT_RUN`。
+- Seeded PostgreSQL 的 32 个实执行用例已纳入独立 CI job；当前本机无 PostgreSQL，所以本地报告为 `NOT_RUN`。
 - Business API provider 当前是本地 demo adapter，不声称已连接生产电商平台。
 - 生产部署仍需要 managed secrets、正式数据库角色/迁移、SLO 和部署平台配置。
 - 仓库不包含虚构的 CD 或未经测量的吞吐量、准确率与成本声明。

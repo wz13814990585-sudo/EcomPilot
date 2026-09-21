@@ -67,14 +67,15 @@ def test_catalog_filters_before_linking_and_hides_restricted_columns():
     assert [column.name for column in filtered.tables[0].columns] == ["id"]
 
 
-def test_schema_linking_is_inspectable_and_expands_fk_neighbors():
+def test_schema_linking_is_inspectable_without_irrelevant_fk_expansion():
     result = asyncio.run(
         HybridSchemaLinker().link("为什么本月退款率上涨？", default_catalog(), top_k=1)
     )
     assert result.tables[0].name == "ecom_order"
     assert "EXACT_ALIAS_MATCH" in result.tables[0].reason_codes
     assert "refund_flag" in {column.name for column in result.tables[0].columns}
-    assert "ecom_goods" in result.table_names
+    assert result.table_names == ["ecom_order"]
+    assert result.retrieval_mode == "lexical_only"
     assert result.candidate_count == 4
     assert result.latency_ms >= 0
 

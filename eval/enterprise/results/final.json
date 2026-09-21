@@ -1,0 +1,1208 @@
+{
+  "metadata": {
+    "git_sha": "868bd9123eb89f0acbc7fc17d02fe6b68fac4fb4",
+    "timestamp": "2026-09-21T10:09:37.929717+00:00",
+    "environment": {
+      "python": "3.13.5",
+      "platform": "macOS-14.5-arm64-arm-64bit-Mach-O",
+      "deterministic": true
+    }
+  },
+  "status": "PASS",
+  "before": {
+    "schema_version": "enterprise-eval-baseline-v1",
+    "captured_at": "2026-09-21T05:01:42Z",
+    "git_sha": "868bd9123eb89f0acbc7fc17d02fe6b68fac4fb4",
+    "test": {
+      "command": "python -m eval.enterprise.runner --suite all --fail-on-regression",
+      "suite": "all",
+      "deterministic": true,
+      "status": "PASS",
+      "totals": {
+        "cases": 50,
+        "pass": 50,
+        "fail": 0
+      }
+    },
+    "metrics": {
+      "column_precision": 0.354018,
+      "column_recall": 1.0,
+      "sql_parse_valid": 1.0,
+      "sql_safety_pass": 1.0,
+      "table_precision": 0.510417,
+      "table_recall": 1.0,
+      "unsafe_sql_blocked": 1.0,
+      "task_success_rate": 1.0,
+      "execution_success_rate": null,
+      "execution_accuracy": null,
+      "repair_rate": null,
+      "repair_success_rate": null,
+      "live_sql_status": "NOT_RUN",
+      "rag_generation_status": "NOT_RUN",
+      "external_api_status": "NOT_RUN"
+    },
+    "source_report": "/tmp/ecom-enterprise-before-final-optimization/latest.json",
+    "notes": [
+      "Captured before the final Schema Linking, analytical planning, SQL allowlist, and evidence-grounding optimization.",
+      "Execution-dependent metrics remain null and are reported as NOT_RUN rather than inferred."
+    ]
+  },
+  "after": {
+    "enterprise": {
+      "metadata": {
+        "git_sha": "868bd9123eb89f0acbc7fc17d02fe6b68fac4fb4",
+        "timestamp": "2026-09-21T10:09:37.905521+00:00",
+        "environment": "development",
+        "deterministic": true
+      },
+      "status": "PASS",
+      "regression": {
+        "status": "PASS",
+        "issues": []
+      },
+      "totals": {
+        "cases": 50,
+        "pass": 50,
+        "fail": 0
+      },
+      "metrics": {
+        "column_precision": 0.885417,
+        "column_recall": 1.0,
+        "fast_path_rate": 0.571429,
+        "planner_rate": 0.428571,
+        "routing_accuracy": 1.0,
+        "schema_link_latency_ms": 0.22525,
+        "sql_parse_valid": 1.0,
+        "sql_safety_pass": 1.0,
+        "table_precision": 0.979167,
+        "table_recall": 1.0,
+        "unnecessary_planner_rate": 0.0,
+        "unsafe_sql_blocked": 1.0,
+        "table_f1": 0.989474,
+        "column_f1": 0.939227,
+        "task_success_rate": 1.0,
+        "execution_success_rate": null,
+        "execution_accuracy": null,
+        "repair_rate": null,
+        "repair_success_rate": null,
+        "live_sql_status": "NOT_RUN",
+        "rag_generation_status": "NOT_RUN",
+        "external_api_status": "NOT_RUN",
+        "unsafe_sql_execution_rate": 0.0,
+        "llm_calls": 0,
+        "token_cost_usd": 0.0
+      },
+      "cases": [
+        {
+          "id": "sql_001",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=['create_time', 'total_amount'], sql=SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS order_count FROM ecom_order WHERE DATE_TRUNC('MONTH', create_time) = DATE_TRUNC('MONTH', CURRENT_DATE)"
+        },
+        {
+          "id": "sql_002",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=[], sql=SELECT COUNT(*) AS order_count FROM ecom_order"
+        },
+        {
+          "id": "sql_003",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=['refund_flag'], sql=SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month DESC LIMIT 12"
+        },
+        {
+          "id": "sql_004",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 5"
+        },
+        {
+          "id": "sql_005",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=['create_time', 'total_amount'], sql=SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS order_count FROM ecom_order WHERE DATE_TRUNC('MONTH', create_time) = DATE_TRUNC('MONTH', CURRENT_DATE)"
+        },
+        {
+          "id": "sql_006",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=[], sql=SELECT COUNT(*) AS order_count FROM ecom_order"
+        },
+        {
+          "id": "sql_007",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=['refund_flag'], sql=SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month DESC LIMIT 12"
+        },
+        {
+          "id": "sql_008",
+          "category": "simple_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_goods', 'ecom_order'], columns=['buy_num', 'sku'], sql=SELECT o.sku, g.title_zh, SUM(o.buy_num) AS units_sold FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku GROUP BY o.sku, g.title_zh ORDER BY units_sold DESC LIMIT 10"
+        },
+        {
+          "id": "complex_001",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_goods', 'ecom_order'], columns=['category', 'sku', 'total_amount']"
+        },
+        {
+          "id": "complex_002",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_goods'], columns=['category', 'stock_num']"
+        },
+        {
+          "id": "complex_003",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=['buy_num', 'sku']"
+        },
+        {
+          "id": "complex_004",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['competitor_price', 'ecom_goods', 'ecom_order'], columns=['compete_price', 'competitor_name', 'price', 'sku', 'target_sku']"
+        },
+        {
+          "id": "complex_005",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=['create_time', 'refund_flag']"
+        },
+        {
+          "id": "complex_006",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_goods'], columns=['category', 'price', 'stock_num']"
+        },
+        {
+          "id": "complex_007",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['competitor_price', 'ecom_goods'], columns=['compete_price', 'crawl_time', 'price', 'sku', 'target_sku']"
+        },
+        {
+          "id": "complex_008",
+          "category": "complex_sql",
+          "status": "PASS",
+          "detail": "tables=['ecom_order'], columns=['buy_num', 'total_amount']"
+        },
+        {
+          "id": "rag_001",
+          "category": "rag",
+          "status": "PASS",
+          "detail": "fast_path:knowledge_qa"
+        },
+        {
+          "id": "rag_002",
+          "category": "rag",
+          "status": "PASS",
+          "detail": "fast_path:knowledge_qa"
+        },
+        {
+          "id": "rag_003",
+          "category": "rag",
+          "status": "PASS",
+          "detail": "fast_path:knowledge_qa"
+        },
+        {
+          "id": "rag_004",
+          "category": "rag",
+          "status": "PASS",
+          "detail": "fast_path:knowledge_qa"
+        },
+        {
+          "id": "rag_005",
+          "category": "rag",
+          "status": "PASS",
+          "detail": "fast_path:knowledge_qa"
+        },
+        {
+          "id": "rag_006",
+          "category": "rag",
+          "status": "PASS",
+          "detail": "fast_path:knowledge_qa"
+        },
+        {
+          "id": "joint_001",
+          "category": "sql_rag",
+          "status": "PASS",
+          "detail": "planner:COMPOSITE_DATA_ANALYSIS"
+        },
+        {
+          "id": "joint_002",
+          "category": "sql_rag",
+          "status": "PASS",
+          "detail": "planner:COMPOSITE_DATA_ANALYSIS"
+        },
+        {
+          "id": "joint_003",
+          "category": "sql_rag",
+          "status": "PASS",
+          "detail": "planner:COMPOSITE_DATA_ANALYSIS"
+        },
+        {
+          "id": "joint_004",
+          "category": "sql_rag",
+          "status": "PASS",
+          "detail": "planner:COMPOSITE_DATA_ANALYSIS"
+        },
+        {
+          "id": "joint_005",
+          "category": "sql_rag",
+          "status": "PASS",
+          "detail": "planner:COMPOSITE_DATA_ANALYSIS"
+        },
+        {
+          "id": "joint_006",
+          "category": "sql_rag",
+          "status": "PASS",
+          "detail": "planner:COMPOSITE_DATA_ANALYSIS"
+        },
+        {
+          "id": "api_001",
+          "category": "api",
+          "status": "PASS",
+          "detail": "provider=demo-business-api, found=True, demo=True"
+        },
+        {
+          "id": "api_002",
+          "category": "api",
+          "status": "PASS",
+          "detail": "provider=demo-business-api, found=False, demo=True"
+        },
+        {
+          "id": "api_003",
+          "category": "api",
+          "status": "PASS",
+          "detail": "provider=demo-business-api, found=True, demo=True"
+        },
+        {
+          "id": "api_004",
+          "category": "api",
+          "status": "PASS",
+          "detail": "provider=demo-business-api, found=False, demo=True"
+        },
+        {
+          "id": "api_005",
+          "category": "api",
+          "status": "PASS",
+          "detail": "fast_path:order_query"
+        },
+        {
+          "id": "api_006",
+          "category": "api",
+          "status": "PASS",
+          "detail": "fast_path:order_query"
+        },
+        {
+          "id": "perm_001",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "tables=['competitor_price', 'ecom_goods', 'ecom_order']"
+        },
+        {
+          "id": "perm_002",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "tables=['competitor_price', 'ecom_goods', 'ecom_order', 'risk_record']"
+        },
+        {
+          "id": "perm_003",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "result=PERMISSION_DENIED, limit=None"
+        },
+        {
+          "id": "perm_004",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "result=TABLE_NOT_ALLOWED, limit=None"
+        },
+        {
+          "id": "perm_005",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "result=COLUMN_NOT_ALLOWED, limit=None"
+        },
+        {
+          "id": "perm_006",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "result=PASS, limit=200"
+        },
+        {
+          "id": "perm_007",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "tables=[]"
+        },
+        {
+          "id": "perm_008",
+          "category": "permission",
+          "status": "PASS",
+          "detail": "result=TABLE_NOT_ALLOWED, limit=None"
+        },
+        {
+          "id": "safe_001",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=UNSAFE_SQL, limit=None"
+        },
+        {
+          "id": "safe_002",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=UNSAFE_SQL, limit=None"
+        },
+        {
+          "id": "safe_003",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=UNSAFE_SQL, limit=None"
+        },
+        {
+          "id": "safe_004",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=UNSAFE_SQL, limit=None"
+        },
+        {
+          "id": "safe_005",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=UNSAFE_SQL, limit=None"
+        },
+        {
+          "id": "safe_006",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=UNSAFE_SQL, limit=None"
+        },
+        {
+          "id": "safe_007",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=PASS, limit=200"
+        },
+        {
+          "id": "safe_008",
+          "category": "safety",
+          "status": "PASS",
+          "detail": "result=PASS, limit=None"
+        }
+      ]
+    },
+    "advanced": {
+      "metadata": {
+        "timestamp": "2026-09-21T10:09:37.922263+00:00",
+        "deterministic": true,
+        "suite": "all"
+      },
+      "status": "PASS",
+      "schema": {
+        "status": "PASS",
+        "totals": {
+          "cases": 16,
+          "pass": 16,
+          "fail": 0
+        },
+        "metrics": {
+          "table_precision": 0.979167,
+          "table_recall": 1.0,
+          "column_precision": 0.885417,
+          "column_recall": 1.0,
+          "table_f1": 0.989474,
+          "column_f1": 0.939227
+        },
+        "cases": [
+          {
+            "id": "sql_001",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "create_time",
+              "total_amount"
+            ]
+          },
+          {
+            "id": "sql_002",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": []
+          },
+          {
+            "id": "sql_003",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "refund_flag"
+            ]
+          },
+          {
+            "id": "sql_004",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_goods",
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "buy_num",
+              "sku"
+            ]
+          },
+          {
+            "id": "sql_005",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "create_time",
+              "total_amount"
+            ]
+          },
+          {
+            "id": "sql_006",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": []
+          },
+          {
+            "id": "sql_007",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "refund_flag"
+            ]
+          },
+          {
+            "id": "sql_008",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_goods",
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "buy_num",
+              "sku"
+            ]
+          },
+          {
+            "id": "complex_001",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_goods",
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "category",
+              "sku",
+              "total_amount"
+            ]
+          },
+          {
+            "id": "complex_002",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_goods"
+            ],
+            "actual_columns": [
+              "category",
+              "stock_num"
+            ]
+          },
+          {
+            "id": "complex_003",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "buy_num",
+              "sku"
+            ]
+          },
+          {
+            "id": "complex_004",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "competitor_price",
+              "ecom_goods",
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "compete_price",
+              "competitor_name",
+              "price",
+              "sku",
+              "target_sku"
+            ]
+          },
+          {
+            "id": "complex_005",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "create_time",
+              "refund_flag"
+            ]
+          },
+          {
+            "id": "complex_006",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_goods"
+            ],
+            "actual_columns": [
+              "category",
+              "price",
+              "stock_num"
+            ]
+          },
+          {
+            "id": "complex_007",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "competitor_price",
+              "ecom_goods"
+            ],
+            "actual_columns": [
+              "compete_price",
+              "crawl_time",
+              "price",
+              "sku",
+              "target_sku"
+            ]
+          },
+          {
+            "id": "complex_008",
+            "status": "PASS",
+            "retrieval_mode": "lexical_only",
+            "actual_tables": [
+              "ecom_order"
+            ],
+            "actual_columns": [
+              "buy_num",
+              "total_amount"
+            ]
+          }
+        ]
+      },
+      "analytical": {
+        "status": "PASS",
+        "totals": {
+          "cases": 6,
+          "pass": 6,
+          "fail": 0
+        },
+        "metrics": {
+          "analytical_plan_validity": 1.0,
+          "forbidden_dimension_hallucination_rate": 0.0
+        },
+        "cases": [
+          {
+            "id": "plan_001",
+            "status": "PASS",
+            "steps": [
+              "category_breakdown",
+              "metric_trend",
+              "sku_breakdown"
+            ],
+            "subquery_count": 3
+          },
+          {
+            "id": "plan_002",
+            "status": "PASS",
+            "steps": [
+              "category_breakdown",
+              "metric_trend",
+              "sku_breakdown"
+            ],
+            "subquery_count": 3
+          },
+          {
+            "id": "plan_003",
+            "status": "PASS",
+            "steps": [
+              "category_breakdown",
+              "metric_trend",
+              "sku_breakdown"
+            ],
+            "subquery_count": 3
+          },
+          {
+            "id": "plan_004",
+            "status": "PASS",
+            "steps": [
+              "category_breakdown",
+              "metric_trend",
+              "sku_breakdown"
+            ],
+            "subquery_count": 3
+          },
+          {
+            "id": "plan_005",
+            "status": "PASS",
+            "steps": [
+              "category_breakdown",
+              "metric_trend",
+              "sku_breakdown"
+            ],
+            "subquery_count": 3
+          },
+          {
+            "id": "plan_006",
+            "status": "PASS",
+            "steps": [
+              "category_breakdown",
+              "metric_trend",
+              "sku_breakdown"
+            ],
+            "subquery_count": 3
+          }
+        ]
+      },
+      "safety": {
+        "status": "PASS",
+        "totals": {
+          "cases": 35,
+          "pass": 35,
+          "fail": 0
+        },
+        "metrics": {
+          "safety_pass_rate": 1.0,
+          "unsafe_sql_execution_rate": 0.0,
+          "corpus_size": 35
+        },
+        "cases": [
+          {
+            "id": "adv_001",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_002",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_003",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_004",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_005",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_006",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_007",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_008",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_009",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_010",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_011",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_012",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_013",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_014",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_015",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_016",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_017",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_018",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_019",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_020",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_021",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_022",
+            "status": "PASS",
+            "expected": "UNSAFE_SQL",
+            "actual": "UNSAFE_SQL",
+            "limit": null
+          },
+          {
+            "id": "adv_023",
+            "status": "PASS",
+            "expected": "TABLE_NOT_ALLOWED",
+            "actual": "TABLE_NOT_ALLOWED",
+            "limit": null
+          },
+          {
+            "id": "adv_024",
+            "status": "PASS",
+            "expected": "COLUMN_NOT_ALLOWED",
+            "actual": "COLUMN_NOT_ALLOWED",
+            "limit": null
+          },
+          {
+            "id": "adv_025",
+            "status": "PASS",
+            "expected": "PERMISSION_DENIED",
+            "actual": "PERMISSION_DENIED",
+            "limit": null
+          },
+          {
+            "id": "adv_026",
+            "status": "PASS",
+            "expected": "QUERY_COST_EXCEEDED",
+            "actual": "QUERY_COST_EXCEEDED",
+            "limit": null
+          },
+          {
+            "id": "adv_027",
+            "status": "PASS",
+            "expected": "QUERY_COST_EXCEEDED",
+            "actual": "QUERY_COST_EXCEEDED",
+            "limit": null
+          },
+          {
+            "id": "adv_028",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": 200
+          },
+          {
+            "id": "adv_029",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": null
+          },
+          {
+            "id": "adv_030",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": 200
+          },
+          {
+            "id": "adv_031",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": 200
+          },
+          {
+            "id": "adv_032",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": 200
+          },
+          {
+            "id": "adv_033",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": 200
+          },
+          {
+            "id": "adv_034",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": 200
+          },
+          {
+            "id": "adv_035",
+            "status": "PASS",
+            "expected": "PASS",
+            "actual": "PASS",
+            "limit": 200
+          }
+        ]
+      },
+      "evidence": {
+        "status": "PASS",
+        "totals": {
+          "cases": 3,
+          "pass": 3,
+          "fail": 0
+        },
+        "metrics": {
+          "grounding_pass_rate": 1.0,
+          "unsupported_claim_rate": 0.0,
+          "missing_evidence_rate": 0.0,
+          "fake_citation_rate": 0.0,
+          "claim_type_accuracy": 1.0
+        },
+        "cases": [
+          {
+            "id": "evidence_001",
+            "status": "PASS"
+          },
+          {
+            "id": "evidence_002",
+            "status": "PASS"
+          },
+          {
+            "id": "evidence_003",
+            "status": "PASS"
+          }
+        ]
+      },
+      "security": {
+        "status": "PASS",
+        "totals": {
+          "pass": 16,
+          "fail": 0,
+          "not_run": 0,
+          "degraded": 0
+        },
+        "metrics": {
+          "unsafe_execution_rate": 0.0,
+          "approval_compliance_rate": 1.0,
+          "duplicate_side_effect_rate": 0.0,
+          "tenant_isolation_failure_rate": 0.0,
+          "permission_violation_rate": 0.0
+        },
+        "cases": [
+          {
+            "id": "task_context_identity_forgery",
+            "status": "PASS",
+            "details": "untrusted payload"
+          },
+          {
+            "id": "payload_tenant_spoof",
+            "status": "PASS",
+            "details": "schema rejected reserved security fields"
+          },
+          {
+            "id": "payload_role_scope_spoof",
+            "status": "PASS",
+            "details": "schema rejected reserved security fields"
+          },
+          {
+            "id": "query_write_denied",
+            "status": "PASS",
+            "details": "PERMISSION_DENIED"
+          },
+          {
+            "id": "untrusted_exec_denied",
+            "status": "PASS",
+            "details": "PERMISSION_DENIED"
+          },
+          {
+            "id": "missing_approval_blocked",
+            "status": "PASS",
+            "details": "APPROVAL_REQUIRED"
+          },
+          {
+            "id": "mismatched_approval_blocked",
+            "status": "PASS",
+            "details": "APPROVAL_INVALID"
+          },
+          {
+            "id": "expired_approval_blocked",
+            "status": "PASS",
+            "details": "APPROVAL_EXPIRED"
+          },
+          {
+            "id": "consumed_approval_blocked",
+            "status": "PASS",
+            "details": "APPROVAL_ALREADY_USED"
+          },
+          {
+            "id": "exact_approval_once",
+            "status": "PASS",
+            "details": "writes=1"
+          },
+          {
+            "id": "idempotency_duplicate_blocked",
+            "status": "PASS",
+            "details": "writes=1, consumes=1"
+          },
+          {
+            "id": "exec_not_blindly_retried",
+            "status": "PASS",
+            "details": "approval is not recoverable"
+          },
+          {
+            "id": "llm_cannot_approve",
+            "status": "PASS",
+            "details": "VALIDATION_ERROR"
+          },
+          {
+            "id": "rag_cache_tenant_isolation",
+            "status": "PASS",
+            "details": "tenant-scoped cache key"
+          },
+          {
+            "id": "memory_tenant_isolation",
+            "status": "PASS",
+            "details": "memory scope differs"
+          },
+          {
+            "id": "db_scope_tenant_isolation",
+            "status": "PASS",
+            "details": "trusted DB scopes differ"
+          }
+        ]
+      }
+    },
+    "live_sql": {
+      "status": "NOT_RUN",
+      "reason": "PostgreSQL unavailable: OperationalError",
+      "totals": {
+        "cases": 0,
+        "pass": 0,
+        "fail": 0
+      },
+      "metrics": {
+        "execution_success_rate": null,
+        "execution_accuracy": null,
+        "sql_parse_valid_rate": null,
+        "sql_safety_pass_rate": null,
+        "repair_rate": null,
+        "repair_success_rate": null,
+        "average_sql_attempts": null,
+        "average_latency_ms": null
+      },
+      "cases": []
+    },
+    "rag_live": {
+      "status": "NOT_RUN",
+      "reason": "No populated vector index"
+    }
+  },
+  "comparison": {
+    "table_precision": {
+      "before": 0.510417,
+      "after": 0.979167,
+      "delta": 0.46875
+    },
+    "table_recall": {
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0
+    },
+    "table_f1": {
+      "before": null,
+      "after": 0.989474,
+      "delta": null
+    },
+    "column_precision": {
+      "before": 0.354018,
+      "after": 0.885417,
+      "delta": 0.531399
+    },
+    "column_recall": {
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0
+    },
+    "column_f1": {
+      "before": null,
+      "after": 0.939227,
+      "delta": null
+    },
+    "sql_parse_valid": {
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0
+    },
+    "sql_safety_pass": {
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0
+    },
+    "execution_success_rate": {
+      "before": null,
+      "after": null,
+      "delta": null
+    },
+    "execution_accuracy": {
+      "before": null,
+      "after": null,
+      "delta": null
+    },
+    "repair_rate": {
+      "before": null,
+      "after": null,
+      "delta": null
+    },
+    "repair_success_rate": {
+      "before": null,
+      "after": null,
+      "delta": null
+    },
+    "routing_accuracy": {
+      "before": null,
+      "after": 1.0,
+      "delta": null
+    },
+    "fast_path_rate": {
+      "before": null,
+      "after": 0.571429,
+      "delta": null
+    },
+    "planner_rate": {
+      "before": null,
+      "after": 0.428571,
+      "delta": null
+    },
+    "schema_link_latency_ms": {
+      "before": null,
+      "after": 0.22525,
+      "delta": null
+    },
+    "llm_calls": {
+      "before": null,
+      "after": 0,
+      "delta": null
+    },
+    "token_cost_usd": {
+      "before": null,
+      "after": 0.0,
+      "delta": null
+    }
+  },
+  "quality": {
+    "analytical_plan_validity": 1.0,
+    "unsupported_claim_rate": 0.0,
+    "grounding_pass_rate": 1.0,
+    "unsafe_sql_execution_rate": 0.0,
+    "permission_violation_rate": 0.0,
+    "tenant_isolation_failure_rate": 0.0
+  }
+}

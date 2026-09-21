@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "timestamp": "2026-09-21T04:05:07.891879+00:00",
-    "git_sha": "c6a41ef",
+    "timestamp": "2026-09-21T10:09:28.381739+00:00",
+    "git_sha": "868bd91",
     "environment": "development",
-    "suite": "all",
+    "suite": "deterministic",
     "architecture": {
       "registered_agents": [
         "biz_exec",
@@ -155,39 +155,12 @@
     "totals": {
       "pass": 0,
       "fail": 0,
-      "not_run": 3,
+      "not_run": 0,
       "degraded": 0
     },
-    "metrics": {
-      "task_success_rate": null,
-      "workflow_success_rate": null,
-      "skill_success_rate": null,
-      "partial_success_rate": null,
-      "timeout_rate": null,
-      "agent_unavailable_rate": null,
-      "latency_ms": null,
-      "llm_calls": null,
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "estimated_cost": null
-    },
-    "cases": [
-      {
-        "id": "fast_path_live",
-        "status": "NOT_RUN",
-        "details": "requires api, postgres, redis"
-      },
-      {
-        "id": "rag_live",
-        "status": "NOT_RUN",
-        "details": "requires api, postgres, redis, rag_index"
-      },
-      {
-        "id": "external_api_live",
-        "status": "NOT_RUN",
-        "details": "requires api, external_credentials"
-      }
-    ]
+    "metrics": {},
+    "cases": [],
+    "reason": "execution suite not selected"
   },
   "safety": {
     "status": "PASS",
@@ -364,30 +337,12 @@
     "totals": {
       "pass": 0,
       "fail": 0,
-      "not_run": 2,
+      "not_run": 0,
       "degraded": 0
     },
-    "metrics": {
-      "hit_rate_at_k": null,
-      "recall_at_k": null,
-      "mrr_at_k": null,
-      "ndcg_at_k": null,
-      "citation_validity_rate": null,
-      "grounded_answer_rate": null,
-      "retrieval_degraded_rate": null
-    },
-    "cases": [
-      {
-        "id": "refund_policy_en",
-        "status": "NOT_RUN",
-        "details": "no populated ranked retrieval results supplied"
-      },
-      {
-        "id": "refund_policy_zh",
-        "status": "NOT_RUN",
-        "details": "no populated ranked retrieval results supplied"
-      }
-    ]
+    "metrics": {},
+    "cases": [],
+    "reason": "rag suite not selected"
   },
   "cost": {
     "status": "NOT_RUN",

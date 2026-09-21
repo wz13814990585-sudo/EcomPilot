@@ -185,6 +185,18 @@ class AsyncPGClient:
                     return list(await cur.fetchall())
 
     @classmethod
+    async def execute_metadata(cls, sql: str, params: list | None = None) -> list[Any]:
+        """Execute fixed catalog-discovery reads through the read-only application pool."""
+        pool = await cls.get_read_pool()
+        async with asyncio.timeout(float(settings.DB_ACQUIRE_TIMEOUT)):
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    async with cur.begin():
+                        await cur.execute("SET TRANSACTION READ ONLY")
+                        await cur.execute(sql, params or [])
+                        return list(await cur.fetchall())
+
+    @classmethod
     async def close(cls):
         for attr in ("_pool", "_read_pool", "_write_pool"):
             pool = getattr(cls, attr)

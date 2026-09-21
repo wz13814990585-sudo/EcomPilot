@@ -171,14 +171,6 @@ def test_each_react_call_agent_creates_new_correlation_id():
 
 
 def test_unknown_request_returns_clarify_without_rag_dispatch():
-    with patch(
-        "ecom_agent_matrix.orchestration.master.router.is_llm_configured",
-        return_value=False,
-    ):
-        route = route_master_task({"query": "随便说点什么 xyz"})
-    assert route.mode == "clarify"
-    assert route.target_agents == []
-
     async def scenario():
         request = AgentMessage(
             task_id="root-clarify",
@@ -188,19 +180,15 @@ def test_unknown_request_returns_clarify_without_rag_dispatch():
         )
         long_mem = AsyncMock()
         long_mem.recall.return_value = []
-        clarify = MasterPlan(
-            decision="clarify",
-            steps=[],
-            confidence=0.3,
-            reason_code="UNKNOWN",
-            clarification_question="请补充具体需求。",
-            planner_source="test",
-        )
         with (
             patch(
-                "ecom_agent_matrix.orchestration.master.orchestrator.typed_master_planner.plan",
-                new=AsyncMock(return_value=clarify),
+                "ecom_agent_matrix.orchestration.master.router.is_llm_configured",
+                return_value=False,
             ),
+            patch(
+                "ecom_agent_matrix.orchestration.master.orchestrator.typed_master_planner.plan",
+                new=AsyncMock(),
+            ) as planner,
             patch(
                 "ecom_agent_matrix.orchestration.master.orchestrator._dispatch_subtask",
                 new=AsyncMock(),
@@ -210,11 +198,17 @@ def test_unknown_request_returns_clarify_without_rag_dispatch():
                 new=AsyncMock(return_value=True),
             ) as send,
         ):
+            route = route_master_task({"query": "随便说点什么 xyz"})
             await process_master_task(request, long_mem)
+        assert route.mode == "clarify"
+        assert route.reason_code == "UNKNOWN"
+        assert route.target_agents == []
+        planner.assert_not_awaited()
         dispatch.assert_not_awaited()
         sent = send.await_args.args[0]
         assert sent.content["data"]["mode"] == "clarify"
-        assert sent.content["data"]["summary"] == "请补充具体需求。"
+        assert sent.content["data"]["route"]["reason_code"] == "UNKNOWN"
+        assert sent.content["data"]["summary"].strip()
 
     asyncio.run(scenario())
 

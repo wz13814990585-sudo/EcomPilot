@@ -100,8 +100,9 @@ def test_synthesis_distinguishes_correlation_from_causation():
     store.add(_document_evidence())
     result = asyncio.run(evidence_synthesis_service.synthesize("为什么退款率上涨？", store))
     assert result.grounding.valid is True
-    assert any(claim.claim_type == ClaimType.CORRELATION for claim in result.claims)
-    assert "不足以单独证明因果关系" in result.summary
+    assert any(claim.claim_type == ClaimType.CO_OCCURRENCE for claim in result.claims)
+    assert not any(claim.claim_type == ClaimType.CORRELATION for claim in result.claims)
+    assert "不支持相关性或确定因果结论" in result.summary
     assert result.citations == ["S1"]
 
 

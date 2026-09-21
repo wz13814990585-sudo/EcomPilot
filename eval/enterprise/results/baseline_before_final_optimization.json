@@ -1,0 +1,38 @@
+{
+  "schema_version": "enterprise-eval-baseline-v1",
+  "captured_at": "2026-09-21T05:01:42Z",
+  "git_sha": "868bd9123eb89f0acbc7fc17d02fe6b68fac4fb4",
+  "test": {
+    "command": "python -m eval.enterprise.runner --suite all --fail-on-regression",
+    "suite": "all",
+    "deterministic": true,
+    "status": "PASS",
+    "totals": {
+      "cases": 50,
+      "pass": 50,
+      "fail": 0
+    }
+  },
+  "metrics": {
+    "column_precision": 0.354018,
+    "column_recall": 1.0,
+    "sql_parse_valid": 1.0,
+    "sql_safety_pass": 1.0,
+    "table_precision": 0.510417,
+    "table_recall": 1.0,
+    "unsafe_sql_blocked": 1.0,
+    "task_success_rate": 1.0,
+    "execution_success_rate": null,
+    "execution_accuracy": null,
+    "repair_rate": null,
+    "repair_success_rate": null,
+    "live_sql_status": "NOT_RUN",
+    "rag_generation_status": "NOT_RUN",
+    "external_api_status": "NOT_RUN"
+  },
+  "source_report": "/tmp/ecom-enterprise-before-final-optimization/latest.json",
+  "notes": [
+    "Captured before the final Schema Linking, analytical planning, SQL allowlist, and evidence-grounding optimization.",
+    "Execution-dependent metrics remain null and are reported as NOT_RUN rather than inferred."
+  ]
+}

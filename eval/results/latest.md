@@ -1,7 +1,7 @@
 # Agent Evaluation Report
 
-- Timestamp: `2026-09-21T04:05:07.891879+00:00`
-- Git SHA: `c6a41ef`
+- Timestamp: `2026-09-21T10:09:28.381739+00:00`
+- Git SHA: `868bd91`
 - Environment: `development`
 - Deterministic gate: **PASS**
 
@@ -9,10 +9,10 @@
 |---|---:|---:|---:|---:|---:|
 | routing | PASS | 13 | 0 | 0 | 0 |
 | planning | PASS | 6 | 0 | 0 | 0 |
-| execution | NOT_RUN | 0 | 0 | 3 | 0 |
+| execution | NOT_RUN | 0 | 0 | 0 | 0 |
 | safety | PASS | 16 | 0 | 0 | 0 |
 | recovery | DEGRADED | 3 | 0 | 8 | 0 |
-| rag | NOT_RUN | 0 | 0 | 2 | 0 |
+| rag | NOT_RUN | 0 | 0 | 0 | 0 |
 
 ## Metrics
 
@@ -46,19 +46,7 @@
 ### Execution
 
 ```json
-{
-  "task_success_rate": null,
-  "workflow_success_rate": null,
-  "skill_success_rate": null,
-  "partial_success_rate": null,
-  "timeout_rate": null,
-  "agent_unavailable_rate": null,
-  "latency_ms": null,
-  "llm_calls": null,
-  "prompt_tokens": null,
-  "completion_tokens": null,
-  "estimated_cost": null
-}
+{}
 ```
 
 ### Safety
@@ -87,15 +75,7 @@
 ### Rag
 
 ```json
-{
-  "hit_rate_at_k": null,
-  "recall_at_k": null,
-  "mrr_at_k": null,
-  "ndcg_at_k": null,
-  "citation_validity_rate": null,
-  "grounded_answer_rate": null,
-  "retrieval_degraded_rate": null
-}
+{}
 ```
 
 ### Cost

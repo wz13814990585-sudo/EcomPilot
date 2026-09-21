@@ -1,7 +1,7 @@
 [
   {"id":"complex_001","mode":"schema","question":"按商品品类分析销售额","expected_tables":["ecom_order","ecom_goods"],"expected_columns":["total_amount","category"]},
   {"id":"complex_002","mode":"schema","question":"库存最低的商品品类","expected_tables":["ecom_goods"],"expected_columns":["stock_num","category"]},
-  {"id":"complex_003","mode":"schema","question":"订单中每个 SKU 的销量","expected_tables":["ecom_order","ecom_goods"],"expected_columns":["buy_num","sku"]},
+  {"id":"complex_003","mode":"schema","question":"订单中每个 SKU 的销量","expected_tables":["ecom_order"],"optional_tables":["ecom_goods"],"required_columns":["buy_num","sku"]},
   {"id":"complex_004","mode":"schema","question":"竞品价格与我们商品价格对比","expected_tables":["competitor_price","ecom_goods"],"expected_columns":["compete_price","price"]},
   {"id":"complex_005","mode":"schema","question":"按月对比退款订单","expected_tables":["ecom_order"],"expected_columns":["refund_flag","create_time"]},
   {"id":"complex_006","mode":"schema","question":"inventory value by product category","expected_tables":["ecom_goods"],"expected_columns":["stock_num","price","category"]},

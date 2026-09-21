@@ -31,10 +31,10 @@ sequenceDiagram
     participant DB as PostgreSQL Read Role
     U->>M: 本月销售额和订单数？
     M->>Q: data_analysis Fast Path
-    Q->>C: permission-filtered hybrid schema link
+    Q->>C: permission-filtered hybrid / lexical-only schema link
     C-->>Q: selected tables/columns/FKs + reason codes
     Q->>Q: structured SQL generation
-    Q->>V: parse + AST/table/column/cost/LIMIT validation
+    Q->>V: parse + function/table/column/cost/LIMIT validation
     V-->>Q: validated SELECT
     Q->>DB: read-only transaction + statement timeout + tenant/store RLS
     DB-->>Q: bounded rows
@@ -55,16 +55,22 @@ sequenceDiagram
     M->>M: deterministic composite analysis route
     par quantitative evidence
         M->>Q: data_analysis
-        Q-->>M: SQL evidence + lineage
+        Q->>Q: bounded AnalyticalQueryPlan
+        Q-->>M: trend + segment SQL evidence + lineage
     and document evidence
         M->>R: knowledge_qa
         R-->>M: document evidence + citations
     end
     M->>S: bounded evidence package
-    S-->>M: facts, correlations, hypotheses, uncertainties
+    S-->>M: facts, co-occurrences, correlations, hypotheses, unknowns
     M->>M: deterministic grounding check
-    Note over M: correlation is never promoted to causation
+    Note over M: SQL + document is co-occurrence unless association is measured
 ```
+
+Every analytical subquery independently passes permission-filtered linking, SQL generation,
+the fail-closed function allowlist, AST validation, query guards, read-only execution and RLS.
+The plan is capped at four steps and concurrency three. It can only use dimensions present in
+the allowed catalog; the absence of a region column prevents region analysis from being planned.
 
 ## Simple Fast Path
 

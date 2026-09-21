@@ -298,11 +298,15 @@ async def _synthesize_composite_evidence(
     for result in execution.step_results.values():
         if not result.success:
             continue
-        if result.task_type == "data_analysis" and isinstance(result.data.get("evidence"), dict):
-            try:
-                store.add(SQLEvidence.model_validate(result.data["evidence"]))
-            except (TypeError, ValueError):
-                continue
+        if result.task_type == "data_analysis":
+            records = list(result.data.get("evidence_records") or [])
+            if not records and isinstance(result.data.get("evidence"), dict):
+                records = [result.data["evidence"]]
+            for record in records:
+                try:
+                    store.add(SQLEvidence.model_validate(record))
+                except (TypeError, ValueError):
+                    continue
         if result.task_type == "knowledge_qa":
             for document in list(result.data.get("docs") or [])[:5]:
                 metadata = document.get("meta") or document.get("metadata") or {}

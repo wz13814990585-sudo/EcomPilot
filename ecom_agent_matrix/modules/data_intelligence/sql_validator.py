@@ -25,6 +25,47 @@ class SQLGuardConfig:
     max_rows: int = 200
 
 
+@dataclass(frozen=True)
+class SQLFunctionPolicy:
+    """Fail-closed allowlist for executable functions in untrusted/generated SQL."""
+
+    allowed: frozenset[str] = frozenset(
+        {
+            "abs",
+            "avg",
+            "case",
+            "cast",
+            "ceil",
+            "ceiling",
+            "coalesce",
+            "count",
+            "current_date",
+            "current_time",
+            "current_timestamp",
+            "date_trunc",
+            "extract",
+            "floor",
+            "greatest",
+            "if",
+            "least",
+            "lower",
+            "max",
+            "min",
+            "nullif",
+            "round",
+            "sum",
+            "timestamp_trunc",
+            "upper",
+        }
+    )
+
+
+def _function_name(function: exp.Func) -> str:
+    if isinstance(function, exp.Anonymous):
+        return str(function.name or "").lower()
+    return str(function.sql_name() or "").lower()
+
+
 _FORBIDDEN_TYPES = tuple(
     expression
     for expression in (
@@ -56,8 +97,13 @@ def _is_single_aggregate(select: exp.Select) -> bool:
 
 
 class SQLSafetyValidator:
-    def __init__(self, config: SQLGuardConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: SQLGuardConfig | None = None,
+        function_policy: SQLFunctionPolicy | None = None,
+    ) -> None:
         self.config = config or SQLGuardConfig()
+        self.function_policy = function_policy or SQLFunctionPolicy()
 
     def validate(
         self,
@@ -89,13 +135,13 @@ class SQLSafetyValidator:
             raise SQLValidationError(
                 ErrorCode.UNSAFE_SQL, "SELECT INTO and row locks are forbidden"
             )
-        forbidden_functions = {"pg_sleep", "lo_import", "lo_export", "dblink", "query_to_xml"}
-        called_functions = {
-            str(function.name or function.sql_name()).lower()
-            for function in root.find_all(exp.Func)
-        }
-        if called_functions.intersection(forbidden_functions):
-            raise SQLValidationError(ErrorCode.UNSAFE_SQL, "Unsafe SQL function is forbidden")
+        called_functions = {_function_name(function) for function in root.find_all(exp.Func)}
+        unsafe_functions = called_functions.difference(self.function_policy.allowed)
+        if unsafe_functions:
+            raise SQLValidationError(
+                ErrorCode.UNSAFE_SQL,
+                f"SQL function is not allowlisted: {', '.join(sorted(unsafe_functions))}",
+            )
 
         cte_names = {cte.alias_or_name.lower() for cte in root.find_all(exp.CTE)}
         physical_tables = [
@@ -231,4 +277,9 @@ class SQLSafetyValidator:
         )
 
 
-__all__ = ["SQLGuardConfig", "SQLSafetyValidator", "SQLValidationError"]
+__all__ = [
+    "SQLFunctionPolicy",
+    "SQLGuardConfig",
+    "SQLSafetyValidator",
+    "SQLValidationError",
+]

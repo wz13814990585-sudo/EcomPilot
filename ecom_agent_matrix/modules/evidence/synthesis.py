@@ -5,6 +5,7 @@ from __future__ import annotations
 from .grounding import validate_claims
 from .models import AnalysisResult, Claim, ClaimType, DocumentEvidence, EvidenceType, SQLEvidence
 from .store import EvidenceStore
+from ...platform.observability.metrics import metrics
 
 
 class EvidenceSynthesisService:
@@ -49,22 +50,37 @@ class EvidenceSynthesisService:
             claims.append(
                 Claim(
                     text=(
-                        "结构化数据中的指标变化与同期文档记录存在业务上的相关性，"
-                        "但现有证据不足以单独证明因果关系。"
+                        "结构化指标变化与文档记录出现在同一业务分析上下文中，"
+                        "但尚未建立定量关联或因果关系。"
                     ),
                     evidence_ids=[sql_records[0].id, document_records[0].id],
                     citation_ids=[document_records[0].citation_id],
                     confidence=min(sql_records[0].confidence, document_records[0].confidence, 0.75),
-                    claim_type=ClaimType.CORRELATION,
+                    claim_type=ClaimType.CO_OCCURRENCE,
                 )
             )
-            uncertainties.append("当前证据只支持相关性，不支持确定因果结论。")
+            uncertainties.append("当前证据只支持共现，不支持相关性或确定因果结论。")
         elif sql_records:
             uncertainties.append("未找到可用的同期文档证据，无法解释业务原因。")
         elif document_records:
             uncertainties.append("缺少结构化指标证据，无法验证变化幅度。")
         grounding = validate_claims(claims, store)
-        summary = " ".join(claim.text for claim in claims[:3]) or "当前没有足够证据回答该问题。"
+        metrics.observe_evidence("sql", len(sql_records))
+        metrics.observe_evidence("document", len(document_records))
+        for issue in grounding.issues:
+            metrics.observe_grounding_failure(issue.code)
+        facts = " ".join(claim.text for claim in claims if claim.claim_type == ClaimType.FACT)
+        cooccurrence = " ".join(
+            claim.text for claim in claims if claim.claim_type == ClaimType.CO_OCCURRENCE
+        )
+        summary = (
+            f"Observed Facts: {facts or '无。'}\n"
+            f"Supporting Documents: {len(document_records)} 份。\n"
+            f"Co-occurring Events: {cooccurrence or '无。'}\n"
+            "Hypotheses: 需要进一步定量验证。\n"
+            f"Unknowns: {' '.join(uncertainties) or '无。'}\n"
+            "Recommended Next Investigation: 按品类和 SKU 继续分解并验证假设。"
+        )
         return AnalysisResult(
             summary=summary,
             claims=claims,
