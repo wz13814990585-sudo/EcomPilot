@@ -1,13 +1,13 @@
-# Observability and resilience
+# 可观测性与韧性
 
-The current runtime is intentionally a single-process asynchronous Agent system. This keeps the interview/demo deployment understandable and avoids distributed coordination costs. `MessageBus` remains an abstraction that could later use Redis Streams or RabbitMQ, but Phase 6 Lite does not implement distributed messaging.
+当前 Runtime 有意采用单进程异步 Agent 架构，使面试与 Demo 部署保持清晰，并避免不必要的分布式协调成本。`MessageBus` 保留了未来接入 Redis Streams 或 RabbitMQ 的抽象边界，但当前版本没有宣称实现分布式消息系统。
 
-`GET /metrics` exposes bounded-label Prometheus metrics. Production deployments should set `METRICS_AUTH_REQUIRED=true`; the caller then needs `system:read`.
+`GET /metrics` 暴露标签受限的 Prometheus 指标。生产部署应设置 `METRICS_AUTH_REQUIRED=true`，调用方需要具备 `system:read` 权限。
 
-Structured logs inherit `task_id` and hop-level `correlation_id` through `TraceContext`. Tenant and user identifiers are SHA-256 hashes; request bodies, queries, prompts, credentials and tokens are excluded or redacted.
+结构化日志通过 `TraceContext` 继承 `task_id` 和逐跳 `correlation_id`。租户与用户标识会做 SHA-256 哈希；请求体、查询、提示词、凭证和 Token 会被排除或脱敏。
 
-Business POST routes use a process-local tenant/user rate limiter. This is suitable only for the single-process demo runtime. LLM and Taobao integrations use bounded component-level circuit breakers; existing LLM retry remains the sole retry layer and only handles transient failures.
+业务 POST 路由使用进程内的租户/用户限流器，只适用于当前单进程 Demo Runtime。LLM 与淘宝集成使用有界的组件级熔断器；LLM 自身的重试是唯一重试层，并且只处理瞬时故障。
 
-Readiness checks PostgreSQL, Redis and Agent runtime. An unavailable/unconfigured LLM is reported as degraded and does not fail readiness unless `LLM_REQUIRED_FOR_READINESS=true`.
+Readiness 会检查 PostgreSQL、Redis 和 Agent Runtime。LLM 未配置或不可用时会报告为 degraded；只有设置 `LLM_REQUIRED_FOR_READINESS=true` 才会让 readiness 失败。
 
-Data-intelligence telemetry adds bounded-label metrics for schema-link latency/candidate counts, SQL validation outcomes, safety rejection reason codes, execution latency, row counts, truncation and repair outcomes. Raw SQL, questions, task IDs, user IDs and tenant IDs are never Prometheus labels. The trace records selected sources, validation result, evidence IDs and safe error categories without persisting hidden model reasoning.
+数据智能遥测会记录标签受限的指标，包括 Schema Linking 延迟与候选数量、SQL 校验结果、安全拒绝原因、执行延迟、行数、截断和修复结果。原始 SQL、问题、任务 ID、用户 ID 和租户 ID 永远不会成为 Prometheus 标签。Trace 只记录选中来源、校验结果、证据 ID 和安全错误分类，不持久化模型隐藏推理。

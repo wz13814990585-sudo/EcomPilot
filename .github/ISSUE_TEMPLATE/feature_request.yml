@@ -1,0 +1,47 @@
+name: 功能建议
+description: 建议新的电商运营能力、Agent 工作流或使用体验改进
+title: "[建议] "
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 谁会在什么情况下需要这个功能？
+      placeholder: 例如：运营人员需要在同一对话中对比多个 SKU 的库存和竞品价格。
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: 期望结果
+      description: 请描述用户能看到或完成什么，而不只是指定技术实现。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 如果已有实现思路、接口草案或替代方案，可以写在这里。
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及区域
+      options:
+        - 智能对话与记忆
+        - 商品、库存与竞品
+        - Text-to-SQL 与数据分析
+        - RAG 与知识库
+        - 审批、安全与权限
+        - 管理员界面
+        - 测试、评估与文档
+        - 其他
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，没有找到相同建议。
+          required: true
+

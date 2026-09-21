@@ -1,104 +1,101 @@
-# Architecture sequences
+# 系统架构与关键时序
 
-The system has four runtime Agents. Workflows and Skills provide business variety without weakening those responsibility boundaries.
+系统只有四个 Runtime Agent。丰富的业务能力由 Workflow 与 Skill 提供，不会削弱四个 Agent 的职责和安全边界。
 
 ```text
-User -> FastAPI -> Master -> Fast Path / Typed Planner -> Validated DAG
+用户 -> FastAPI -> Master -> Fast Path / Typed Planner -> 已校验 DAG
                               |              |              |
                             Query           RAG            Exec
                               |              |              |
-                         SQL / Read API  Knowledge Base  Write API
+                         SQL / 只读 API    知识库       写 API
                               +--------------+--------------+
                                              |
-                                      Evidence Store
+                                         证据库
                                              |
-                                  Evidence Synthesis Service
+                                       证据综合服务
                                              |
-                                      Grounding Check
+                                       Grounding 校验
 ```
 
-SecurityContext, RBAC, PostgreSQL RLS, approval, idempotency, timeouts, tracing, metrics and evaluation are cross-cutting boundaries. Analysis and business APIs are services/Skills, never additional runtime Agents.
+SecurityContext、RBAC、PostgreSQL RLS、人工审批、幂等、超时、链路追踪、指标与评估构成横切安全边界。分析和业务 API 以 Service/Skill 形式存在，不会额外创建 Runtime Agent。
 
-## Safe Text-to-SQL Fast Path
+## 安全 Text-to-SQL Fast Path
 
 ```mermaid
 sequenceDiagram
-    participant U as User
+    participant U as 用户
     participant M as Master
     participant Q as Query
-    participant C as Schema Catalog
-    participant V as SQLGlot Guard
-    participant DB as PostgreSQL Read Role
+    participant C as Schema 目录
+    participant V as SQLGlot 安全校验
+    participant DB as PostgreSQL 只读角色
     U->>M: 本月销售额和订单数？
     M->>Q: data_analysis Fast Path
-    Q->>C: permission-filtered hybrid / lexical-only schema link
-    C-->>Q: selected tables/columns/FKs + reason codes
-    Q->>Q: structured SQL generation
-    Q->>V: parse + function/table/column/cost/LIMIT validation
-    V-->>Q: validated SELECT
-    Q->>DB: read-only transaction + statement timeout + tenant/store RLS
-    DB-->>Q: bounded rows
-    Q-->>M: SQL evidence + lineage + quality warnings
-    M-->>U: traceable answer
+    Q->>C: 权限过滤后的 Hybrid / 关键词 Schema Linking
+    C-->>Q: 表、字段、外键与原因码
+    Q->>Q: 结构化 SQL 生成
+    Q->>V: 语法、函数、表、字段、成本与 LIMIT 校验
+    V-->>Q: 校验后的 SELECT
+    Q->>DB: 只读事务 + 超时 + tenant/store RLS
+    DB-->>Q: 有界结果集
+    Q-->>M: SQL 证据 + Lineage + 质量提醒
+    M-->>U: 可追溯回答
 ```
 
-Generated SQL is never authorized by the model. Permission filtering occurs before generation and again at AST validation; RLS remains the final database boundary. Safe technical database errors may be repaired once, then the complete validation chain runs again. Permission, tenant, unsafe SQL and cost failures are never repaired.
+生成 SQL 的授权永远不由模型决定。系统在生成前进行权限过滤，并在 AST 校验时再次检查；RLS 是最终数据库边界。安全的技术性数据库错误最多允许修复一次，修复后必须重新经过完整校验链；权限、租户、危险 SQL 和成本超限错误绝不自动修复。
 
-## Structured + unstructured analysis
+## 结构化数据 + 非结构化知识联合分析
 
 ```mermaid
 sequenceDiagram
     participant M as Master
     participant Q as Query
     participant R as RAG
-    participant S as Evidence Synthesis
-    M->>M: deterministic composite analysis route
-    par quantitative evidence
+    participant S as 证据综合服务
+    M->>M: 确定性组合分析路由
+    par 定量证据
         M->>Q: data_analysis
-        Q->>Q: bounded AnalyticalQueryPlan
-        Q-->>M: trend + segment SQL evidence + lineage
-    and document evidence
+        Q->>Q: 有界 AnalyticalQueryPlan
+        Q-->>M: 趋势 + 分组 SQL 证据 + Lineage
+    and 文档证据
         M->>R: knowledge_qa
-        R-->>M: document evidence + citations
+        R-->>M: 文档证据 + 引用
     end
-    M->>S: bounded evidence package
-    S-->>M: facts, co-occurrences, correlations, hypotheses, unknowns
-    M->>M: deterministic grounding check
-    Note over M: SQL + document is co-occurrence unless association is measured
+    M->>S: 有界证据包
+    S-->>M: 事实、共现、相关性、假设与未知项
+    M->>M: 确定性 Grounding 校验
+    Note over M: 未测量关联时，SQL + 文档只能证明共现
 ```
 
-Every analytical subquery independently passes permission-filtered linking, SQL generation,
-the fail-closed function allowlist, AST validation, query guards, read-only execution and RLS.
-The plan is capped at four steps and concurrency three. It can only use dimensions present in
-the allowed catalog; the absence of a region column prevents region analysis from being planned.
+每个分析子查询都独立经过权限过滤的 Schema Linking、SQL 生成、Fail-closed 函数白名单、AST 校验、查询守卫、只读执行和 RLS。计划最多四步、并发最多三个，并且只能使用授权 Catalog 中真实存在的维度；如果没有地区字段，系统就不会虚构地区分析。
 
-## Simple Fast Path
+## 简单任务 Fast Path
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
+    participant C as 客户端
     participant A as FastAPI
     participant M as Master
     participant Q as Query
-    participant W as Read Workflow
+    participant W as 只读 Workflow
     participant S as SkillExecutor
     participant D as PostgreSQL
-    C->>A: authenticated simple query
+    C->>A: 已认证的简单查询
     A->>M: AgentMessage(root task_id)
-    M->>M: deterministic high-confidence route
-    M->>Q: new correlation_id
-    Q->>W: typed request
-    W->>S: pure read Skill
+    M->>M: 确定性高置信路由
+    M->>Q: 新 correlation_id
+    Q->>W: 类型化请求
+    W->>S: 纯只读 Skill
     S->>D: tenant-scoped SELECT
-    D-->>S: facts
+    D-->>S: 事实数据
     S-->>W: SkillResult
     W-->>Q: WorkflowResult
-    Q-->>M: correlated reply
-    M-->>A: final result, zero planner calls
-    A-->>C: API response
+    Q-->>M: 关联响应
+    M-->>A: 最终结果，Planner 调用为零
+    A-->>C: API 响应
 ```
 
-## Composite Typed DAG
+## 组合任务 Typed DAG
 
 ```mermaid
 sequenceDiagram
@@ -107,40 +104,40 @@ sequenceDiagram
     participant Q as Query
     participant R as RAG
     participant E as Exec/CRM
-    M->>P: composite customer request
-    P-->>M: validated DAG
-    par independent context
+    M->>P: 组合型客户请求
+    P-->>M: 校验后的 DAG
+    par 独立上下文
         M->>Q: order_context
-        Q-->>M: order facts
+        Q-->>M: 订单事实
     and
         M->>R: policy_context
-        R-->>M: grounded knowledge + citations
+        R-->>M: Grounded 知识 + 引用
     end
     M->>E: customer_reply + upstream context
-    E-->>M: final customer response
-    Note over M: dependency-aware execution and bounded recovery
+    E-->>M: 最终客户回复
+    Note over M: 依赖感知执行与有界恢复
 ```
 
-## Risk approval
+## 高风险操作审批
 
 ```mermaid
 sequenceDiagram
-    participant U as Requester
-    participant E as Exec Workflow
+    participant U as 请求者
+    participant E as Exec 工作流
     participant X as SkillExecutor
     participant DB as PostgreSQL
-    participant H as Human Approver
-    U->>E: deterministic risky order payload
+    participant H as 人工审批人
+    U->>E: 确定性的风险订单参数
     E->>X: record_order_risk
-    X->>DB: create exact-parameter pending approval
-    X-->>U: failed / awaiting_approval + approval_id
-    H->>DB: authenticated approve endpoint
-    DB-->>H: approved grant
-    U->>E: same payload + X-Approval-Id
+    X->>DB: 创建绑定精确参数的待审批记录
+    X-->>U: awaiting_approval + approval_id
+    H->>DB: 调用已认证审批接口
+    DB-->>H: 已批准授权
+    U->>E: 相同参数 + X-Approval-Id
     E->>X: record_order_risk
-    X->>DB: atomically consume approval
-    X->>DB: write risk record once
-    X-->>U: success
+    X->>DB: 原子消费审批
+    X->>DB: 风险记录只写入一次
+    X-->>U: 执行成功
 ```
 
-The LLM never participates in approval. Tenant identity, required scopes, parameter hashes, expiry, and one-time consumption are deterministic security controls.
+LLM 永远不参与审批授权。租户身份、必要 Scope、参数哈希、有效期和一次性消费全部由确定性安全代码控制。

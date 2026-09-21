@@ -1,0 +1,55 @@
+name: 缺陷报告
+description: 报告可复现的功能、接口、数据或界面问题
+title: "[缺陷] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请勿在公开 Issue 中填写 API Key、数据库密码、客户数据或安全漏洞细节。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+      description: 实际发生了什么？这对使用有什么影响？
+      placeholder: 请尽量使用完整、清晰的中文描述。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 请提供最小复现步骤、请求内容或页面操作顺序。
+      placeholder: |
+        1. 启动……
+        2. 输入……
+        3. 点击……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 你认为正确结果应该是什么？
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 请填写操作系统、Python、浏览器、数据库以及相关提交号。
+      placeholder: macOS 15 / Python 3.11 / Chrome / PostgreSQL 16 / commit abc1234
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脱敏日志或截图
+      description: 仅粘贴已移除密钥、凭证和客户信息的内容。
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，没有找到相同问题。
+          required: true
+        - label: 我确认这里不包含密钥、密码、客户数据或未公开漏洞。
+          required: true
+

@@ -1,6 +1,6 @@
-# Enterprise Data Agent
+# 跨境电商多智能体运营矩阵
 
-## Multi-Agent RAG & Text-to-SQL Platform
+## 安全、可解释、可本地运行的 RAG 与 Text-to-SQL 智能运营平台
 
 [![CI](https://github.com/wz13814990585-sudo/ecom_agent_matrix/actions/workflows/ci.yml/badge.svg)](https://github.com/wz13814990585-sudo/ecom_agent_matrix/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
@@ -8,9 +8,24 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-cache-DC382D?logo=redis&logoColor=white)
 
-> 面向跨境电商运营的 typed、fail-closed Enterprise Data Agent。
->
-> A production-inspired agent runtime with deterministic routing, validated DAG execution, hybrid RAG, tenant isolation, human approval, and measurable safety.
+> 面向跨境电商运营的企业级智能体系统。它把销售分析、商品与库存、竞品监控、知识库问答、客服、社媒文案和高风险审批统一到一个自然语言入口中，并通过确定性路由、受约束 DAG、租户隔离和人工审批保证执行安全。
+
+[功能亮点](#核心亮点) · [快速体验](#5-分钟启动完整本地-demo) · [演示问题](#可以直接这样提问) · [系统架构](#系统架构) · [评估结果](#当前验证状态) · [贡献指南](CONTRIBUTING.md)
+
+## 你可以用它做什么
+
+| 场景 | 用户体验 | 系统能力 |
+|---|---|---|
+| 销售与退款分析 | 直接询问销售额、退款率及变化原因 | 安全 Text-to-SQL + SQL/RAG 联合取证 |
+| 商品、价格与库存 | 查询鞋子、背包的价格、库存和备货建议 | 商品检索、库存预测、连续追问记忆 |
+| 竞品监控 | 对比 Temu、Amazon 等渠道价格 | 多平台价格观测与异常提醒 |
+| 店铺知识问答 | 查询退款、物流、保修和运营制度 | Hybrid RAG + 引用校验 + grounded answer |
+| 运营内容生成 | 生成 TikTok 等平台推广文案 | 平台化模板、品牌语气与中文输出 |
+| 客服辅助 | 根据商品、订单和政策生成客服回复 | CRM 短期记忆 + RAG + 人性化回答 |
+| 高风险操作 | 审批广告暂停、风险订单等写操作 | 参数绑定审批、一次性消费、幂等保护 |
+| 数据管理 | 在管理员界面维护商品和 RAG 文档 | RBAC、租户隔离、可视化增删改查 |
+
+对话默认保留同一会话内的短期记忆，可以接着问“多少钱？”或“那库存呢？”。点击“新对话”会同时清除消息、审批上下文和会话记忆。
 
 ## 5 分钟启动完整本地 Demo
 
@@ -56,7 +71,7 @@ LLM 是可选的：明显意图、SQL 模板、RAG 检索和展示均有确定�
 
 拥有 `admin` 角色的账号可从左侧“管理员”进入数据后台，查看业务数据概览、搜索/新增/编辑/删除商品，并查看、编辑或新增 RAG 知识文档。所有管理员 API 都在服务端校验角色并受租户/店铺 RLS 隔离，不能依靠前端按钮绕过权限。
 
-可直接尝试：
+## 可以直接这样提问
 
 - `2026年8月销售额是多少？`
 - `为什么2026年8月退款率上涨，有没有相关运营事件？`
@@ -74,7 +89,7 @@ LLM 是可选的：明显意图、SQL 模板、RAG 检索和展示均有确定�
 - `客户说 BAG-002 拉链坏了想退款，应该怎么回复？`
 - `把 ORD-DEMO-RISK 标记为高风险订单。`（需审批）
 
-每个入口的真实后端映射见 [Demo capability matrix](docs/demo_capability_matrix.md)。
+每个入口的真实后端映射见 [演示能力矩阵](docs/demo_capability_matrix.md)。
 
 本项目回答一个核心问题：**当企业用户的复杂业务问题同时涉及结构化数据库、内部文档和业务系统时，Agent 能否安全、准确、可追溯地收集证据并返回 grounded answer？**
 
@@ -189,7 +204,7 @@ HTTP API
 
 更多时序图见 [Architecture](docs/architecture.md)。
 
-## Enterprise SQL pipeline
+## 企业级 SQL 安全链路
 
 ```text
 Question -> permission-filtered Schema Catalog -> Hybrid Schema Linking
@@ -325,7 +340,7 @@ python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode composite 
 python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode risk --api-key "$DEMO_API_KEY"
 ```
 
-## Agent Console 前端
+## 智能运营控制台
 
 API 启动后直接打开：
 
@@ -344,7 +359,7 @@ http://127.0.0.1:8002/app
 
 前端是现有 Runtime 的操作面板。所有任务仍然经过既有的认证、RBAC、Master 路由、Query/Exec/RAG、SQL Safety、Approval 和 SkillExecutor 安全边界。
 
-## Agent Evaluation
+## Agent 评估体系
 
 pytest 验证代码正确性；Evaluation Harness 衡量 Agent 的可观察行为。
 
@@ -452,7 +467,9 @@ docs/                   architecture, demo, observability, interview notes
 
 ## 延伸阅读
 
-- [Architecture](docs/architecture.md) — Fast Path、Typed DAG、Risk Approval 时序
-- [Demo guide](docs/demo.md) — 四条可复制演示路径
-- [Observability](docs/observability.md) — 日志、指标与 tracing
-- [Interview notes](docs/interview_notes.md) — 架构取舍与常见面试问答
+- [系统架构](docs/architecture.md) — Fast Path、Typed DAG 与风险审批时序
+- [演示指南](docs/demo.md) — 五条可复制的核心演示路径
+- [可观测性](docs/observability.md) — 日志、指标与链路追踪
+- [设计说明与面试笔记](docs/interview_notes.md) — 架构取舍与常见问题
+- [贡献指南](CONTRIBUTING.md) — 本地开发、测试与提交规范
+- [安全策略](SECURITY.md) — 漏洞报告方式与敏感信息规范
