@@ -67,21 +67,19 @@ async def run_data_analysis_workflow(
         )
     execution = result.execution
     assert execution is not None
-    summary = (
-        "查询成功但未返回数据。"
-        if not execution.rows
-        else f"查询完成，返回 {execution.row_count} 行可追溯结果。"
-    )
     return WorkflowResult(
         success=True,
         data={
             "query_kind": "data_analysis",
-            "summary": summary,
             "schema_link": result.schema_link.model_dump(mode="json"),
             "generated_sql": result.generated_sql.model_dump(mode="json"),
             "validated_sql": result.validated_sql.model_dump(mode="json"),
             "result": execution.model_dump(mode="json"),
+            "analytical": (
+                result.analytical.model_dump(mode="json") if result.analytical else None
+            ),
             "evidence": result.evidence,
+            "evidence_records": result.evidence_records,
             "repair_attempts": result.repair_attempts,
             "catalog_source": result.catalog_source,
             "schema_version": result.schema_version,

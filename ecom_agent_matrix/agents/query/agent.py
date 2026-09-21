@@ -26,7 +26,7 @@ from ...core.security import require_trusted_ingress
 from ...core.tasking import WorkflowResult
 from ...workflows.data_check import run_data_check_workflow
 from ...workflows.data_analysis import run_data_analysis_workflow
-from ...workflows.business_api import run_business_api_read_workflow
+from ...workflows.business_api import run_ad_query_workflow, run_business_api_read_workflow
 from ...workflows.goods import run_goods_workflow
 from ...workflows.competitor import run_competitor_workflow
 from ...workflows.stock import run_stock_workflow
@@ -116,7 +116,7 @@ async def execute_query(
         "competitor_watch": "competitor",
         "data_check": "data_check",
         "order_query": "business_api",
-        "ad_query": "data_check",
+        "ad_query": "ad_query",
         "data_analysis": "data_analysis",
     }.get(task_type)
     if kind is None:
@@ -129,6 +129,10 @@ async def execute_query(
         return await run_goods_workflow(ctx)
 
     if kind == "stock":
+        if not extract_stock_sku(ctx) and any(
+            hint in ctx.query for hint in ("哪些", "最低", "不足", "缺货", "优先补货")
+        ):
+            return await run_stock_workflow(ctx)
         enriched, early = await _ensure_sku(ctx)
         if early:
             return early
@@ -149,6 +153,9 @@ async def execute_query(
 
     if kind == "business_api":
         return await run_business_api_read_workflow(ctx)
+
+    if kind == "ad_query":
+        return await run_ad_query_workflow(ctx)
 
     return await run_data_check_workflow(ctx)
 

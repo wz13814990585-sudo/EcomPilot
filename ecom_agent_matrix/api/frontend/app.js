@@ -1,19 +1,21 @@
 const TASKS = [
-  ["data_analysis", "Text-to-SQL / 企业数据分析", "为什么 8 月退款率上涨？", {}],
+  ["data_analysis", "销售与退款分析", "为什么2026年8月退款率上涨？", {}],
   ["knowledge_qa", "RAG 店铺政策 / FAQ", "退款政策是什么？", {}],
-  ["goods_search", "商品搜索", "搜索防水户外背包", {"sku":"SKU-BAG-001"}],
-  ["goods_catalog", "商品目录", "列出全部商品", {}],
-  ["stock_analysis", "库存与备货分析", "SKU-BAG-001 需要备货多少天", {"sku":"SKU-BAG-001","predict_days":14}],
-  ["competitor_watch", "竞品价格分析", "比较 SKU-BAG-001 与 Temu 的价格", {"sku":"SKU-BAG-001","competitor":"Temu"}],
-  ["order_query", "订单查询 / Business API", "查询订单 ORD-20260301-001", {"order_no":"ORD-20260301-001"}],
-  ["ad_query", "广告数据查询", "查询广告投放数据", {}],
-  ["ad_optimize", "广告优化", "优化当前广告投放", {}],
-  ["data_check", "数据完整性检查", "执行数据完整性检查", {}],
-  ["ops_report", "运营报告", "生成今日运营日报", {}],
-  ["social_marketing", "社媒营销内容", "生成一条户外背包 TikTok 文案", {}],
-  ["customer_service", "客服回复", "帮我回复咨询退款的客户", {}],
-  ["risk_control", "高风险写操作 / 审批", "对订单 ORD-20260301-001 执行风险标记", {"order_no":"ORD-20260301-001"}]
+  ["goods_search", "商品搜索", "帮我找防水户外背包。", {}],
+  ["goods_catalog", "商品目录", "现在店里都有哪些商品？", {}],
+  ["stock_analysis", "库存与备货", "哪些商品库存不足，需要优先补货？", {}],
+  ["competitor_watch", "竞品价格", "BAG-001 在 Temu 上最近卖多少钱？和我们比呢？", {}],
+  ["order_query", "订单查询", "ORD-DEMO-001 现在什么状态？", {}],
+  ["ad_query", "广告表现", "目前哪个广告活动 ROAS 最低？", {}],
+  ["ad_optimize", "广告优化（需审批）", "帮我暂停表现最差的广告活动。", {}],
+  ["data_check", "数据质量", "检查一下当前电商数据有没有异常。", {}],
+  ["ops_report", "运营报告", "给我生成今天的运营报告。", {}],
+  ["social_marketing", "社媒文案", "给 BAG-001 写一条 TikTok 推广文案。", {}],
+  ["customer_service", "客服回复", "客户说 BAG-002 拉链坏了而且想退款，应该怎么回复？", {}],
+  ["risk_control", "高风险订单（需审批）", "把 ORD-DEMO-RISK 标记为高风险订单。", {}]
 ];
+
+let lastTaskBody = null;
 
 const $ = (id) => document.getElementById(id);
 const views = {
@@ -66,7 +68,9 @@ function renderResponse(title, data, latency, ok) {
   $("responseStatus").className = `status ${ok ? "ok" : "bad"}`;
   $("responseJson").textContent = JSON.stringify(data, null, 2);
 
+  const presentation = data?.presentation || {};
   const summary =
+    presentation?.answer ||
     data?.summary ||
     data?.data?.summary ||
     data?.error_msg ||
@@ -74,11 +78,64 @@ function renderResponse(title, data, latency, ok) {
     data?.error ||
     (ok ? "请求执行成功。" : "请求执行失败。");
   $("summaryBox").textContent = typeof summary === "string" ? summary : JSON.stringify(summary);
+  renderPresentation(presentation, data);
 
   const approvalId = approvalFrom(data);
   if (approvalId) {
     $("approvalId").value = approvalId;
     $("taskApprovalId").value = approvalId;
+  }
+}
+
+function addMessage(role, text) {
+  const node = document.createElement("div");
+  node.className = `message ${role}`;
+  node.textContent = text;
+  $("conversation").appendChild(node);
+  node.scrollIntoView({behavior: "smooth", block: "nearest"});
+}
+
+function renderPresentation(presentation, raw) {
+  const root = $("resultCards");
+  root.replaceChildren();
+  const sections = [
+    ["关键发现", presentation?.highlights],
+    ["建议", presentation?.recommendations],
+    ["注意", presentation?.warnings]
+  ];
+  sections.forEach(([title, values]) => {
+    if (!Array.isArray(values) || !values.length) return;
+    const card = document.createElement("section");
+    card.className = "result-card";
+    const heading = document.createElement("h4"); heading.textContent = title; card.appendChild(heading);
+    const list = document.createElement("ul");
+    values.forEach((value) => { const li = document.createElement("li"); li.textContent = String(value); list.appendChild(li); });
+    card.appendChild(list); root.appendChild(card);
+  });
+  (presentation?.tables || []).forEach((table) => {
+    if (!Array.isArray(table.rows) || !table.rows.length) return;
+    const card = document.createElement("section"); card.className = "result-card wide";
+    const heading = document.createElement("h4"); heading.textContent = table.title || "数据"; card.appendChild(heading);
+    const wrap = document.createElement("div"); wrap.className = "table-wrap";
+    const grid = document.createElement("table");
+    const keys = Object.keys(table.rows[0]);
+    const thead = document.createElement("thead"); const hr = document.createElement("tr");
+    keys.forEach((key) => { const th = document.createElement("th"); th.textContent = key; hr.appendChild(th); });
+    thead.appendChild(hr); grid.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    table.rows.slice(0, 50).forEach((row) => { const tr = document.createElement("tr"); keys.forEach((key) => { const td = document.createElement("td"); const value = row[key]; td.textContent = typeof value === "object" ? JSON.stringify(value) : String(value ?? ""); tr.appendChild(td); }); tbody.appendChild(tr); });
+    grid.appendChild(tbody); wrap.appendChild(grid); card.appendChild(wrap); root.appendChild(card);
+  });
+  if (presentation?.evidence_summary) {
+    const badge = document.createElement("div"); badge.className = "evidence-badge"; badge.textContent = `证据：${presentation.evidence_summary}`; root.appendChild(badge);
+  }
+  const approvalId = approvalFrom(raw);
+  if (approvalId) {
+    const card = document.createElement("section"); card.className = "result-card approval-card";
+    const heading = document.createElement("h4"); heading.textContent = "需要人工审批"; card.appendChild(heading);
+    const note = document.createElement("p"); note.textContent = `目标：${presentation?.approval?.target || "受保护操作"}。审批前不会执行写入。`; card.appendChild(note);
+    const button = document.createElement("button"); button.className = "button primary"; button.textContent = "批准并重试";
+    button.addEventListener("click", () => approveAndRetry(approvalId)); card.appendChild(button); root.appendChild(card);
   }
 }
 
@@ -111,7 +168,7 @@ function jsonPayload() {
 
 function usePreset(taskType) {
   const item = TASKS.find((entry) => entry[0] === taskType) || TASKS[0];
-  $("taskType").value = item[0];
+  $("taskType").value = "";
   $("taskQuery").value = item[2];
   $("taskPayload").value = JSON.stringify(item[3], null, 2);
 }
@@ -163,11 +220,14 @@ $("sendTask").addEventListener("click", async () => {
     if ($("taskApprovalId").value.trim()) {
       extra["X-Approval-Id"] = $("taskApprovalId").value.trim();
     }
-    await apiFetch("/api/v1/tasks", {
+    lastTaskBody = body;
+    addMessage("user", query);
+    const result = await apiFetch("/api/v1/tasks", {
       method: "POST",
       headers: authHeaders(extra),
       body: JSON.stringify(body)
     });
+    addMessage("assistant", result.data?.presentation?.answer || result.data?.summary || result.data?.error_msg || "任务已处理。");
   } catch (error) {
     renderResponse("任务参数错误", {error: String(error)}, 0, false);
   }
@@ -177,7 +237,15 @@ $("clearTask").addEventListener("click", () => {
   $("taskQuery").value = "";
   $("taskPayload").value = "{}";
   $("taskApprovalId").value = "";
+  $("conversation").innerHTML = '<div class="message assistant">新对话已开始，请直接描述你的需求。</div>';
 });
+
+async function approveAndRetry(id) {
+  const approved = await apiFetch(`/api/v1/approvals/${encodeURIComponent(id)}/approve`, {method: "POST", headers: authHeaders()});
+  if (!approved.response?.ok || !lastTaskBody) return;
+  const retried = await apiFetch("/api/v1/tasks", {method: "POST", headers: authHeaders({"X-Approval-Id": id}), body: JSON.stringify(lastTaskBody)});
+  addMessage("assistant", retried.data?.presentation?.answer || retried.data?.summary || "已重试审批操作。");
+}
 
 $("sendCustomer").addEventListener("click", async () => {
   const body = {
@@ -226,6 +294,7 @@ $("copyApprovalToTask").addEventListener("click", () => {
 $("loadHealth").addEventListener("click", () => apiFetch("/health"));
 $("loadReady").addEventListener("click", () => apiFetch("/health/ready"));
 $("loadAgents").addEventListener("click", () => apiFetch("/api/v1/agents", {headers: authHeaders()}));
+$("loadRagStatus").addEventListener("click", () => apiFetch("/api/v1/system/rag/status", {headers: authHeaders()}));
 
 async function checkHealth() {
   const started = performance.now();

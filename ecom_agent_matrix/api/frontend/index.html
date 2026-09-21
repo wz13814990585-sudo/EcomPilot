@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Ecom Agent Console</title>
+  <title>Northstar AI 电商运营助手 | Ecom Agent Console</title>
   <link rel="stylesheet" href="/app/static/styles.css" />
 </head>
 <body>
@@ -12,13 +12,13 @@
       <div class="brand">
         <div class="logo">EA</div>
         <div>
-          <h1>Ecom Agent Console</h1>
-          <p>Enterprise Data Agent</p>
+          <h1>Northstar AI</h1>
+          <p>电商运营助手</p>
         </div>
       </div>
 
       <nav class="nav" aria-label="Console sections">
-        <button class="nav-item active" data-view="task">通用任务</button>
+        <button class="nav-item active" data-view="task">智能对话</button>
         <button class="nav-item" data-view="customer">客服 / RAG</button>
         <button class="nav-item" data-view="competitor">竞品监控</button>
         <button class="nav-item" data-view="approval">人工审批</button>
@@ -47,7 +47,7 @@
       <header class="topbar">
         <div>
           <span class="eyebrow">Runtime console</span>
-          <h2 id="viewTitle">通用 Agent 任务</h2>
+          <h2 id="viewTitle">智能运营对话</h2>
         </div>
         <div class="health-row">
           <span id="healthDot" class="dot unknown"></span>
@@ -57,18 +57,33 @@
       </header>
 
       <section id="taskView" class="view active">
-        <div class="grid two">
-          <section class="panel">
+        <div class="chat-layout">
+          <section class="panel chat-panel">
             <div class="panel-head">
               <div>
-                <span class="section-kicker">Master entry</span>
-                <h3>/api/v1/tasks</h3>
+                <span class="section-kicker">Natural language</span>
+                <h3>你想了解或完成什么？</h3>
               </div>
               <button id="loadPreset" class="button ghost">载入示例</button>
             </div>
 
-            <label>
-              Task Type
+            <div id="conversation" class="conversation">
+              <div class="message assistant">你好，我可以查数据、搜知识、看库存和竞品，也能生成文案与需审批的操作。</div>
+            </div>
+
+            <label class="chat-input-label">
+              <span class="sr-only">自然语言请求</span>
+              <textarea id="taskQuery" rows="4" placeholder="直接描述你想完成的任务，例如：为什么8月退款率上涨？"></textarea>
+            </label>
+            <div class="actions chat-actions">
+              <button id="sendTask" class="button primary">发送</button>
+              <button id="clearTask" class="button secondary">新对话</button>
+            </div>
+
+            <details class="advanced">
+              <summary>高级 / 开发者选项</summary>
+              <label>
+              Task Type（建议保持自动识别）
               <select id="taskType">
                 <option value="">自动识别</option>
                 <option>data_analysis</option>
@@ -86,11 +101,6 @@
                 <option>customer_service</option>
                 <option>risk_control</option>
               </select>
-            </label>
-
-            <label>
-              Query
-              <textarea id="taskQuery" rows="5" placeholder="例如：为什么 8 月退款率上涨？"></textarea>
             </label>
 
             <div class="grid two compact">
@@ -121,15 +131,12 @@
               <input id="taskApprovalId" placeholder="可选" />
             </label>
 
-            <div class="actions">
-              <button id="sendTask" class="button primary">执行任务</button>
-              <button id="clearTask" class="button secondary">清空</button>
-            </div>
+            </details>
           </section>
 
           <section class="panel">
             <span class="section-kicker">Capabilities</span>
-            <h3>可直接调用的功能</h3>
+            <h3>试试这些问题</h3>
             <div id="capabilityGrid" class="capability-grid"></div>
           </section>
         </div>
@@ -199,6 +206,7 @@
               <button id="loadHealth" class="button primary">/health</button>
               <button id="loadReady" class="button secondary">/health/ready</button>
               <button id="loadAgents" class="button secondary">/api/v1/agents</button>
+              <button id="loadRagStatus" class="button secondary">RAG / Demo</button>
             </div>
           </section>
           <section class="panel">
@@ -217,17 +225,18 @@
       <section class="response panel">
         <div class="panel-head">
           <div>
-            <span class="section-kicker">Response inspector</span>
-            <h3 id="responseTitle">等待请求</h3>
+            <span class="section-kicker">Assistant answer</span>
+            <h3 id="responseTitle">等待你的问题</h3>
           </div>
           <div class="response-meta">
             <span id="responseStatus" class="status neutral">IDLE</span>
             <span id="responseLatency">—</span>
           </div>
         </div>
-        <div id="summaryBox" class="summary-box">请求结果的 summary、error 与关键信息会显示在这里。</div>
-        <details open>
-          <summary>完整 JSON</summary>
+        <div id="summaryBox" class="summary-box">结论、关键指标、建议与证据会显示在这里。</div>
+        <div id="resultCards" class="result-cards"></div>
+        <details>
+          <summary>证据 / 路由 / SQL / 原始响应</summary>
           <pre id="responseJson">{}</pre>
         </details>
       </section>

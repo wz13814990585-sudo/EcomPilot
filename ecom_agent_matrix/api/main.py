@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
+import importlib.util
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -230,3 +231,59 @@ async def prometheus_metrics(
 )
 async def list_agents():
     return {"agents": sorted(agent_map.keys()), "skills": sorted(skill_container.keys())}
+
+
+@app.get(
+    "/api/v1/system/rag/status",
+    tags=["system"],
+    summary="Demo data and RAG index status",
+    dependencies=[Depends(get_current_security_context)],
+)
+async def rag_status():
+    """Expose non-secret readiness facts used by the chat-first console."""
+    try:
+        rows = await AsyncPGClient.execute_sql(
+            """SELECT
+            COUNT(DISTINCT COALESCE(meta_json->>'document_id', goods_sku)),
+            COUNT(*), COUNT(embedding)
+            FROM vector_goods_kb WHERE tenant_id=%s AND store_id=%s""",
+            [settings.DEV_TENANT_ID, settings.DEV_STORE_ID],
+        )
+        demo = await AsyncPGClient.execute_sql(
+            """SELECT
+            (SELECT COUNT(*) FROM ecom_goods WHERE tenant_id=%s AND store_id=%s),
+            (SELECT COUNT(*) FROM ecom_order WHERE tenant_id=%s AND store_id=%s),
+            (SELECT COUNT(*) FROM competitor_price WHERE tenant_id=%s AND store_id=%s),
+            (SELECT COUNT(*) FROM risk_record WHERE tenant_id=%s AND store_id=%s)""",
+            [settings.DEV_TENANT_ID, settings.DEV_STORE_ID] * 4,
+        )
+        documents, chunks, vectors = (int(value or 0) for value in rows[0])
+        vector_ready = vectors > 0
+        return {
+            "documents": documents,
+            "chunks": chunks,
+            "vector_chunks": vectors,
+            "vector_ready": vector_ready,
+            "lexical_ready": chunks > 0,
+            "embedding_runtime_installed": importlib.util.find_spec("sentence_transformers")
+            is not None,
+            "retrieval_backend": "postgresql/pgvector+lexical",
+            "retrieval_mode": "hybrid" if vector_ready else "lexical_only" if chunks else "none",
+            "demo_data": {
+                "loaded": bool(demo[0][0] and demo[0][1]),
+                "products": int(demo[0][0]),
+                "orders": int(demo[0][1]),
+                "competitor_records": int(demo[0][2]),
+                "risk_records": int(demo[0][3]),
+            },
+        }
+    except Exception:
+        return {
+            "documents": 0,
+            "chunks": 0,
+            "vector_ready": False,
+            "lexical_ready": False,
+            "retrieval_mode": "none",
+            "demo_data": {"loaded": False},
+            "hint": "Run: python -m ecom_agent_matrix.scripts.bootstrap_demo",
+        }

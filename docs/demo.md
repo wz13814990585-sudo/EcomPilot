@@ -3,7 +3,7 @@
 These five demos exercise the real four-Agent runtime. They assume the local/Docker quick start is complete and API-key development mode uses your own local value.
 
 ```bash
-export BASE_URL=http://127.0.0.1:8000
+export BASE_URL=http://127.0.0.1:8002
 export DEMO_API_KEY=your-local-demo-key
 ```
 

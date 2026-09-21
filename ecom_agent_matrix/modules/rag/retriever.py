@@ -141,7 +141,7 @@ async def vector_search(
     base_sql = f"""
     SELECT goods_sku, chunk_text, meta_json, embedding <-> %s::vector AS dist
     FROM {TABLE_VECTOR_GOODS}
-    WHERE (%s = '' OR lang = %s)
+    WHERE embedding IS NOT NULL AND (%s = '' OR lang = %s)
     """
     params: list = [vec_lit, lang or "", lang or ""]
     if scope is not None and scope.usable:
@@ -194,6 +194,21 @@ async def _vector_channel(
     scope: TenantScope | None = None,
 ) -> tuple[list[dict], float]:
     started = time.perf_counter()
+    try:
+        sql = f"SELECT EXISTS(SELECT 1 FROM {TABLE_VECTOR_GOODS} WHERE embedding IS NOT NULL"
+        params: list[str] = []
+        if scope is not None and scope.usable:
+            sql += " AND tenant_id=%s AND store_id=%s"
+            params.extend([scope.tenant_id, scope.store_id])
+        sql += ")"
+        ready = await AsyncPGClient.execute_read(sql, params, scope=scope)
+        if ready and not bool(ready[0][0]):
+            raise EmbeddingChannelError("vector index unavailable")
+    except EmbeddingChannelError:
+        raise
+    except Exception:
+        # Unit adapters and legacy stores may not support the readiness probe.
+        pass
     try:
         query_vec = await get_text_embedding(query)
     except Exception as exc:
@@ -259,6 +274,9 @@ async def _hybrid_retrieve_detailed_uncached(
         errors["lexical"] = type(lexical_outcome).__name__
     else:
         lexical_docs, lexical_ms = lexical_outcome
+
+    if not vector_docs and lexical_docs and "vector" not in errors:
+        errors["vector"] = "VECTOR_INDEX_EMPTY"
 
     vector_failed = "vector" in errors
     lexical_failed = "lexical" in errors

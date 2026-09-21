@@ -39,17 +39,32 @@ async def run_stock_workflow(task: dict | TaskContext) -> WorkflowResult:
         )
 
     if not request.sku:
+        overview = await exec_skill(
+            "inventory_risk_list",
+            {"threshold": int(ctx.params.get("stock_threshold", 25)), "limit": 20},
+        )
+        if overview.success:
+            items = (overview.data or {}).get("items") or []
+            summary = (
+                f"发现 {len(items)} 个低库存商品，其中 "
+                f"{sum(1 for item in items if item.get('risk_level') == 'high')} 个为高风险。"
+            )
+            return WorkflowResult(
+                success=True,
+                data={
+                    "query_kind": "stock",
+                    "summary": summary,
+                    "items": items,
+                    "count": len(items),
+                    "predict_days": request.predict_days,
+                },
+                metadata=_metadata(started),
+            )
         return WorkflowResult(
             success=False,
             error_code=MISSING_SKU,
-            error_msg="缺少 sku，请先解析商品名或直接提供 SKU",
-            data={
-                "query_kind": "stock",
-                "sku": "",
-                "predict_days": request.predict_days,
-                "history_hits": 0,
-                "history_preview": [],
-            },
+            error_msg=overview.error_msg or "无法读取库存概览",
+            data={"query_kind": "stock", "sku": "", "items": []},
             metadata=_metadata(started),
         )
 

@@ -215,7 +215,7 @@ class GoodsCatalogTool(BaseSkill):
             elif scope == "platform":
                 label = items[0]["store_name"] if items else store_filter
             else:
-                label = own_name
+                label = items[0]["store_name"] if items else own_name
             summary = f"【{label}】共 {total} 件（模拟数据）"
             if category:
                 summary += f"；类目 {category}"

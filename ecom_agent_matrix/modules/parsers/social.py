@@ -106,6 +106,13 @@ def _extract_product_name(task: TaskContext) -> str | None:
     text = task.query
     if not text:
         return None
+    sku_match = re.search(
+        r"\b(?:SKU[-_])?(?:BAG|LAMP|BOTTLE|CHARGER|TENT|BEAUTY|HOME|ACC)[-_]\d{3}\b",
+        text,
+        re.IGNORECASE,
+    )
+    if sku_match:
+        return sku_match.group(0).upper()
     patterns = (
         r"(?:为|给|关于)\s*[「\"'【\[]([^」\"'】\]]{2,40})[」\"'】\]]\s*(?:生成|写|做)",
         r"(?:生成|写|做)\s*(?:一份|一段)?\s*[「\"']?([^「\"'\n,，。；;]{2,40}?)"

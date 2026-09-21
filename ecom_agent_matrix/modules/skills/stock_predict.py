@@ -28,6 +28,65 @@ class StockPredictOutput(BaseModel):
     history_adjusted: bool
 
 
+class InventoryRiskListInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    threshold: int = Field(default=25, ge=0, le=10000)
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+class InventoryRiskListOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[dict[str, Any]]
+    count: int = Field(ge=0)
+
+
+@register_skill
+class InventoryRiskListTool(BaseSkill):
+    read_only = True
+    side_effect = False
+    risk_level = "low"
+    timeout_seconds = 15.0
+    idempotent = True
+    input_model = InventoryRiskListInput
+    output_model = InventoryRiskListOutput
+    skill_name = "inventory_risk_list"
+    skill_desc = "List low-stock products with observed recent demand and replenishment gap"
+
+    async def run(self, params: dict) -> SkillResult:
+        rows = await AsyncPGClient.execute_read(
+            """
+            SELECT g.sku, g.title_zh, g.category, g.stock_num,
+                   COALESCE(SUM(o.buy_num) FILTER (
+                     WHERE o.create_time >= CURRENT_DATE - INTERVAL '30 days'
+                       AND o.refund_flag=false), 0) AS demand_30d
+            FROM ecom_goods g
+            LEFT JOIN ecom_order o ON o.sku=g.sku
+            WHERE g.stock_num <= %s
+            GROUP BY g.sku, g.title_zh, g.category, g.stock_num
+            ORDER BY g.stock_num ASC, demand_30d DESC
+            LIMIT %s
+            """,
+            [int(params.get("threshold", 25)), int(params.get("limit", 20))],
+        )
+        items = []
+        for sku, title, category, stock, demand in rows:
+            recommended = max(0, int(demand or 0) - int(stock or 0))
+            items.append(
+                {
+                    "sku": sku,
+                    "title": title,
+                    "category": category,
+                    "current_stock": int(stock or 0),
+                    "demand_30d": int(demand or 0),
+                    "recommended_replenishment": recommended,
+                    "risk_level": "high" if int(stock or 0) < 10 else "medium",
+                }
+            )
+        return SkillResult(success=True, data={"items": items, "count": len(items)})
+
+
 @register_skill
 class StockPredictTool(BaseSkill):
     read_only = True

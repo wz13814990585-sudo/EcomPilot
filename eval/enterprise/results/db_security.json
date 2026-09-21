@@ -4,7 +4,7 @@
   "schema_discovery": {
     "status": "PASS",
     "source": "postgres",
-    "schema_version": "postgres-8f320acb5ee9afb5",
+    "schema_version": "postgres-ea6116075f4b882f",
     "missing": {},
     "business_glossary": {
       "销售额": true,
@@ -95,7 +95,7 @@
     "required_dimension_coverage": 1.0,
     "forbidden_dimension_hallucination_rate": 0.0,
     "evidence_completeness": 1.0,
-    "analytical_task_latency_ms": 20.973,
+    "analytical_task_latency_ms": 20.184,
     "steps": [
       {
         "step_id": "metric_trend",
@@ -121,9 +121,9 @@
             "refund_rate": "0.2500"
           }
         ],
-        "evidence_id": "sql-030dd1cc-f234-4b4d-95bc-8e735a108369",
+        "evidence_id": "sql-dfd98355-510d-46fc-8291-64800232d9ac",
         "lineage": {
-          "query_id": "sql-030dd1cc-f234-4b4d-95bc-8e735a108369",
+          "query_id": "sql-dfd98355-510d-46fc-8291-64800232d9ac",
           "generated_sql": "SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month LIMIT 200",
           "referenced_tables": [
             "ecom_order"
@@ -132,12 +132,12 @@
             "ecom_order.create_time",
             "ecom_order.refund_flag"
           ],
-          "timestamp": "2026-09-21T11:25:56.470977Z",
+          "timestamp": "2026-09-21T13:24:11.113548Z",
           "tenant_id": "tenant-a",
           "store_id": "store-a",
           "row_count": 3,
           "truncated": false,
-          "execution_latency_ms": 10.571
+          "execution_latency_ms": 10.884
         },
         "warnings": [],
         "error_code": ""
@@ -166,9 +166,9 @@
             "refund_rate": "0.5000"
           }
         ],
-        "evidence_id": "sql-353dd88f-059c-494a-8fb7-e45ce5f0c978",
+        "evidence_id": "sql-72288fe6-c7b2-4464-822e-1b9828c79411",
         "lineage": {
-          "query_id": "sql-353dd88f-059c-494a-8fb7-e45ce5f0c978",
+          "query_id": "sql-72288fe6-c7b2-4464-822e-1b9828c79411",
           "generated_sql": "SELECT g.category, COUNT(*) AS order_count, SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku WHERE EXTRACT(MONTH FROM o.create_time) = 8 GROUP BY g.category ORDER BY refund_count DESC LIMIT 20",
           "referenced_tables": [
             "ecom_order",
@@ -181,12 +181,12 @@
             "ecom_order.create_time",
             "ecom_order.refund_flag"
           ],
-          "timestamp": "2026-09-21T11:25:56.472153Z",
+          "timestamp": "2026-09-21T13:24:11.114673Z",
           "tenant_id": "tenant-a",
           "store_id": "store-a",
           "row_count": 3,
           "truncated": false,
-          "execution_latency_ms": 6.506
+          "execution_latency_ms": 7.653
         },
         "warnings": [],
         "error_code": ""
@@ -221,9 +221,9 @@
             "refund_rate": "0.5000"
           }
         ],
-        "evidence_id": "sql-75d3ebe5-9fbf-412f-80a8-3519e67a64bd",
+        "evidence_id": "sql-1c2a24c7-cbe7-4744-a562-caba8bbd110b",
         "lineage": {
-          "query_id": "sql-75d3ebe5-9fbf-412f-80a8-3519e67a64bd",
+          "query_id": "sql-1c2a24c7-cbe7-4744-a562-caba8bbd110b",
           "generated_sql": "SELECT sku, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order WHERE EXTRACT(MONTH FROM create_time) = 8 GROUP BY sku ORDER BY refund_count DESC LIMIT 20",
           "referenced_tables": [
             "ecom_order"
@@ -233,12 +233,12 @@
             "ecom_order.create_time",
             "ecom_order.refund_flag"
           ],
-          "timestamp": "2026-09-21T11:25:56.472388Z",
+          "timestamp": "2026-09-21T13:24:11.114794Z",
           "tenant_id": "tenant-a",
           "store_id": "store-a",
           "row_count": 4,
           "truncated": false,
-          "execution_latency_ms": 4.286
+          "execution_latency_ms": 5.265
         },
         "warnings": [],
         "error_code": ""
@@ -262,9 +262,9 @@
     },
     "evidence_ids": [
       "doc-august-operations",
-      "sql-030dd1cc-f234-4b4d-95bc-8e735a108369",
-      "sql-353dd88f-059c-494a-8fb7-e45ce5f0c978",
-      "sql-75d3ebe5-9fbf-412f-80a8-3519e67a64bd"
+      "sql-1c2a24c7-cbe7-4744-a562-caba8bbd110b",
+      "sql-72288fe6-c7b2-4464-822e-1b9828c79411",
+      "sql-dfd98355-510d-46fc-8291-64800232d9ac"
     ]
   },
   "metrics": {

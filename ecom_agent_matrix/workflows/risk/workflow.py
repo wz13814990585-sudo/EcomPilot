@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import re
 
 from pydantic import ValidationError
 from ...platform.observability.metrics import observed_workflow
@@ -26,6 +27,25 @@ def _metadata(started: float, **extra) -> dict:
 async def run_risk_workflow(task: dict | TaskContext) -> WorkflowResult:
     started = time.perf_counter()
     ctx = ensure_task_context(task)
+    wants_mark = bool(re.search(r"标记|mark", ctx.query, re.I))
+    if ctx.params.get("total_amount") is None or not (
+        ctx.params.get("buy_count") or ctx.params.get("buy_num")
+    ):
+        match = re.search(r"\bORD[-_][A-Z0-9_-]+\b", ctx.query, re.I)
+        order_no = str(ctx.order_no or (match.group(0) if match else ""))
+        if order_no:
+            lookup = await exec_skill(
+                "business_api_read", {"operation": "get_order", "resource_id": order_no}
+            )
+            fields = (lookup.data or {}).get("fields") or {}
+            items = fields.get("items") or []
+            buy_count = sum(
+                int(item.get("quantity") or 0) for item in items if isinstance(item, dict)
+            )
+            params = dict(ctx.params)
+            params.setdefault("total_amount", fields.get("amount", 0))
+            params.setdefault("buy_count", buy_count or 1)
+            ctx = ctx.with_updates(order_no=order_no, params=params)
     try:
         request = parse_risk_request(ctx)
     except (ValidationError, TypeError, ValueError):
@@ -58,14 +78,24 @@ async def run_risk_workflow(task: dict | TaskContext) -> WorkflowResult:
     assessment = risk_result.data or {}
     record_data = {"skipped": True}
     if assessment.get("is_risk"):
-        record_result = await exec_skill(
-            "record_order_risk",
-            {
-                "order_no": request.order_no,
-                "risk_type": "order_abnormal",
-                "risk_desc": assessment.get("risk_detail") or "订单异常",
-            },
-        )
+        if wants_mark:
+            record_result = await exec_skill(
+                "business_api_write",
+                {
+                    "operation": "mark_order_risk",
+                    "resource_id": request.order_no,
+                    "fields": {"risk_status": "high_risk"},
+                },
+            )
+        else:
+            record_result = await exec_skill(
+                "record_order_risk",
+                {
+                    "order_no": request.order_no,
+                    "risk_type": "order_abnormal",
+                    "risk_desc": assessment.get("risk_detail") or "订单异常",
+                },
+            )
         record_data = {
             "skipped": False,
             "success": record_result.success,

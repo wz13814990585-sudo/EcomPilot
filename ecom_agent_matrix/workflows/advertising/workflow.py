@@ -23,6 +23,7 @@ from ...modules.parsers.ad import (
     parse_ad_request,
 )
 from ...modules.skills.ad_optimize import SUPPORTED_AD_PLATFORMS
+from ...core.errors import ErrorCode
 
 _long_mem: AgentLongVectorMemory | None = None
 
@@ -46,6 +47,33 @@ def _metadata(started: float, **extra) -> dict:
 async def run_ad_workflow(task: dict | TaskContext) -> WorkflowResult:
     started = time.perf_counter()
     ctx = ensure_task_context(task)
+    requested_pause = any(word in ctx.query.lower() for word in ("暂停", "停止", "pause"))
+    fixture_campaign: dict = {}
+    if requested_pause and not ctx.campaign_id:
+        lookup = await exec_skill(
+            "business_api_read", {"operation": "list_campaigns", "resource_id": "all"}
+        )
+        campaigns = ((lookup.data or {}).get("fields") or {}).get("campaigns") or []
+        active = [item for item in campaigns if item.get("status") == "active"]
+        if active:
+            lowered = ctx.query.lower()
+            named = next(
+                (item for item in active if str(item.get("name") or "").lower() in lowered), None
+            )
+            fixture_campaign = named or min(active, key=lambda item: float(item.get("roas") or 0))
+            enriched = dict(ctx.params)
+            enriched.update(
+                {
+                    "campaign_id": fixture_campaign.get("campaign_id"),
+                    "platform": fixture_campaign.get("platform"),
+                    "spend": fixture_campaign.get("spend", 0),
+                    "clicks": fixture_campaign.get("clicks", 0),
+                    "conversions": fixture_campaign.get("conversions", 0),
+                    "revenue": fixture_campaign.get("revenue", 0),
+                    "daily_budget": fixture_campaign.get("daily_budget"),
+                }
+            )
+            ctx = ctx.with_updates(params=enriched)
     try:
         request = parse_ad_request(ctx)
     except UnsupportedAdPlatform as exc:
@@ -129,6 +157,42 @@ async def run_ad_workflow(task: dict | TaskContext) -> WorkflowResult:
     profit_data: dict = {}
     skill_error_codes: dict[str, str] = {}
     errors: list[str] = []
+    write_data: dict = {"skipped": True}
+    if requested_pause and request.campaign_id:
+        write_result = await exec_skill(
+            "business_api_write",
+            {
+                "operation": "pause_campaign",
+                "resource_id": request.campaign_id,
+                "fields": {"status": "paused"},
+            },
+        )
+        write_data = {
+            "skipped": False,
+            "success": write_result.success,
+            "error_code": str(write_result.error_code or ""),
+            "error_msg": write_result.error_msg,
+            "data": write_result.data or {},
+        }
+        if not write_result.success:
+            approval_required = write_result.error_code == ErrorCode.APPROVAL_REQUIRED
+            return WorkflowResult(
+                success=False,
+                error_code=write_result.error_code or ErrorCode.SKILL_FAILED,
+                error_msg="Human approval required"
+                if approval_required
+                else write_result.error_msg,
+                data={
+                    "exec_kind": "advertising",
+                    "campaign_id": request.campaign_id,
+                    "campaign": fixture_campaign,
+                    "ad_optimize": ad_result.data or {},
+                    "write": write_data,
+                    "approval_required": approval_required,
+                    "approval_id": str((write_result.data or {}).get("approval_id") or ""),
+                },
+                metadata=_metadata(started, skill_error_code=write_result.error_code),
+            )
     if request.profit is not None:
         profit_result = await exec_skill("profit_calc", request.profit.model_dump())
         if profit_result.success:
@@ -184,6 +248,9 @@ async def run_ad_workflow(task: dict | TaskContext) -> WorkflowResult:
                 {"id": hit.get("id"), "content": hit.get("content"), "meta": hit.get("meta")}
                 for hit in history_hits[:3]
             ],
+            "campaign": fixture_campaign,
+            "write": write_data,
+            "approval_required": False,
         },
         metadata=_metadata(
             started,

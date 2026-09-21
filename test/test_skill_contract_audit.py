@@ -61,7 +61,7 @@ def test_registered_skill_contract_and_metadata(skill_name, skill_cls):
 
 
 def test_all_production_skills_are_covered_by_audit():
-    assert len(PRODUCTION_SKILLS) == 21
+    assert len(PRODUCTION_SKILLS) == 22
 
 
 def test_parser_and_core_tasking_dependency_boundaries():

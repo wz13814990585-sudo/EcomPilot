@@ -18,7 +18,12 @@ class BusinessAPIReadInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     operation: Literal[
-        "get_order", "get_inventory", "get_refund_status", "get_campaign", "get_product"
+        "get_order",
+        "get_inventory",
+        "get_refund_status",
+        "get_campaign",
+        "list_campaigns",
+        "get_product",
     ]
     resource_id: str = Field(min_length=1)
 

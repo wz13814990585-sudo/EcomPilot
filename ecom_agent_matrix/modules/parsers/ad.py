@@ -12,7 +12,10 @@ _NUM = re.compile(
     r"|(?:conversions?|转化)[:：\s]*([0-9]+)",
     re.IGNORECASE,
 )
-_SKU_PATTERN = re.compile(r"\bSKU[-_][A-Z0-9_-]+\b", re.IGNORECASE)
+_SKU_PATTERN = re.compile(
+    r"\b(?:SKU[-_])?(?:BAG|LAMP|BOTTLE|CHARGER|TENT|BEAUTY|HOME|ACC)[-_]\d{3}\b",
+    re.IGNORECASE,
+)
 _PLATFORM_ALIASES = {
     "meta": "meta",
     "facebook": "meta",
@@ -96,10 +99,11 @@ def parse_ad_request(task: TaskContext) -> AdRequest:
     if not sku:
         match = _SKU_PATTERN.search(task.query)
         sku = match.group(0).upper() if match else None
+    campaign_id = task.campaign_id or params.get("campaign_id")
     return AdRequest(
         query=task.query,
         sku=sku,
-        campaign_id=task.campaign_id,
+        campaign_id=campaign_id,
         platform=_platform(task),
         spend=_explicit(params, ("spend", "ad_spend"), from_query.get("spend", 0)),
         clicks=_explicit(params, ("clicks", "click"), from_query.get("clicks", 0)),

@@ -15,16 +15,119 @@ class DemoBusinessAPIClient:
             "ORD-20260301-001": {
                 "status": "shipped",
                 "tracking_status": "in_transit",
-                "sku": "SKU-BAG-001",
+                "items": [{"sku": "BAG-001", "quantity": 1}],
+                "amount": 79.0,
             },
             "ORD-20260303-005": {
                 "status": "refund_requested",
                 "tracking_status": "delivered",
-                "sku": "SKU-TENT-005",
+                "items": [{"sku": "TENT-001", "quantity": 1}],
+                "amount": 189.0,
+            },
+            "ORD-DEMO-001": {
+                "status": "shipped",
+                "payment_status": "paid",
+                "fulfillment": "fulfilled",
+                "tracking_status": "in_transit",
+                "shipping": "Australia Post / SYD-MEL",
+                "refund_state": "none",
+                "items": [{"sku": "BAG-001", "quantity": 1}],
+                "amount": 79.0,
+            },
+            "ORD-DEMO-002": {
+                "status": "processing",
+                "payment_status": "paid",
+                "fulfillment": "unfulfilled",
+                "shipping": "label_pending",
+                "refund_state": "none",
+                "items": [{"sku": "LAMP-001", "quantity": 2}],
+                "amount": 98.0,
+            },
+            "ORD-DEMO-REFUND": {
+                "status": "refund_requested",
+                "payment_status": "paid",
+                "fulfillment": "fulfilled",
+                "tracking_status": "delivered",
+                "shipping": "delivered",
+                "refund_state": "pending_review",
+                "items": [{"sku": "BAG-002", "quantity": 1}],
+                "amount": 99.0,
+            },
+            "ORD-DEMO-RISK": {
+                "status": "manual_review",
+                "payment_status": "paid",
+                "fulfillment": "held",
+                "shipping": "on_hold",
+                "refund_state": "none",
+                "items": [{"sku": "CHARGER-001", "quantity": 8}],
+                "amount": 792.0,
+                "risk_status": "review_required",
             },
         }
-        self.inventory = {"SKU-BAG-001": {"available": 120}, "SKU-TENT-005": {"available": 35}}
-        self.campaigns = {"CMP-DEMO-001": {"status": "active", "daily_budget": 100.0}}
+        self.inventory = {
+            "BAG-001": {"available": 120},
+            "BAG-002": {"available": 8},
+            "SKU-BAG-001": {"available": 120},
+            "SKU-TENT-005": {"available": 35},
+        }
+        self.campaigns = {
+            "CMP-TIKTOK-BAG": {
+                "name": "TikTok Backpack Launch",
+                "platform": "tiktok",
+                "status": "active",
+                "daily_budget": 120.0,
+                "spend": 1840.0,
+                "impressions": 210000,
+                "clicks": 4620,
+                "conversions": 184,
+                "revenue": 9200.0,
+            },
+            "CMP-GOOGLE-BRAND": {
+                "name": "Google Brand Search",
+                "platform": "google",
+                "status": "active",
+                "daily_budget": 80.0,
+                "spend": 960.0,
+                "impressions": 68000,
+                "clicks": 2850,
+                "conversions": 132,
+                "revenue": 6600.0,
+            },
+            "CMP-META-RETARGET": {
+                "name": "Meta Retargeting",
+                "platform": "meta",
+                "status": "active",
+                "daily_budget": 95.0,
+                "spend": 2140.0,
+                "impressions": 310000,
+                "clicks": 3280,
+                "conversions": 41,
+                "revenue": 2050.0,
+            },
+            "CMP-SUMMER-SALE": {
+                "name": "Summer Outdoor Sale",
+                "platform": "meta",
+                "status": "active",
+                "daily_budget": 140.0,
+                "spend": 2760.0,
+                "impressions": 405000,
+                "clicks": 3900,
+                "conversions": 18,
+                "revenue": 990.0,
+            },
+        }
+        for fields in self.campaigns.values():
+            spend = float(fields["spend"])
+            clicks = int(fields["clicks"])
+            conversions = int(fields["conversions"])
+            fields.update(
+                {
+                    "ctr": round(clicks / int(fields["impressions"]) * 100, 2),
+                    "cpc": round(spend / clicks, 2),
+                    "cpa": round(spend / conversions, 2),
+                    "roas": round(float(fields["revenue"]) / spend, 2),
+                }
+            )
 
     def _read(self, operation: str, resource_id: str, source: dict) -> BusinessAPIResponse:
         fields = dict(source.get(resource_id) or {})
@@ -54,6 +157,19 @@ class DemoBusinessAPIClient:
 
     async def get_campaign(self, campaign_id: str) -> BusinessAPIResponse:
         return self._read("get_campaign", campaign_id, self.campaigns)
+
+    async def list_campaigns(self, resource_id: str = "all") -> BusinessAPIResponse:
+        campaigns = [
+            {"campaign_id": campaign_id, **fields} for campaign_id, fields in self.campaigns.items()
+        ]
+        return BusinessAPIResponse(
+            provider=self.provider,
+            operation="list_campaigns",
+            resource_id=resource_id,
+            found=bool(campaigns),
+            fields={"campaigns": campaigns, "count": len(campaigns)},
+            demo=True,
+        )
 
     async def get_product(self, sku: str) -> BusinessAPIResponse:
         return self._read("get_product", sku, self.inventory)

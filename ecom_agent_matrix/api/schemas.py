@@ -49,6 +49,7 @@ class TaskCreateRequest(BaseModel):
             "可选；不填则自动识别。可选值：knowledge_qa / stock_analysis / "
             "social_marketing / competitor_watch / goods_search / goods_catalog / "
             "ad_optimize / ad_query / data_check / data_analysis / order_query / ops_report / risk_control"
+            " / customer_service"
         ),
     )
     priority: Optional[int] = Field(
@@ -167,5 +168,8 @@ class ApiResult(BaseModel):
     summary: str = Field(
         default="",
         description="LLM 整理后的可读中文摘要；关闭 OUTPUT_POLISH 时为启发式文案",
+    )
+    presentation: dict[str, Any] = Field(
+        default_factory=dict, description="供普通用户界面渲染的稳定展示结构"
     )
     performance: dict[str, Any] = Field(default_factory=dict)

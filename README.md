@@ -12,6 +12,68 @@
 >
 > A production-inspired agent runtime with deterministic routing, validated DAG execution, hybrid RAG, tenant isolation, human approval, and measurable safety.
 
+## 5 分钟启动完整本地 Demo
+
+界面的主入口是自然语言对话；正常使用不需要选择 `task_type`、写 SQL 或 JSON。
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+```
+
+在 `.env` 中至少设置本地 PostgreSQL 密码与一个演示 API Key：
+
+```dotenv
+APP_ENV=development
+AUTH_MODE=api_key
+API_KEY=replace-with-a-local-demo-key
+PG_HOST=127.0.0.1
+PG_PORT=5432
+PG_DB=ecom_matrix
+PG_USER=postgres
+PG_PWD=replace-with-local-postgres-password
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+```
+
+启动 PostgreSQL 16 + pgvector 和 Redis 7，然后显式安装演示数据（可重复执行）：
+
+```bash
+python -m ecom_agent_matrix.scripts.bootstrap_demo
+python -m uvicorn ecom_agent_matrix.api.main:app --reload --port 8002
+```
+
+打开 <http://127.0.0.1:8002/app>，填入 API Key，直接提问。默认引导会创建 24 个商品、240 个 2026 年 6–9 月订单、80 条竞品观测、8 条风险记录与 20 份知识文档。无本地 embedding 依赖时会明确运行为 `lexical_only`；要启用混合检索：
+
+```bash
+pip install -e ".[rag-local]"
+python -m ecom_agent_matrix.scripts.bootstrap_demo --with-embeddings
+```
+
+LLM 是可选的：明显意图、SQL 模板、RAG 检索和展示均有确定性降级路径。需要更自然的综合时，在 `.env` 设置已有的 `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY`，不需要更换架构。
+
+可直接尝试：
+
+- `2026年8月销售额是多少？`
+- `为什么2026年8月退款率上涨，有没有相关运营事件？`
+- `退款政策是什么？`
+- `帮我找防水户外背包。`
+- `现在店里都有哪些商品？`
+- `哪些商品库存不足，需要优先补货？`
+- `BAG-001 在 Temu 上最近卖多少钱？`
+- `ORD-DEMO-001 现在什么状态？`
+- `目前哪个广告活动 ROAS 最低？`
+- `帮我暂停表现最差的广告活动。`（需审批）
+- `检查一下当前电商数据有没有异常。`
+- `给我生成今天的运营报告。`
+- `给 BAG-001 写一条 TikTok 推广文案。`
+- `客户说 BAG-002 拉链坏了想退款，应该怎么回复？`
+- `把 ORD-DEMO-RISK 标记为高风险订单。`（需审批）
+
+每个入口的真实后端映射见 [Demo capability matrix](docs/demo_capability_matrix.md)。
+
 本项目回答一个核心问题：**当企业用户的复杂业务问题同时涉及结构化数据库、内部文档和业务系统时，Agent 能否安全、准确、可追溯地收集证据并返回 grounded answer？**
 
 系统只注册四个 Runtime Agent。库存、广告、风控、客服、报表等业务能力由 typed Workflow 与 Skill 承载，避免演变成难以治理的“一个功能一个 Agent”。
@@ -184,17 +246,17 @@ cp .env.example .env
 # 编辑 .env，至少设置 API_KEY 和 PostgreSQL 密码
 
 docker compose -f ecom_agent_matrix/docker/docker-compose.yml up --build -d
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/health/ready
+curl http://127.0.0.1:8002/health
+curl http://127.0.0.1:8002/health/ready
 ```
 
 启动后可访问：
 
-- Swagger UI：<http://127.0.0.1:8000/docs>
-- ReDoc：<http://127.0.0.1:8000/redoc>
-- Health：<http://127.0.0.1:8000/health>
-- Readiness：<http://127.0.0.1:8000/health/ready>
-- Metrics：<http://127.0.0.1:8000/metrics>
+- Swagger UI：<http://127.0.0.1:8002/docs>
+- ReDoc：<http://127.0.0.1:8002/redoc>
+- Health：<http://127.0.0.1:8002/health>
+- Readiness：<http://127.0.0.1:8002/health/ready>
+- Metrics：<http://127.0.0.1:8002/metrics>
 
 默认镜像是 lean API runtime，不包含 Torch/SentenceTransformer。需要完整本地 RAG Demo 时显式构建 `rag-local` 镜像：
 
@@ -230,19 +292,17 @@ pip install -e ".[rag-local]"
 ```bash
 python -m ecom_agent_matrix.scripts.init_db
 python -m ecom_agent_matrix.scripts.reembed_vectors --only goods  # 仅完整 RAG Demo 需要
-uvicorn ecom_agent_matrix.api.main:app --host 0.0.0.0 --port 8000
+uvicorn ecom_agent_matrix.api.main:app --host 0.0.0.0 --port 8002
 ```
 
 ## 最小 API 示例
 
 ```bash
-curl -sS http://127.0.0.1:8000/api/v1/tasks \
+curl -sS http://127.0.0.1:8002/api/v1/tasks \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-local-demo-key" \
   -d '{
-    "query": "搜索防水户外背包",
-    "task_type": "goods_search",
-    "payload": {"sku": "SKU-BAG-001"}
+    "query": "帮我找防水户外背包。"
   }'
 ```
 
@@ -268,7 +328,7 @@ python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode risk --api
 API 启动后直接打开：
 
 ```text
-http://127.0.0.1:8000/app
+http://127.0.0.1:8002/app
 ```
 
 这个同源前端直接调用现有 FastAPI 网关，不引入第二套 Agent 逻辑。它提供：

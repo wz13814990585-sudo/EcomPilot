@@ -361,7 +361,7 @@
     "repair_rate": 0.0,
     "repair_success_rate": null,
     "average_sql_attempts": 1.0,
-    "average_latency_ms": 2.013
+    "average_latency_ms": 1.647
   },
   "cases": [
     {
@@ -387,7 +387,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 3.007
+      "latency_ms": 5.538
     },
     {
       "id": "live_002",
@@ -412,7 +412,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.87
+      "latency_ms": 1.126
     },
     {
       "id": "live_003",
@@ -437,7 +437,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.004
+      "latency_ms": 1.332
     },
     {
       "id": "live_004",
@@ -462,7 +462,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.065
+      "latency_ms": 1.173
     },
     {
       "id": "live_005",
@@ -487,7 +487,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.954
+      "latency_ms": 1.341
     },
     {
       "id": "live_006",
@@ -512,7 +512,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.856
+      "latency_ms": 1.27
     },
     {
       "id": "live_007",
@@ -537,7 +537,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.825
+      "latency_ms": 1.212
     },
     {
       "id": "live_008",
@@ -562,7 +562,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.816
+      "latency_ms": 1.37
     },
     {
       "id": "live_009",
@@ -587,7 +587,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.779
+      "latency_ms": 1.204
     },
     {
       "id": "live_010",
@@ -612,7 +612,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 8.368
+      "latency_ms": 3.871
     },
     {
       "id": "live_011",
@@ -637,7 +637,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.354
+      "latency_ms": 1.158
     },
     {
       "id": "live_012",
@@ -662,7 +662,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.386
+      "latency_ms": 1.202
     },
     {
       "id": "live_013",
@@ -705,7 +705,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 8.81
+      "latency_ms": 9.66
     },
     {
       "id": "live_014",
@@ -756,7 +756,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.492
+      "latency_ms": 1.311
     },
     {
       "id": "live_015",
@@ -807,7 +807,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.221
+      "latency_ms": 1.1
     },
     {
       "id": "live_016",
@@ -850,7 +850,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 3.387
+      "latency_ms": 1.493
     },
     {
       "id": "live_017",
@@ -893,7 +893,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.964
+      "latency_ms": 1.542
     },
     {
       "id": "live_018",
@@ -918,7 +918,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.906
+      "latency_ms": 0.789
     },
     {
       "id": "live_019",
@@ -943,7 +943,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.271
+      "latency_ms": 0.77
     },
     {
       "id": "live_020",
@@ -970,7 +970,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.271
+      "latency_ms": 0.975
     },
     {
       "id": "live_021",
@@ -995,7 +995,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.109
+      "latency_ms": 0.891
     },
     {
       "id": "live_022",
@@ -1020,7 +1020,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 3.125
+      "latency_ms": 1.501
     },
     {
       "id": "live_023",
@@ -1055,7 +1055,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 2.296
+      "latency_ms": 2.046
     },
     {
       "id": "live_024",
@@ -1080,7 +1080,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 2.377
+      "latency_ms": 0.879
     },
     {
       "id": "live_025",
@@ -1107,7 +1107,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.244
+      "latency_ms": 0.849
     },
     {
       "id": "live_026",
@@ -1132,7 +1132,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.854
+      "latency_ms": 0.689
     },
     {
       "id": "live_027",
@@ -1183,7 +1183,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 2.408
+      "latency_ms": 1.233
     },
     {
       "id": "live_028",
@@ -1226,7 +1226,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 2.805
+      "latency_ms": 1.626
     },
     {
       "id": "live_029",
@@ -1277,7 +1277,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.593
+      "latency_ms": 1.319
     },
     {
       "id": "live_030",
@@ -1302,7 +1302,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 2.074
+      "latency_ms": 0.824
     },
     {
       "id": "live_031",
@@ -1327,7 +1327,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 1.009
+      "latency_ms": 0.715
     },
     {
       "id": "live_032",
@@ -1352,7 +1352,7 @@
         }
       ],
       "sql_attempts": 1,
-      "latency_ms": 0.922
+      "latency_ms": 0.695
     }
   ]
 }

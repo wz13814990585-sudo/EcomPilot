@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "timestamp": "2026-09-21T11:25:53.954932+00:00",
-    "git_sha": "455615c",
+    "timestamp": "2026-09-21T13:21:54.179099+00:00",
+    "git_sha": "94f76f2",
     "environment": "development",
     "suite": "deterministic",
     "architecture": {
@@ -12,7 +12,7 @@
         "master_planning"
       ],
       "registered_agent_count": 4,
-      "registered_skill_count": 21,
+      "registered_skill_count": 22,
       "legacy_router_referenced_by_active_execute": false
     }
   },

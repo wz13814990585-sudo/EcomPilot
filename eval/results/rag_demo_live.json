@@ -1,0 +1,92 @@
+{
+  "suite": "RAG_DEMO_LIVE",
+  "k": 5,
+  "case_count": 4,
+  "hit_rate_at_k": 1.0,
+  "recall_at_k": 1.0,
+  "mrr_at_k": 0.875,
+  "ndcg_at_k": 0.9077324383928644,
+  "citation_validity": 1.0,
+  "grounded_answer_rate": 1.0,
+  "retrieval_modes": [
+    "lexical_only"
+  ],
+  "details": [
+    {
+      "query": "退货窗口期是多少天？",
+      "expected": [
+        "01_return_refund_policy"
+      ],
+      "ranked": [
+        "01_return_refund_policy",
+        "08_refund_handling_sop",
+        "15_august_operations_incident",
+        "10_inventory_replenishment_policy"
+      ],
+      "success": true,
+      "answer_nonempty": true,
+      "grounded": true,
+      "citation_status": "valid",
+      "retrieval_mode": "lexical_only"
+    },
+    {
+      "query": "BAG-001 应该怎么清洁？",
+      "expected": [
+        "04_product_backpack_bag001"
+      ],
+      "ranked": [
+        "05_product_backpack_bag002",
+        "04_product_backpack_bag001",
+        "06_product_care_guide",
+        "18_customer_complaint_summary_august",
+        "16_logistics_delay_august",
+        "15_august_operations_incident",
+        "17_product_quality_incident"
+      ],
+      "success": true,
+      "answer_nonempty": true,
+      "grounded": true,
+      "citation_status": "valid",
+      "retrieval_mode": "lexical_only"
+    },
+    {
+      "query": "2026年8月发生了什么运营事件？",
+      "expected": [
+        "15_august_operations_incident"
+      ],
+      "ranked": [
+        "15_august_operations_incident",
+        "18_customer_complaint_summary_august",
+        "16_logistics_delay_august",
+        "17_product_quality_incident",
+        "03_warranty_policy",
+        "19_store_operations_manual",
+        "05_product_backpack_bag002"
+      ],
+      "success": true,
+      "answer_nonempty": true,
+      "grounded": true,
+      "citation_status": "valid",
+      "retrieval_mode": "lexical_only"
+    },
+    {
+      "query": "高风险订单怎么处理？",
+      "expected": [
+        "09_high_risk_order_sop"
+      ],
+      "ranked": [
+        "09_high_risk_order_sop",
+        "08_refund_handling_sop",
+        "10_inventory_replenishment_policy",
+        "17_product_quality_incident",
+        "19_store_operations_manual",
+        "02_shipping_policy"
+      ],
+      "success": true,
+      "answer_nonempty": true,
+      "grounded": true,
+      "citation_status": "valid",
+      "retrieval_mode": "lexical_only"
+    }
+  ]
+}

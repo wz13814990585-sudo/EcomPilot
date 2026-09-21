@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ...core.tasking import TaskContext
 
-_SKU_PATTERN = re.compile(r"\bSKU[-_][A-Z0-9_-]+\b", re.IGNORECASE)
+_SKU_PATTERN = re.compile(
+    r"\b(?:SKU[-_])?(?:BAG|LAMP|BOTTLE|CHARGER|TENT|BEAUTY|HOME|ACC)[-_]\d{3}\b",
+    re.IGNORECASE,
+)
 
 
 class StockRequest(BaseModel):
@@ -29,7 +32,9 @@ def extract_stock_sku(task: TaskContext) -> str | None:
 
 def parse_stock_request(task: TaskContext) -> StockRequest:
     """只从 canonical sku 或 query 中明确的 SKU 格式读取标识。"""
+    day_match = re.search(r"(?:未来)?\s*(\d{1,2})\s*天", task.query)
+    predict_days = int(day_match.group(1)) if day_match else task.params.get("predict_days", 7)
     return StockRequest(
         sku=extract_stock_sku(task),
-        predict_days=task.params.get("predict_days", 7),
+        predict_days=predict_days,
     )

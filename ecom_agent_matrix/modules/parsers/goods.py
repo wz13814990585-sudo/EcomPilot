@@ -68,7 +68,7 @@ def clean_product_query(text: str) -> str:
     """去掉查询意图噪声，保留尽可能稳定的商品名称。"""
     original = str(text or "").strip()
     cleaned = re.sub(
-        r"^(?:(?:我想知道|请帮我|帮我|请|查询|查一下|看看)\s*)+",
+        r"^(?:(?:我想知道|请帮我找|帮我找|请帮我|帮我|请|查询|查一下|看看|搜索|查找|找)\s*)+",
         "",
         original,
     )
@@ -77,6 +77,7 @@ def clean_product_query(text: str) -> str:
         "",
         cleaned,
     )
+    cleaned = re.sub(r"[。，！？,!?\s]+$", "", cleaned.strip())
     cleaned = re.sub(r"[的了呢吗啊]+$", "", cleaned.strip())
     return cleaned.strip() or original
 

@@ -17,6 +17,7 @@ from ..runtime.messaging.bus import message_bus
 from ..runtime.messaging.registry import agent_registry
 from ..core.security import SecurityContext
 from ..core.security import ApprovalGrant
+from ..modules.presentation import build_presentation
 from ..platform.observability.context import get_trace_context, update_trace_context
 from ..platform.observability.context import get_performance_summary
 
@@ -83,9 +84,12 @@ async def dispatch_and_wait(
         content.get("query") or content.get("user_query") or content.get("product_name") or ""
     )
 
-    # Master 若已在 data.summary 写好，直接复用；否则统一整理
-    if isinstance(data.get("summary"), str) and data["summary"].strip():
-        summary = data["summary"].strip()
+    presentation = build_presentation(success=success, data=data, error_msg=error_msg)
+    deterministic_answer = str(presentation.get("answer") or "").strip()
+    if deterministic_answer and (
+        str(presentation.get("category") or "").startswith("data_analysis") or not success
+    ):
+        summary = deterministic_answer
     else:
         summary = await polish_final_output(
             success=success,
@@ -106,6 +110,7 @@ async def dispatch_and_wait(
         "error_code": response.error_code,
         "status": response.status,
         "summary": summary,
+        "presentation": presentation,
         "performance": {
             "latency_ms": round((time.perf_counter() - request_started) * 1000, 2),
             **get_performance_summary(),
