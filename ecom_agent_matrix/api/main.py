@@ -6,9 +6,11 @@ import asyncio
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 # 侧载注册 Agent / Skill
 from .. import agents  # noqa: F401
@@ -133,6 +135,16 @@ app.include_router(task_router)
 app.include_router(customer_router)
 app.include_router(warn_router)
 app.include_router(approval_router)
+
+_FRONTEND_DIR = Path(__file__).with_name("frontend")
+app.mount("/app/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="agent-console-static")
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/app", include_in_schema=False)
+async def agent_console():
+    """Serve the same-origin Agent Console frontend."""
+    return FileResponse(_FRONTEND_DIR / "index.html")
 
 
 @app.middleware("http")
