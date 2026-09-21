@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       APP_ENV: test
@@ -58,7 +58,7 @@ jobs:
         run: python -m eval.enterprise.advanced_runner --suite all --fail-on-regression
 
   enterprise-sql-integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       APP_ENV: test
@@ -116,7 +116,7 @@ jobs:
 
       - name: Upload enterprise SQL reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: enterprise-sql-reports
           if-no-files-found: warn
