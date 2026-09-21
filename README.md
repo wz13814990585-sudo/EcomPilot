@@ -2,7 +2,7 @@
 
 ## 安全、可解释、可本地运行的 RAG 与 Text-to-SQL 智能运营平台
 
-[![CI](https://github.com/wz13814990585-sudo/ecom_agent_matrix/actions/workflows/ci.yml/badge.svg)](https://github.com/wz13814990585-sudo/ecom_agent_matrix/actions/workflows/ci.yml)
+[![CI](https://github.com/wz13814990585-sudo/ecom-ops-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wz13814990585-sudo/ecom-ops-agent/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)
@@ -202,7 +202,7 @@ HTTP API
 | Exec | 广告优化、风控、报表、社媒和客服产物 | 高风险副作用必须经过审批 |
 | RAG | 店铺政策、FAQ、运营知识与商品知识 | 统一进入 `RAGService` |
 
-更多时序图见 [Architecture](docs/architecture.md)。
+更多时序图见 [中文架构说明](docs/architecture.md)。
 
 ## 企业级 SQL 安全链路
 

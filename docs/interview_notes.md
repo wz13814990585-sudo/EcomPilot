@@ -1,148 +1,148 @@
-# Interview notes
+# 架构设计与面试笔记
 
-## 1. Why only four Agents?
+## 1. 为什么只有四个 Agent？
 
-An Agent represents a stable responsibility and security boundary, not a database table or feature label. Master, Query, Exec, and RAG cover orchestration, reads, commands, and knowledge retrieval without creating a fragile network of tiny personas. New business cases normally add a parser, workflow, or Skill while the four runtime boundaries remain stable.
+Agent 代表稳定的职责与安全边界，而不是数据库表或功能标签。Master、Query、Exec 和 RAG 分别覆盖编排、只读查询、命令执行和知识检索，避免形成脆弱的微型 Agent 网络。新增业务场景通常只需增加 Parser、Workflow 或 Skill，四个 Runtime Agent 的边界保持不变。
 
-## 2. What is the difference between an Agent, Workflow, and Skill?
+## 2. Agent、Workflow 和 Skill 有什么区别？
 
-An Agent owns a responsibility and execution policy. A Workflow coordinates a typed business sequence inside that boundary. A Skill is one atomic, contracted capability executed through common permission, timeout, validation, and telemetry controls.
+Agent 拥有一类稳定职责及其执行策略；Workflow 在该职责边界内编排一段类型明确的业务流程；Skill 是具有输入输出协议的原子能力，并统一经过权限、超时、校验与遥测控制。
 
-## 3. Why does a simple task not use the Planner LLM?
+## 3. 为什么简单任务不使用 Planner LLM？
 
-High-confidence simple intents already have deterministic routing rules, so a model adds latency, cost, and routing variance without adding useful judgment. The Fast Path dispatches once and records zero planner calls. Ambiguous or genuinely composite work can still use the typed planning path.
+高置信度的简单意图已经有确定性路由规则。此时调用模型只会增加延迟、成本和路由波动，不会带来有价值的判断。Fast Path 只调度一次，并记录 Planner 调用次数为零；模糊或真正的组合任务仍可进入受类型约束的规划路径。
 
-## 4. Why does Master use a typed DAG?
+## 4. 为什么 Master 使用 Typed DAG？
 
-Free-form model plans are unsafe execution instructions. A typed DAG constrains Agent/task mappings, step counts, dependencies, cycles, and payload shape before execution. It also makes independent steps concurrent and downstream context explicit and testable.
+自由格式的模型计划不能直接当作安全的执行指令。Typed DAG 会在执行前约束 Agent 与任务的映射、步骤数量、依赖关系、环路和 Payload 结构，同时让互不依赖的步骤能够并发执行，并使下游上下文显式、可测试。
 
-## 5. Why are Exec failures not automatically retried?
+## 5. 为什么 Exec 失败后不自动重试？
 
-A write may have succeeded remotely even when its response was lost, so blind retry can duplicate side effects. Write Skills are fail-closed and not automatically retried, especially for approval consumption and high-risk actions. Future retry is limited to operations with a proven idempotency key and explicit contract.
+远程写操作可能已经成功，只是响应在返回途中丢失；盲目重试会制造重复副作用。因此写入 Skill 默认 Fail-closed，不自动重试，审批消费和高风险操作尤其如此。只有具备已验证幂等键和明确重试协议的操作，未来才允许受控重试。
 
-## 6. Why combine vector and lexical retrieval?
+## 6. 为什么同时使用向量检索和关键词检索？
 
-Vector search handles semantic similarity and multilingual phrasing, while lexical search preserves exact identifiers and rare terms. Independent candidate sets fused with RRF reduce dependence on either channel's score scale. Batch reranking then spends semantic compute only on the bounded fused set.
+向量检索擅长语义相似与多语言表达，关键词检索能保留精确标识符和低频术语。两路独立候选通过 RRF 融合，避免依赖某一种分数尺度；随后只对有界候选集进行一次批量重排，控制语义计算成本。
 
-## 7. How is hallucination reduced?
+## 7. 系统如何降低幻觉？
 
-The service separates retrieval from answer generation, filters/reranks sources, assigns stable source IDs, and validates returned citations. It exposes grounding and invalid-citation status rather than hiding uncertainty. When generation fails, a deterministic source-context fallback remains available.
+服务将检索和回答生成分离，对来源进行过滤与重排，为来源分配稳定 ID，并校验回答中的引用。系统会公开 Grounding 状态和无效引用，而不是隐藏不确定性。生成失败时仍可返回确定性的来源上下文降级结果。
 
-## 8. How is tenant A prevented from seeing tenant B data?
+## 8. 如何防止租户 A 看到租户 B 的数据？
 
-Tenant and store identity are derived from authenticated claims, not request payloads. They propagate in trusted contexts to transaction-local PostgreSQL settings, and RLS policies enforce the same boundary in the database. Cache keys, memory access, approvals, and audit records also include tenant/store scope.
+租户和店铺身份来自认证后的 Claims，而不是用户 Payload。可信上下文会把身份传递到 PostgreSQL 的事务级设置，RLS 在数据库中执行同一边界。缓存键、会话记忆、审批和审计记录同样包含租户/店铺 Scope。
 
-## 9. Why require human approval for high-risk writes?
+## 9. 为什么高风险写操作必须人工审批？
 
-Authorization answers whether a user may request an operation; approval answers whether this exact risky operation should proceed now. The approval binds tenant, store, Skill, exact parameter hash, expiry, and one-time consumption. The LLM cannot create or approve that grant.
+授权回答“这个用户能否申请该操作”，审批回答“当前是否应该执行这一次具体的高风险操作”。审批绑定租户、店铺、Skill、精确参数哈希、有效期和一次性消费。LLM 既不能创建审批授权，也不能替人批准。
 
-## 10. Why no Kafka or Redis Streams?
+## 10. 为什么没有使用 Kafka 或 Redis Streams？
 
-The current workload is a portfolio/demo-scale single-process runtime, where distributed messaging would add deployment and failure modes without proving more about orchestration correctness. The asyncio bus keeps the demo reproducible and observable. A MessageBus boundary preserves a future transport substitution if scale or durability requirements justify it.
+当前负载是作品集与 Demo 规模的单进程 Runtime。引入分布式消息系统会增加部署和故障模式，却不能进一步证明编排正确性。asyncio MessageBus 让 Demo 易复现、易观察；抽象边界仍保留，只有未来的规模或持久化需求被测量确认后才替换传输层。
 
-## 11. How do you find the slowest Agent?
+## 11. 如何定位最慢的 Agent？
 
-Prometheus histograms record Agent, Workflow, Skill, HTTP, and LLM duration with bounded labels. Root `task_id` and hop `correlation_id` connect structured logs without putting high-cardinality IDs into metrics. Comparing Agent duration with downstream Workflow/Skill/LLM histograms localizes the bottleneck.
+Prometheus Histogram 使用受控标签记录 Agent、Workflow、Skill、HTTP 和 LLM 的耗时。根级 `task_id` 与逐跳 `correlation_id` 关联结构化日志，同时避免把高基数 ID 放进指标。对比 Agent 总耗时与下游 Workflow、Skill、LLM Histogram，就能定位瓶颈所在层级。
 
-## 12. How are LLM tokens and cost measured?
+## 12. 如何统计 LLM Token 和成本？
 
-Only real provider invocations increment call and latency metrics. Provider usage populates prompt and completion token counters, while an optional static price table produces explicitly estimated cost. Missing pricing yields no estimate rather than a fabricated value, and rule fallbacks do not count as model calls.
+只有真实 Provider 调用才增加调用量与延迟指标。Provider 返回的 Usage 会填充 Prompt/Completion Token 计数；可选的静态价格表会产生明确标注为“估算”的成本。缺少价格时不生成虚假估值，规则降级也不计为模型调用。
 
-## 13. What happens when the LLM is unavailable?
+## 13. LLM 不可用时会怎样？
 
-Transient failures receive bounded retry and then open a component-level circuit breaker after the configured threshold. Fast Path routing, database facts, permission decisions, and approval remain deterministic. RAG and CRM can return safe source/template fallbacks, while readiness reports LLM degradation without necessarily taking the entire API out of service.
+瞬时故障会经过有界重试，超过阈值后打开组件级熔断器。Fast Path 路由、数据库事实、权限决策和审批仍保持确定性。RAG 与 CRM 可以返回安全的来源或模板降级结果；Readiness 会报告 LLM 降级，但默认不会让整个 API 不可用。
 
-## 14. How would this evolve for production scale?
+## 14. 系统如何演进到生产规模？
 
-First define measured SLOs, load characteristics, durability needs, and failure budgets. Then move process-local state to appropriate shared services, add an idempotent durable transport only where required, deploy separate read/write identities with managed secrets, and automate migrations and deployment. The four responsibility boundaries and typed contracts should remain even if their transport or process placement changes.
+首先定义可测量的 SLO、负载特征、持久化需求与故障预算。随后把进程内状态迁移到合适的共享服务，只在必要位置引入幂等的持久化传输，使用托管密钥部署分离的读写身份，并自动化迁移与部署。即使传输方式或进程位置变化，四个职责边界与类型协议仍应保留。
 
-## 15. Why SQLGlot instead of checking whether SQL starts with SELECT?
+## 15. 为什么使用 SQLGlot，而不是检查 SQL 是否以 SELECT 开头？
 
-String prefixes cannot safely understand CTEs, nested writes, multiple statements, row locks, `SELECT INTO`, table aliases, functions or LIMIT semantics. SQLGlot produces an AST that the validator can inspect and rewrite deterministically. The project rejects DDL/DML, unsafe functions, forbidden tables/columns and expensive shapes before the database sees the statement.
+字符串前缀无法正确理解 CTE、嵌套写入、多语句、行锁、`SELECT INTO`、表别名、函数调用或 LIMIT 语义。SQLGlot 会生成可由校验器确定性检查和改写的 AST。DDL/DML、危险函数、禁用表字段和高成本查询结构都会在数据库收到语句之前被拒绝。
 
-## 16. Why is SQL inside Query rather than a separate SQL Agent?
+## 16. 为什么 SQL 属于 Query，而不是单独创建 SQL Agent？
 
-Text-to-SQL is a read-only structured-data capability, so it belongs to Query's existing security boundary. A separate SQL Agent would add routing and protocol surface without creating a new trust boundary. Query owns permission-filtered schema linking, generation, validation, execution and lineage; Exec remains the only protected-write boundary.
+Text-to-SQL 是只读结构化数据能力，因此属于 Query 已有的安全边界。单独创建 SQL Agent 会增加路由和协议面，却没有形成新的信任边界。Query 负责权限过滤后的 Schema Linking、生成、校验、执行与 Lineage；Exec 仍是唯一受保护写入边界。
 
-## 17. Why schema linking, and why not send the full schema to the model?
+## 17. 为什么需要 Schema Linking，而不是把完整 Schema 发给模型？
 
-Full-schema prompts increase tokens, ambiguity and accidental exposure of forbidden metadata. The catalog is filtered by authenticated role/scope before linking. Exact aliases and lexical/BM25 signals always work; when the existing embedding provider is locally available, cached semantic vectors add true hybrid retrieval. Adaptive thresholds, column ranking and intent-controlled FK expansion produce a small, inspectable context. The result explicitly says `hybrid` or `lexical_only`.
+完整 Schema 会增加 Token、歧义和意外暴露禁用元数据的风险。Catalog 会先按已认证的角色与 Scope 过滤，再进行 Linking。精确别名和 Lexical/BM25 信号始终可用；本地 Embedding Provider 可用时，缓存的语义向量会补充真正的混合检索。自适应阈值、字段排序和受意图控制的外键扩展会生成小而可检查的上下文，并明确标记结果是 `hybrid` 还是 `lexical_only`。
 
-## 18. Why does permission filtering happen before Schema Linking?
+## 18. 为什么权限过滤必须发生在 Schema Linking 之前？
 
-Linking over forbidden metadata could leak table names, column names or business concepts even if final execution were later rejected. Filtering first ensures ranking, semantic embeddings and the LLM generation context only see authorized schema. AST validation and PostgreSQL RLS remain later independent controls.
+即使最终执行会被拒绝，对禁用元数据进行 Linking 也可能泄漏表名、字段名或业务概念。先过滤可保证排序、语义向量和 LLM 生成上下文只能看到已授权 Schema；AST 校验与 PostgreSQL RLS 是后续相互独立的防线。
 
-## 19. How is analytical SQL kept safe?
+## 19. 如何保证分析 SQL 安全？
 
-The chain is defense in depth: trusted SecurityContext, table/column filtering, bounded generation context, SQLGlot AST parsing, allowlists, sensitive-column policy, JOIN/column/row guards, read-only transaction, statement timeout, a separate read role, and PostgreSQL tenant/store RLS. The LLM makes none of these authorization decisions.
+系统采用纵深防御：可信 SecurityContext、表字段过滤、有界生成上下文、SQLGlot AST 解析、白名单、敏感字段策略、JOIN/字段/行数守卫、只读事务、语句超时、独立只读角色，以及 PostgreSQL tenant/store RLS。LLM 不参与其中任何授权决定。
 
-`SELECT` alone is not sufficient: PostgreSQL SELECT expressions can invoke executable functions. Generated SQL therefore uses a fail-closed function allowlist for known-safe aggregates, date, numeric and text functions. Unknown and administrative functions are rejected even when the root statement is SELECT. `CAST`, `CASE`, comparisons and arithmetic are recognized as SQL constructs.
+只允许 `SELECT` 仍然不够，因为 PostgreSQL 的 SELECT 表达式可以调用可执行函数。生成 SQL 因此使用 Fail-closed 函数白名单，仅允许已知安全的聚合、日期、数值和文本函数。即使根语句是 SELECT，未知函数和管理函数也会被拒绝；`CAST`、`CASE`、比较和算术会被识别为 SQL 语法结构，而不是函数。
 
-## 20. How does bounded SQL repair work?
+## 20. 有界 SQL 修复如何工作？
 
-Only safe technical failures such as an undefined identifier may trigger one repair. The repaired SQL repeats schema permission checks, function policy, SQLGlot validation and cost guards before execution. Permission, RLS, timeout, read-only and cost failures are never repaired because changing SQL cannot legitimately grant authority and retrying may amplify risk.
+只有未定义标识符等安全的技术性失败可以触发一次修复。修复后的 SQL 在执行前必须重新经过 Schema 权限、函数策略、SQLGlot 校验和成本守卫。权限、RLS、超时、只读和成本错误永远不修复，因为改写 SQL 不能合法地获得权限，重试反而可能放大风险。
 
-## 21. What is an AnalyticalQueryPlan?
+## 21. 什么是 AnalyticalQueryPlan？
 
-It is a typed, bounded plan inside `DataIntelligenceService`, not another Agent or planner. Known diagnostic intents use deterministic templates. For “why did refund rate rise?”, the plan includes a metric trend and only schema-supported segmentations such as category and SKU; it does not invent region. At most four independent read queries run with concurrency three, and every subquery traverses the complete safety and lineage path.
+它是 `DataIntelligenceService` 内部类型明确且有边界的计划，不是新的 Agent 或 Planner。已知诊断意图使用确定性模板。例如“为什么退款率上涨”会包含指标趋势，以及 Category、SKU 等 Schema 确实支持的分组，不会虚构 Region。计划最多四个独立只读查询，并发最多三个，每个子查询都经过完整的安全与 Lineage 链路。
 
-A why-question needs more than one SQL because a trend proves that a metric changed but does not localize contribution. Category and SKU breakdowns identify where the change is concentrated. They still do not prove business causation.
+为什么问题需要多个 SQL：趋势只能证明指标发生变化，不能定位变化集中在哪里；Category 和 SKU 拆分能定位贡献，但依然不能直接证明业务因果。
 
-## 22. How does SQL evidence become a claim?
+## 22. SQL 证据如何转化为结论？
 
-Every successful result creates SQL evidence with query ID, normalized rows, generated SQL, referenced tables/columns, tenant/store scope, row count, truncation and latency. Master adds it to an in-request EvidenceStore. Claims reference evidence IDs, and deterministic grounding verifies that referenced evidence exists in the same tenant scope before output.
+每个成功结果都会创建 SQL Evidence，包含 Query ID、标准化结果行、生成 SQL、引用表字段、tenant/store Scope、行数、截断状态和延迟。Master 把证据写入当前请求的 EvidenceStore；Claim 引用 Evidence ID，确定性 Grounding 会在输出前确认这些证据存在且属于同一租户范围。
 
-## 23. Why combine SQL and RAG?
+## 23. 为什么联合使用 SQL 与 RAG？
 
-SQL answers what changed and where it is concentrated. RAG supplies policies, incident reports, SOPs and operational context. A composite DAG retrieves both in parallel, then a Master-owned synthesis service combines bounded evidence. This is more useful than asking either a database or document retriever to explain the whole business question alone.
+SQL 回答“发生了什么、变化集中在哪里”，RAG 提供政策、事故报告、SOP 和运营上下文。组合 DAG 会并行检索两类证据，再由 Master 所属的综合服务合并有界证据。这比要求数据库或文档检索器单独解释完整业务问题更可靠。
 
-## 24. How are unsupported claims detected?
+## 24. 如何识别没有证据支持的结论？
 
-The grounding layer verifies evidence IDs, citation IDs, tenant ownership and evidence requirements by claim type. Facts require direct evidence. Co-occurrence requires both structured and document sources. Correlation requires computed or explicitly association-supporting evidence. Numeric facts require SQL, API or computed evidence. Fake citations and contradictions produce explicit issue codes.
+Grounding 层会校验 Evidence ID、Citation ID、租户归属和不同 Claim 类型的证据要求。事实需要直接证据；共现需要结构化与文档来源同时存在；相关性需要计算结果或明确支持关联的证据；数值事实需要 SQL、API 或计算证据。伪造引用和证据矛盾都会产生显式问题码。
 
-## 25. What is the difference between FACT, CO_OCCURRENCE, CORRELATION and HYPOTHESIS?
+## 25. FACT、CO_OCCURRENCE、CORRELATION 与 HYPOTHESIS 有什么区别？
 
-- `FACT` is directly supported by cited evidence.
-- `CO_OCCURRENCE` means observations share a relevant time or business context, without a measured association.
-- `CORRELATION` requires quantitative or repeated evidence supporting an association.
-- `HYPOTHESIS` is an uncertain possible explanation that still needs validation.
+- `FACT`：由引用证据直接支持的事实。
+- `CO_OCCURRENCE`：多个观察在时间或业务上下文中同时出现，但没有测量关联程度。
+- `CORRELATION`：有定量或重复证据支持某种关联。
+- `HYPOTHESIS`：仍需验证的不确定可能解释。
 
-SQL plus a contemporaneous RAG document is therefore co-occurrence, not automatically correlation and never automatic causation.
+因此，SQL 数据加一份同期 RAG 文档只能自动构成共现，不能自动升级为相关性，更不能直接证明因果。
 
-## 26. Why is correlation not causation?
+## 26. 为什么相关性不等于因果？
 
-Metric movement and a contemporaneous policy or logistics event establish a useful hypothesis, not proof that one caused the other. The synthesis contract labels facts, correlations and hypotheses separately, states uncertainty, and recommends follow-up segmentation or experiments rather than asserting deterministic causality.
+指标变化与同期政策或物流事件可以形成有价值的假设，但不能证明后者导致前者。综合协议会分别标记事实、相关性和假设，说明不确定性，并建议后续分组分析或实验，而不是断言确定性因果。
 
-## 27. How is Text-to-SQL evaluated?
+## 27. 如何评估 Text-to-SQL？
 
-The evaluation deliberately separates two different claims. `SQL_EXECUTION_GOLD` runs 32 authored SQL statements through SQLGlot safety, the read role, RLS, PostgreSQL and the result comparator; it proves the validator/database/comparator path, not generation accuracy. `QUESTION_TO_SQL_EXECUTION` gives six deterministic questions—never their `reference_sql`—to the production `DataIntelligenceService`, then measures generation, parse, safety, execution and normalized result accuracy separately.
+评估有意区分两种不同结论。`SQL_EXECUTION_GOLD` 把 32 条人工编写 SQL 依次送入 SQLGlot Safety、只读角色、RLS、PostgreSQL 和结果比较器；它证明的是校验器、数据库与比较器链路，不代表生成准确率。`QUESTION_TO_SQL_EXECUTION` 则只把六个确定性问题交给生产 `DataIntelligenceService`，绝不提供其 `reference_sql`，然后分别测量生成、解析、安全、执行和标准化结果准确率。
 
-Execution results are compared instead of SQL strings because semantically equivalent SQL can differ in aliases, predicate order or formulation. Deterministic and integration evaluation are separate because the quality gate should not need a database, external APIs or large model downloads. The Level B job starts PostgreSQL/pgvector and uploads all reports even when a case fails. If a required service or populated RAG index is absent, the status is `NOT_RUN`, never an inferred pass.
+系统比较执行结果而不是 SQL 字符串，因为语义等价的 SQL 可能使用不同别名、谓词顺序或表达方式。确定性评估与集成评估分开，是为了让质量门禁不依赖数据库、外部 API 或大型模型下载。Level B Job 会启动 PostgreSQL/pgvector，即使用例失败也上传所有报告。必要服务或已填充 RAG 索引不存在时，状态必须是 `NOT_RUN`，不能推断为通过。
 
-## 28. What changes at production scale?
+## 28. 生产规模下需要替换哪些部分？
 
-Replace the demo Business API adapter with authenticated provider adapters, load the catalog from governed metadata at startup, add explicit catalog refresh/versioning, and enable safe `EXPLAIN (FORMAT JSON)` cost estimates where supported. Durable transport or process separation should only follow measured throughput, availability or replay requirements; the four Agent boundaries stay stable.
+需要把 Demo Business API Adapter 替换为已认证的 Provider Adapter；启动时从受治理元数据加载 Catalog；增加显式 Catalog 刷新与版本管理；在支持的环境启用安全的 `EXPLAIN (FORMAT JSON)` 成本估算。只有测量到吞吐量、可用性或重放需求后，才引入持久化传输或进程拆分；四个 Agent 边界保持稳定。
 
-## 29. How is PostgreSQL RLS tested rather than assumed?
+## 29. 如何真正测试 PostgreSQL RLS，而不是假设它有效？
 
-The Level B seed creates tenant A and a clearly marked tenant B secret row, enables and forces tenant/store RLS, and creates a non-superuser role without `BYPASSRLS`. Tests set transaction-local tenant/store settings, query without application-added tenant predicates, and verify tenant A cannot see tenant B even with an explicit `tenant_id='tenant-b'` predicate. The same role must see tenant B only after the trusted scope is changed to tenant B.
+Level B Seed 会创建租户 A，以及明确标记的租户 B 私密行，启用并强制 tenant/store RLS，同时创建没有 `BYPASSRLS` 的非超级用户角色。测试通过事务级设置切换 tenant/store，不添加应用层租户谓词直接查询，并验证租户 A 即使显式使用 `tenant_id='tenant-b'` 条件也看不到租户 B。只有可信 Scope 被切换到租户 B 后，同一角色才应看到该数据。
 
-## 30. Why use both application permissions and database RLS?
+## 30. 为什么同时使用应用权限和数据库 RLS？
 
-Application filtering prevents forbidden schema from reaching ranking, generation and logs; AST validation rejects unsafe query shapes before execution. RLS is the final data boundary if an application bug, unexpected query or future code path bypasses an earlier control. The integration suite also bypasses the AST layer intentionally and proves the read credential cannot `INSERT`, `UPDATE`, `DELETE` or `DROP`.
+应用层过滤阻止禁用 Schema 进入排序、生成与日志；AST 校验在执行前拒绝危险查询结构。如果应用 Bug、意外 SQL 或未来代码路径绕过前置控制，RLS 仍是最终数据边界。集成测试还会故意绕过 AST 层，证明只读凭证无法执行 `INSERT`、`UPDATE`、`DELETE` 或 `DROP`。
 
-## 31. Why is semantic retrieval optional in CI?
+## 31. 为什么 CI 中的语义检索是可选项？
 
-The deterministic CI injects a fake semantic scorer to prove hybrid ranking, cache versioning and lexical fallback without downloading Torch models. This keeps CI reproducible and inexpensive. Actual embedding-provider quality belongs to optional Level C evaluation and cannot be reported as run when the model is unavailable.
+确定性 CI 注入伪语义评分器，在不下载 Torch 模型的情况下证明混合排序、缓存版本和关键词降级逻辑。这使 CI 可复现且成本可控。真实 Embedding Provider 的质量属于可选 Level C 评估；模型不可用时不能声称已经运行。
 
-## 32. Why is a SELECT allowlist insufficient without a function policy?
+## 32. 为什么 SELECT 白名单仍然需要函数策略？
 
-PostgreSQL permits function calls inside a SELECT, including sleep, administrative, file and extension-backed operations. The validator therefore distinguishes AST syntax operators such as `AND` from executable functions and applies a fail-closed allowlist to the latter. The database read role and read-only transaction remain independent defenses.
+PostgreSQL 允许在 SELECT 中调用函数，包括休眠、管理、文件和扩展函数。校验器会区分 `AND` 等 AST 语法操作符与可执行函数，并对后者应用 Fail-closed 白名单。数据库只读角色和只读事务仍作为相互独立的防线。
 
-## 33. What do partial analytical results mean?
+## 33. 部分分析结果意味着什么？
 
-Every trend/category/SKU subquery traverses the full schema-link, generation, validation, execution and evidence path under a bounded semaphore. If one fails, the aggregate result is `PARTIAL`, not full success, and synthesis receives evidence only from successful steps. Missing dimensions such as region are skipped explicitly instead of hallucinated.
+每个趋势、Category、SKU 子查询都会在有界 Semaphore 下经过完整的 Schema Linking、生成、校验、执行和证据链。只要其中一个失败，聚合结果就是 `PARTIAL`，而不是完整成功；综合服务也只会收到成功步骤的证据。Region 等缺失维度会被明确跳过，而不是由系统虚构。
 
-## 34. How do you prevent Agent benchmarks from lying?
+## 34. 如何防止 Agent 评估“说谎”？
 
-Each layer records independent observables: generated SQL, parse validity, safety acceptance, execution success, result accuracy, lineage, evidence IDs and failure stage. Gold SQL and generated SQL have different report types; unavailable capabilities stay `NOT_RUN`; rates use executed cases; current Git metadata is read at report time; and CI preserves failure artifacts and prints failed case IDs directly.
+每一层都会记录相互独立的可观察项：生成 SQL、解析有效性、安全接受状态、执行成功、结果准确率、Lineage、Evidence ID 和失败阶段。Gold SQL 与生成 SQL 使用不同报告类型；不可用能力保持 `NOT_RUN`；比率只使用实际执行用例；报告在运行时读取当前 Git 元数据；CI 会保留失败产物并直接打印失败用例 ID。
