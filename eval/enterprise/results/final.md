@@ -1,8 +1,8 @@
 # Final Enterprise Data Agent Evaluation
 
 - Status: **PASS**
-- Git SHA: `455615ce593703ecc2bef08b30893ecfb6e9b2ff`
-- Timestamp: `2026-09-21T11:25:57.709389+00:00`
+- Git SHA: `89fc958538b93776d9e17655f520c277196e74ad`
+- Timestamp: `2026-09-21T11:28:46.808754+00:00`
 
 ## Before → After
 
@@ -23,7 +23,7 @@
 | routing_accuracy | NOT_RUN | 1.0 | NOT_RUN |
 | fast_path_rate | NOT_RUN | 0.571429 | NOT_RUN |
 | planner_rate | NOT_RUN | 0.428571 | NOT_RUN |
-| schema_link_latency_ms | NOT_RUN | 0.3295 | NOT_RUN |
+| schema_link_latency_ms | NOT_RUN | 0.223562 | NOT_RUN |
 | llm_calls | NOT_RUN | 0 | NOT_RUN |
 | token_cost_usd | NOT_RUN | 0.0 | NOT_RUN |
 

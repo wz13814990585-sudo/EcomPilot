@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "git_sha": "455615ce593703ecc2bef08b30893ecfb6e9b2ff",
-    "timestamp": "2026-09-21T11:25:57.709389+00:00",
+    "git_sha": "89fc958538b93776d9e17655f520c277196e74ad",
+    "timestamp": "2026-09-21T11:28:46.808754+00:00",
     "environment": {
       "python": "3.13.5",
       "platform": "macOS-14.5-arm64-arm-64bit-Mach-O",
@@ -50,8 +50,8 @@
   "after": {
     "enterprise": {
       "metadata": {
-        "git_sha": "455615ce593703ecc2bef08b30893ecfb6e9b2ff",
-        "timestamp": "2026-09-21T11:25:57.456467+00:00",
+        "git_sha": "89fc958538b93776d9e17655f520c277196e74ad",
+        "timestamp": "2026-09-21T11:28:46.639937+00:00",
         "environment": "development",
         "deterministic": true
       },
@@ -71,7 +71,7 @@
         "fast_path_rate": 0.571429,
         "planner_rate": 0.428571,
         "routing_accuracy": 1.0,
-        "schema_link_latency_ms": 0.3295,
+        "schema_link_latency_ms": 0.223562,
         "sql_parse_valid": 1.0,
         "sql_safety_pass": 1.0,
         "table_precision": 0.979167,
@@ -397,7 +397,7 @@
     },
     "advanced": {
       "metadata": {
-        "timestamp": "2026-09-21T11:25:57.478244+00:00",
+        "timestamp": "2026-09-21T11:28:46.655791+00:00",
         "deterministic": true,
         "suite": "all"
       },
@@ -1443,7 +1443,7 @@
         "repair_rate": 0.0,
         "repair_success_rate": null,
         "average_sql_attempts": 1.0,
-        "average_latency_ms": 1.702
+        "average_latency_ms": 0.999
       },
       "cases": [
         {
@@ -1469,7 +1469,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 0.972
+          "latency_ms": 0.822
         },
         {
           "id": "live_002",
@@ -1494,7 +1494,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.8
+          "latency_ms": 0.808
         },
         {
           "id": "live_003",
@@ -1519,7 +1519,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.625
+          "latency_ms": 0.98
         },
         {
           "id": "live_004",
@@ -1544,7 +1544,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.078
+          "latency_ms": 0.857
         },
         {
           "id": "live_005",
@@ -1569,7 +1569,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.072
+          "latency_ms": 0.932
         },
         {
           "id": "live_006",
@@ -1594,7 +1594,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 2.673
+          "latency_ms": 0.831
         },
         {
           "id": "live_007",
@@ -1619,7 +1619,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.278
+          "latency_ms": 0.827
         },
         {
           "id": "live_008",
@@ -1644,7 +1644,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.25
+          "latency_ms": 0.995
         },
         {
           "id": "live_009",
@@ -1669,7 +1669,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.67
+          "latency_ms": 0.773
         },
         {
           "id": "live_010",
@@ -1694,7 +1694,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.854
+          "latency_ms": 0.95
         },
         {
           "id": "live_011",
@@ -1719,7 +1719,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.267
+          "latency_ms": 1.033
         },
         {
           "id": "live_012",
@@ -1744,7 +1744,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.437
+          "latency_ms": 0.923
         },
         {
           "id": "live_013",
@@ -1787,7 +1787,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 3.71
+          "latency_ms": 1.767
         },
         {
           "id": "live_014",
@@ -1838,7 +1838,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.184
+          "latency_ms": 1.053
         },
         {
           "id": "live_015",
@@ -1889,7 +1889,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 2.508
+          "latency_ms": 0.908
         },
         {
           "id": "live_016",
@@ -1932,7 +1932,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.821
+          "latency_ms": 1.245
         },
         {
           "id": "live_017",
@@ -1975,7 +1975,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.805
+          "latency_ms": 1.531
         },
         {
           "id": "live_018",
@@ -2000,7 +2000,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 2.592
+          "latency_ms": 0.72
         },
         {
           "id": "live_019",
@@ -2025,7 +2025,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 0.856
+          "latency_ms": 0.694
         },
         {
           "id": "live_020",
@@ -2052,7 +2052,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 0.986
+          "latency_ms": 0.908
         },
         {
           "id": "live_021",
@@ -2077,7 +2077,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 0.951
+          "latency_ms": 0.811
         },
         {
           "id": "live_022",
@@ -2102,7 +2102,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 3.268
+          "latency_ms": 1.304
         },
         {
           "id": "live_023",
@@ -2137,7 +2137,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 2.118
+          "latency_ms": 1.572
         },
         {
           "id": "live_024",
@@ -2162,7 +2162,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 2.07
+          "latency_ms": 0.846
         },
         {
           "id": "live_025",
@@ -2189,7 +2189,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.212
+          "latency_ms": 0.853
         },
         {
           "id": "live_026",
@@ -2214,7 +2214,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 0.945
+          "latency_ms": 0.718
         },
         {
           "id": "live_027",
@@ -2265,7 +2265,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.496
+          "latency_ms": 1.177
         },
         {
           "id": "live_028",
@@ -2308,7 +2308,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 3.468
+          "latency_ms": 1.591
         },
         {
           "id": "live_029",
@@ -2359,7 +2359,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.457
+          "latency_ms": 1.262
         },
         {
           "id": "live_030",
@@ -2384,7 +2384,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 2.095
+          "latency_ms": 0.888
         },
         {
           "id": "live_031",
@@ -2409,7 +2409,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 1.011
+          "latency_ms": 0.71
         },
         {
           "id": "live_032",
@@ -2434,7 +2434,7 @@
             }
           ],
           "sql_attempts": 1,
-          "latency_ms": 0.934
+          "latency_ms": 0.678
         }
       ]
     },
@@ -2457,9 +2457,9 @@
         "repair_rate": 0.0,
         "repair_success_rate": null,
         "average_sql_attempts": 1.0,
-        "schema_link_latency_ms": 0.371,
+        "schema_link_latency_ms": 0.199,
         "sql_generation_latency_ms": null,
-        "sql_execution_latency_ms": 1.45,
+        "sql_execution_latency_ms": 0.687,
         "total_llm_calls": 0,
         "token_usage": 0,
         "estimated_cost": 0.0
@@ -2500,9 +2500,9 @@
           "catalog_source": "postgres",
           "schema_version": "postgres-8f320acb5ee9afb5",
           "retrieval_mode": "lexical_only",
-          "schema_link_latency_ms": 0.306,
-          "sql_execution_latency_ms": 1.185,
-          "lineage_query_id": "sql-358d2a83-f2db-41ec-8841-228db47dd221",
+          "schema_link_latency_ms": 0.23,
+          "sql_execution_latency_ms": 0.963,
+          "lineage_query_id": "sql-bd5eea6a-6b88-4d52-b5bc-9fd58fe6d0f2",
           "referenced_tables": [
             "ecom_order"
           ],
@@ -2510,9 +2510,9 @@
             "ecom_order.total_amount",
             "ecom_order.create_time"
           ],
-          "evidence_id": "sql-358d2a83-f2db-41ec-8841-228db47dd221",
+          "evidence_id": "sql-bd5eea6a-6b88-4d52-b5bc-9fd58fe6d0f2",
           "evidence_traceable": true,
-          "latency_ms": 2.852
+          "latency_ms": 2.48
         },
         {
           "id": "t2sql_002",
@@ -2545,18 +2545,18 @@
           "catalog_source": "postgres",
           "schema_version": "postgres-8f320acb5ee9afb5",
           "retrieval_mode": "lexical_only",
-          "schema_link_latency_ms": 0.924,
-          "sql_execution_latency_ms": 0.81,
-          "lineage_query_id": "sql-bc4e34f0-6289-4ea3-b98e-ab39b774d559",
+          "schema_link_latency_ms": 0.204,
+          "sql_execution_latency_ms": 0.499,
+          "lineage_query_id": "sql-0ebf5c54-b25d-4402-b8bb-c264bc1c16b8",
           "referenced_tables": [
             "ecom_order"
           ],
           "referenced_columns": [
             "ecom_order.create_time"
           ],
-          "evidence_id": "sql-bc4e34f0-6289-4ea3-b98e-ab39b774d559",
+          "evidence_id": "sql-0ebf5c54-b25d-4402-b8bb-c264bc1c16b8",
           "evidence_traceable": true,
-          "latency_ms": 3.536
+          "latency_ms": 1.526
         },
         {
           "id": "t2sql_003",
@@ -2593,9 +2593,9 @@
           "catalog_source": "postgres",
           "schema_version": "postgres-8f320acb5ee9afb5",
           "retrieval_mode": "lexical_only",
-          "schema_link_latency_ms": 0.276,
-          "sql_execution_latency_ms": 2.285,
-          "lineage_query_id": "sql-926f2d01-866a-4126-9e2c-8c98ec0823e5",
+          "schema_link_latency_ms": 0.203,
+          "sql_execution_latency_ms": 0.69,
+          "lineage_query_id": "sql-f7bdcd18-ca1f-45c3-9553-a4ca288a7028",
           "referenced_tables": [
             "ecom_order"
           ],
@@ -2603,9 +2603,9 @@
             "ecom_order.create_time",
             "ecom_order.refund_flag"
           ],
-          "evidence_id": "sql-926f2d01-866a-4126-9e2c-8c98ec0823e5",
+          "evidence_id": "sql-f7bdcd18-ca1f-45c3-9553-a4ca288a7028",
           "evidence_traceable": true,
-          "latency_ms": 4.823
+          "latency_ms": 2.569
         },
         {
           "id": "t2sql_004",
@@ -2638,16 +2638,16 @@
           "catalog_source": "postgres",
           "schema_version": "postgres-8f320acb5ee9afb5",
           "retrieval_mode": "lexical_only",
-          "schema_link_latency_ms": 0.209,
-          "sql_execution_latency_ms": 0.679,
-          "lineage_query_id": "sql-90915545-e2c9-4821-a8ce-18551cc12b58",
+          "schema_link_latency_ms": 0.183,
+          "sql_execution_latency_ms": 0.482,
+          "lineage_query_id": "sql-a0edf265-dbc8-4387-b1c8-8fe97c26e11f",
           "referenced_tables": [
             "ecom_order"
           ],
           "referenced_columns": [],
-          "evidence_id": "sql-90915545-e2c9-4821-a8ce-18551cc12b58",
+          "evidence_id": "sql-a0edf265-dbc8-4387-b1c8-8fe97c26e11f",
           "evidence_traceable": true,
-          "latency_ms": 1.46
+          "latency_ms": 1.107
         },
         {
           "id": "t2sql_005",
@@ -2714,9 +2714,9 @@
           "catalog_source": "postgres",
           "schema_version": "postgres-8f320acb5ee9afb5",
           "retrieval_mode": "lexical_only",
-          "schema_link_latency_ms": 0.244,
-          "sql_execution_latency_ms": 1.573,
-          "lineage_query_id": "sql-34a26a7f-87e4-49b1-a45a-dc2821016b3e",
+          "schema_link_latency_ms": 0.198,
+          "sql_execution_latency_ms": 0.757,
+          "lineage_query_id": "sql-a8eede49-2abc-4c0d-a6e7-d8e8b3e10dbb",
           "referenced_tables": [
             "ecom_order",
             "ecom_goods"
@@ -2727,9 +2727,9 @@
             "ecom_order.buy_num",
             "ecom_goods.sku"
           ],
-          "evidence_id": "sql-34a26a7f-87e4-49b1-a45a-dc2821016b3e",
+          "evidence_id": "sql-a8eede49-2abc-4c0d-a6e7-d8e8b3e10dbb",
           "evidence_traceable": true,
-          "latency_ms": 4.324
+          "latency_ms": 2.334
         },
         {
           "id": "t2sql_006",
@@ -2792,9 +2792,9 @@
           "catalog_source": "postgres",
           "schema_version": "postgres-8f320acb5ee9afb5",
           "retrieval_mode": "lexical_only",
-          "schema_link_latency_ms": 0.269,
-          "sql_execution_latency_ms": 2.17,
-          "lineage_query_id": "sql-af8912ac-855a-4545-8c21-e63f5c4c452d",
+          "schema_link_latency_ms": 0.177,
+          "sql_execution_latency_ms": 0.729,
+          "lineage_query_id": "sql-d1006204-d305-48e3-a49e-36343472e611",
           "referenced_tables": [
             "ecom_order"
           ],
@@ -2802,9 +2802,9 @@
             "ecom_order.create_time",
             "ecom_order.refund_flag"
           ],
-          "evidence_id": "sql-af8912ac-855a-4545-8c21-e63f5c4c452d",
+          "evidence_id": "sql-d1006204-d305-48e3-a49e-36343472e611",
           "evidence_traceable": true,
-          "latency_ms": 4.994
+          "latency_ms": 2.821
         }
       ],
       "live_llm_text_to_sql": {
@@ -2909,7 +2909,7 @@
         "required_dimension_coverage": 1.0,
         "forbidden_dimension_hallucination_rate": 0.0,
         "evidence_completeness": 1.0,
-        "analytical_task_latency_ms": 13.023,
+        "analytical_task_latency_ms": 8.487,
         "steps": [
           {
             "step_id": "metric_trend",
@@ -2935,9 +2935,9 @@
                 "refund_rate": "0.2500"
               }
             ],
-            "evidence_id": "sql-b53fddb5-41dc-4ed4-a571-67504f69bf45",
+            "evidence_id": "sql-dc37796b-e0ea-48a7-aa1c-5a7b914078e1",
             "lineage": {
-              "query_id": "sql-b53fddb5-41dc-4ed4-a571-67504f69bf45",
+              "query_id": "sql-dc37796b-e0ea-48a7-aa1c-5a7b914078e1",
               "generated_sql": "SELECT DATE_TRUNC('MONTH', create_time) AS month, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order GROUP BY DATE_TRUNC('MONTH', create_time) ORDER BY month LIMIT 200",
               "referenced_tables": [
                 "ecom_order"
@@ -2946,12 +2946,12 @@
                 "ecom_order.create_time",
                 "ecom_order.refund_flag"
               ],
-              "timestamp": "2026-09-21T11:25:57.694394Z",
+              "timestamp": "2026-09-21T11:28:46.799127Z",
               "tenant_id": "tenant-a",
               "store_id": "store-a",
               "row_count": 3,
               "truncated": false,
-              "execution_latency_ms": 9.776
+              "execution_latency_ms": 5.637
             },
             "warnings": [],
             "error_code": ""
@@ -2980,9 +2980,9 @@
                 "refund_rate": "0.5000"
               }
             ],
-            "evidence_id": "sql-329b7bce-5e51-4584-a351-50ed919bbad8",
+            "evidence_id": "sql-2261c48e-e78f-4826-bcf3-8b98736b7f38",
             "lineage": {
-              "query_id": "sql-329b7bce-5e51-4584-a351-50ed919bbad8",
+              "query_id": "sql-2261c48e-e78f-4826-bcf3-8b98736b7f38",
               "generated_sql": "SELECT g.category, COUNT(*) AS order_count, SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN o.refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order AS o JOIN ecom_goods AS g ON g.sku = o.sku WHERE EXTRACT(MONTH FROM o.create_time) = 8 GROUP BY g.category ORDER BY refund_count DESC LIMIT 20",
               "referenced_tables": [
                 "ecom_order",
@@ -2995,12 +2995,12 @@
                 "ecom_order.create_time",
                 "ecom_order.refund_flag"
               ],
-              "timestamp": "2026-09-21T11:25:57.695555Z",
+              "timestamp": "2026-09-21T11:28:46.800070Z",
               "tenant_id": "tenant-a",
               "store_id": "store-a",
               "row_count": 3,
               "truncated": false,
-              "execution_latency_ms": 7.298
+              "execution_latency_ms": 4.915
             },
             "warnings": [],
             "error_code": ""
@@ -3035,9 +3035,9 @@
                 "refund_rate": "0.5000"
               }
             ],
-            "evidence_id": "sql-d219a9e0-187e-4541-adfc-31fe5c95199f",
+            "evidence_id": "sql-be4eee66-6bbe-4089-a56f-99adfe074844",
             "lineage": {
-              "query_id": "sql-d219a9e0-187e-4541-adfc-31fe5c95199f",
+              "query_id": "sql-be4eee66-6bbe-4089-a56f-99adfe074844",
               "generated_sql": "SELECT sku, COUNT(*) AS order_count, SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS refund_count, ROUND(CAST(SUM(CASE WHEN refund_flag THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS refund_rate FROM ecom_order WHERE EXTRACT(MONTH FROM create_time) = 8 GROUP BY sku ORDER BY refund_count DESC LIMIT 20",
               "referenced_tables": [
                 "ecom_order"
@@ -3047,12 +3047,12 @@
                 "ecom_order.create_time",
                 "ecom_order.refund_flag"
               ],
-              "timestamp": "2026-09-21T11:25:57.695782Z",
+              "timestamp": "2026-09-21T11:28:46.800280Z",
               "tenant_id": "tenant-a",
               "store_id": "store-a",
               "row_count": 4,
               "truncated": false,
-              "execution_latency_ms": 3.158
+              "execution_latency_ms": 2.731
             },
             "warnings": [],
             "error_code": ""
@@ -3076,9 +3076,9 @@
         },
         "evidence_ids": [
           "doc-august-operations",
-          "sql-329b7bce-5e51-4584-a351-50ed919bbad8",
-          "sql-b53fddb5-41dc-4ed4-a571-67504f69bf45",
-          "sql-d219a9e0-187e-4541-adfc-31fe5c95199f"
+          "sql-2261c48e-e78f-4826-bcf3-8b98736b7f38",
+          "sql-be4eee66-6bbe-4089-a56f-99adfe074844",
+          "sql-dc37796b-e0ea-48a7-aa1c-5a7b914078e1"
         ]
       },
       "metrics": {
@@ -3181,7 +3181,7 @@
     },
     "schema_link_latency_ms": {
       "before": null,
-      "after": 0.3295,
+      "after": 0.223562,
       "delta": null
     },
     "llm_calls": {
