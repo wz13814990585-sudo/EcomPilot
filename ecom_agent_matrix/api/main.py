@@ -28,6 +28,7 @@ from .route_task import router as task_router
 from .route_warn import router as warn_router
 from .route_approval import router as approval_router
 from .route_admin import router as admin_router
+from .route_conversation import router as conversation_router
 from .errors import public_error
 from ..config.settings import settings
 from ..core.logging_config import setup_logger
@@ -141,6 +142,7 @@ app.include_router(customer_router)
 app.include_router(warn_router)
 app.include_router(approval_router)
 app.include_router(admin_router)
+app.include_router(conversation_router)
 
 _FRONTEND_DIR = Path(__file__).with_name("frontend")
 app.mount("/app/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="agent-console-static")

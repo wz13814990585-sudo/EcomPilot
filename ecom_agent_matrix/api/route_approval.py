@@ -10,7 +10,7 @@ from ..core.security import (
     effective_scopes,
     tenant_scope_from_security,
 )
-from ..core.security.approval import approval_service
+from ..core.security.approval import APPROVAL_ALREADY_USED, approval_service
 from ..core.security.audit import record_audit_event
 from ..platform.resilience.rate_limit import enforce_business_rate_limit
 
@@ -40,6 +40,13 @@ async def approve_request(
         ) from None
     except PermissionError as exc:
         code = str(exc)
+        if code == APPROVAL_ALREADY_USED:
+            return {
+                "approval_id": approval_id,
+                "status": "consumed",
+                "already_executed": True,
+                "message": "该审批已使用，操作已执行，无需重复审批。",
+            }
         safe_code = (
             code
             if code in {"SELF_APPROVAL_DENIED", "APPROVAL_EXPIRED", "APPROVAL_INVALID"}
@@ -50,6 +57,7 @@ async def approve_request(
         "approval_id": grant.approval_id,
         "status": grant.status,
         "skill_name": grant.skill_name,
+        "message": "审批已通过，可以执行本次受保护操作。",
     }
 
 

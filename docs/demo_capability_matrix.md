@@ -4,8 +4,8 @@
 |---|---|---|---|---|---|---|
 | data_analysis | RULE_DATA_ANALYSIS | Query | DataIntelligenceService | PostgreSQL | 720 orders | PASS |
 | knowledge_qa | RULE_KNOWLEDGE | RAG | RAGService | pgvector / lexical | 30 documents | PASS |
-| goods_search | RULE_GOODS_SEARCH | Query | goods workflow | ecom_goods | 48 products | PASS |
-| goods_catalog | RULE_GOODS_CATALOG | Query | goods workflow | ecom_goods | 48 products | PASS |
+| goods_search | RULE_GOODS_SEARCH | Query | goods workflow | ecom_goods | 52 products | PASS |
+| goods_catalog | RULE_GOODS_CATALOG | Query | goods workflow | ecom_goods | 52 products | PASS |
 | stock_analysis | RULE_STOCK | Query | stock workflow | goods + orders | low/OOS products | PASS |
 | competitor_watch | RULE_COMPETITOR | Query | competitor workflow | competitor_price | 160 observations | PASS |
 | order_query | RULE_ORDER_QUERY | Query | business API workflow | demo provider | 4 named demo orders | PASS |

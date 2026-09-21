@@ -66,6 +66,13 @@ class TaskCreateRequest(BaseModel):
         default=None,
         description="可选等待秒数；Swagger 请删除该字段或留 null，不要填空字符串/0",
     )
+    session_id: str | None = Field(
+        default=None,
+        min_length=8,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]+$",
+        description="可选会话编号，用于连续追问的短期记忆",
+    )
 
     @field_validator("task_type", mode="before")
     @classmethod

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 
 from pydantic import ValidationError
@@ -106,6 +107,11 @@ async def run_goods_workflow(task: dict | TaskContext) -> WorkflowResult:
     )
     data = skill_result.data or {}
     candidates = data.get("candidates", [])
+    if re.fullmatch(r"(?:SKU[-_])?[A-Z][A-Z0-9]{1,15}[-_]\d{3}", product_name, re.I):
+        exact_sku = product_name.upper()
+        candidates = [
+            item for item in candidates if str(item.get("sku") or "").upper() == exact_sku
+        ]
     success = skill_result.success and bool(candidates)
     error_msg = (
         skill_result.error_msg
@@ -114,15 +120,17 @@ async def run_goods_workflow(task: dict | TaskContext) -> WorkflowResult:
     )
     return WorkflowResult(
         success=success,
-        error_code="" if success else SKILL_FAILED,
+        error_code=""
+        if success
+        else (SKILL_FAILED if not skill_result.success else MISSING_PRODUCT),
         error_msg=error_msg,
         data={
             "query_kind": "goods_search",
             "mode": "search",
             "product_name": product_name,
             "candidates": candidates,
-            "best_sku": data.get("best_sku"),
-            "count": data.get("count", 0),
+            "best_sku": candidates[0].get("sku") if candidates else data.get("best_sku"),
+            "count": len(candidates),
             "match_mode": data.get("match_mode", "none"),
             "semantic_fallback_used": data.get("semantic_fallback_used", False),
             "semantic_error": data.get("semantic_error", ""),

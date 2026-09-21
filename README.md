@@ -45,7 +45,7 @@ python -m ecom_agent_matrix.scripts.bootstrap_demo
 python -m uvicorn ecom_agent_matrix.api.main:app --reload --port 8002
 ```
 
-打开 <http://127.0.0.1:8002/app>，填入 API Key，直接提问。默认引导会创建 48 个商品、720 个覆盖 2026 年 1‑9 月的订单、160 条竞品观测、12 条风险记录与 30 份知识文档。无本地 embedding 依赖时会明确运行为 `lexical_only`；要启用混合检索：
+打开 <http://127.0.0.1:8002/app>，填入 API Key，直接提问。默认引导会创建 52 个商品（含背包、鞋类等可连续追问样本）、720 个覆盖 2026 年 1‑9 月的订单、160 条竞品观测、12 条风险记录与 30 份知识文档。无本地 embedding 依赖时会明确运行为 `lexical_only`；要启用混合检索：
 
 ```bash
 pip install -e ".[rag-local]"
@@ -104,7 +104,7 @@ LLM 是可选的：明显意图、SQL 模板、RAG 检索和展示均有确定�
 
 当前分支已通过：
 
-- 484 个自动化测试（当前 `pytest -q` 实测）
+- 526 个自动化测试（当前 `pytest -q` 实测，并由 GitHub Actions 持续验证）
 - Ruff lint 与 format gate
 - Python compileall
 - 13/13 deterministic routing cases

@@ -139,6 +139,43 @@ def test_risk_approver_can_approve_and_cross_tenant_is_not_disclosed():
     assert hidden.status_code == 404 and hidden.detail == "Approval not found"
 
 
+def test_repeated_approval_after_execution_is_idempotent_for_people():
+    service = AsyncMock()
+    service.approve.side_effect = PermissionError(APPROVAL_ALREADY_USED)
+
+    async def scenario():
+        with patch("ecom_agent_matrix.api.route_approval.approval_service", service):
+            return await approve_request(APPROVAL_ID, _security("approver", "risk_approver"))
+
+    result = asyncio.run(scenario())
+    assert result["status"] == "consumed"
+    assert result["already_executed"] is True
+    assert "无需重复审批" in result["message"]
+
+
+def test_approving_an_already_approved_request_returns_same_grant_without_write():
+    service = ApprovalService()
+    approved = _request(
+        status="approved",
+        approver_user_id="approver",
+        approved_at=datetime.now(timezone.utc),
+    )
+    write = AsyncMock()
+
+    async def scenario():
+        with (
+            patch.object(service, "get_request", new=AsyncMock(return_value=approved)),
+            patch(
+                "ecom_agent_matrix.core.security.approval.AsyncPGClient.execute_write", new=write
+            ),
+        ):
+            return await service.approve(APPROVAL_ID, _security("approver", "risk_approver"))
+
+    grant = asyncio.run(scenario())
+    assert grant.status == "approved"
+    write.assert_not_awaited()
+
+
 def test_self_approval_rejected_but_admin_override_is_audited():
     service = ApprovalService()
     pending = _request()

@@ -67,7 +67,7 @@ def test_analytical_presentation_preserves_metrics_and_evidence():
 
 def test_rag_status_reports_demo_counts_and_lexical_fallback():
     execute = AsyncMock(
-        side_effect=[[(30, 30, 0)], [(48, 720, 160, 12)]],
+        side_effect=[[(30, 30, 0)], [(52, 720, 160, 12)]],
     )
     with patch("ecom_agent_matrix.api.main.AsyncPGClient.execute_sql", new=execute):
         result = asyncio.run(rag_status())

@@ -133,6 +133,22 @@ class ApprovalService:
         request = await self.get_request(approval_id, security)
         if request is None:
             raise LookupError("APPROVAL_NOT_FOUND")
+        if request.status == "consumed":
+            raise PermissionError(APPROVAL_ALREADY_USED)
+        if request.status == "approved":
+            return ApprovalGrant(
+                approval_id=request.approval_id,
+                task_id=request.task_id,
+                tenant_id=request.tenant_id,
+                store_id=request.store_id,
+                requester_user_id=request.requester_user_id,
+                approver_user_id=request.approver_user_id,
+                skill_name=request.skill_name,
+                params_hash=request.params_hash,
+                expires_at=request.expires_at,
+            )
+        if request.status != "pending":
+            raise PermissionError(APPROVAL_INVALID)
         is_admin = "admin" in security.roles
         if request.requester_user_id == security.user_id and not is_admin:
             await record_audit_event(

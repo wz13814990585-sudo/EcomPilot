@@ -27,6 +27,7 @@ def test_agent_console_exposes_supported_agent_capabilities():
         "/api/v1/admin/overview",
         "/api/v1/admin/products",
         "/api/v1/admin/rag/documents",
+        "/api/v1/conversations/",
         "/health/ready",
     ):
         assert endpoint in script or endpoint in html
@@ -68,3 +69,6 @@ def test_admin_console_and_human_error_ui_are_present():
     assert 'id="ragForm"' in html
     assert "normalizedError" in script
     assert "next_action" in script
+    assert "agent_session_id" in script
+    assert "conversationState" in html
+    assert "already_executed" in script

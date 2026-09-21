@@ -67,6 +67,17 @@ PRODUCTS = (
     ("CYCLE-001", "cycling", 76.0, 17, "Commuter Bike Pannier", "通勤自行车驮包"),
     ("CYCLE-002", "cycling", 33.0, 63, "Rechargeable Bike Light", "充电式自行车灯"),
     ("CYCLE-003", "cycling", 29.0, 44, "Compact Bike Repair Kit", "便携自行车维修套装"),
+    (
+        "SHOE-001",
+        "footwear",
+        129.0,
+        36,
+        "TrailForge Waterproof Hiking Shoes",
+        "TrailForge 防水徒步鞋",
+    ),
+    ("SHOE-002", "footwear", 98.0, 12, "RidgeRun Trail Running Shoes", "RidgeRun 越野跑鞋"),
+    ("SHOE-003", "footwear", 64.0, 58, "CoastWalk Outdoor Sandals", "CoastWalk 户外凉鞋"),
+    ("SHOE-004", "footwear", 55.0, 21, "Junior Trek Adventure Shoes", "Junior Trek 儿童探险鞋"),
 )
 
 

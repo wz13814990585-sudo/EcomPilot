@@ -69,6 +69,52 @@ def _analysis(leaf: dict[str, Any]) -> dict[str, Any]:
                 )
             else:
                 answer = f"{year} 年 {month} 月退款率为 {current_rate:.1f}%。"
+            highlights = [
+                f"{year} 年 {month} 月：{int(current.get('order_count') or 0)} 单中 "
+                f"{int(current.get('refund_count') or 0)} 单退款，退款率 {current_rate:.1f}%"
+            ]
+            if prior:
+                highlights.append(
+                    f"{prior_period[1]} 月退款率 {float(prior.get('refund_rate') or 0) * 100:.1f}%"
+                )
+            category_rows = contributions.get("category_breakdown") or []
+            sku_rows = contributions.get("sku_breakdown") or []
+            top_category = max(
+                (row for row in category_rows if isinstance(row, dict)),
+                key=lambda row: float(row.get("refund_count") or 0),
+                default=None,
+            )
+            top_sku = max(
+                (row for row in sku_rows if isinstance(row, dict)),
+                key=lambda row: float(row.get("refund_count") or 0),
+                default=None,
+            )
+            reasons: list[str] = []
+            if top_category:
+                category_name = {
+                    "electronics": "电子产品",
+                    "bags": "箱包",
+                    "footwear": "鞋类",
+                }.get(str(top_category.get("category") or ""), top_category.get("category"))
+                reasons.append(
+                    f"{category_name or '未分类'}品类退款 "
+                    f"{int(top_category.get('refund_count') or 0)} 单"
+                )
+                highlights.append(
+                    f"退款最集中品类：{category_name or '未分类'}，"
+                    f"退款率 {float(top_category.get('refund_rate') or 0) * 100:.1f}%"
+                )
+            if top_sku:
+                reasons.append(
+                    f"{top_sku.get('sku') or '未知 SKU'} 退款 "
+                    f"{int(top_sku.get('refund_count') or 0)} 单"
+                )
+                highlights.append(
+                    f"退款最集中 SKU：{top_sku.get('sku') or '未知'}，"
+                    f"退款率 {float(top_sku.get('refund_rate') or 0) * 100:.1f}%"
+                )
+            if reasons:
+                answer += " 从数据看，上涨主要由" + "、".join(reasons) + "拉动。"
     if highlights:
         if not target or "退款" not in question:
             answer = f"分析已完成（{status}）：{highlights[0]}"
@@ -104,6 +150,22 @@ def build_presentation(
             ]
             result["category"] = "data_analysis_composite"
             result["highlights"].extend(document_claims[:3])
+            claim_text = " ".join(str(item) for item in document_claims)
+            signals: list[str] = []
+            if "CHARGER-001" in claim_text and "接头松动" in claim_text:
+                signals.append("CHARGER-001 批次接头松动")
+            if "BAG-002" in claim_text and ("拉链" in claim_text or "包装" in claim_text):
+                signals.append("BAG-002 包装与拉链客诉增多")
+            if "物流延迟" in claim_text or "转运节点延迟" in claim_text:
+                signals.append("局部物流延迟")
+            if signals and "为什么" in str(
+                ((leaf.get("analytical") or {}).get("plan") or {}).get("question") or ""
+            ):
+                result["answer"] += (
+                    " 同期运营记录显示："
+                    + "、".join(dict.fromkeys(signals))
+                    + "。这些是有证据的重点排查方向，但目前只能确认同期共现，不能当作单一因果。"
+                )
             result["warnings"].extend(composite.get("uncertainties") or [])
             result["recommendations"] = (
                 composite.get("recommended_next_steps") or result["recommendations"]
@@ -117,7 +179,14 @@ def build_presentation(
     answer = next(
         (
             str(leaf[key]).strip()
-            for key in ("answer", "readable_summary", "summary", "final_answer", "copy_draft")
+            for key in (
+                "answer",
+                "readable_summary",
+                "summary",
+                "final_answer",
+                "copy_draft",
+                "advice",
+            )
             if isinstance(leaf.get(key), str) and str(leaf[key]).strip()
         ),
         "",
@@ -170,15 +239,57 @@ def build_presentation(
     elif category == "goods_search":
         candidates = leaf.get("candidates") or []
         best = leaf.get("best_sku")
-        answer = (
-            f"找到 {len(candidates)} 个匹配商品，最相关的是 {best}。"
-            if candidates
-            else "没有找到匹配商品，请换一个名称或提供 SKU。"
-        )
+        if candidates:
+            first = candidates[0]
+            title = first.get("title_zh") or first.get("title_en") or best
+            price = first.get("price")
+            stock = first.get("stock_num")
+            prices = [float(item["price"]) for item in candidates if item.get("price") is not None]
+            answer = f"找到 {len(candidates)} 个匹配商品。"
+            if len(prices) > 1:
+                answer += f"售价区间为 ${min(prices):.2f}–${max(prices):.2f}。"
+            answer += f"最相关的是 {title}（{best}）"
+            if price is not None:
+                answer += f"，售价 ${float(price):.2f}"
+            if stock is not None:
+                answer += f"，当前库存 {int(stock)} 件"
+            answer += "。"
+        else:
+            answer = "没有找到匹配商品，请换一个名称或提供 SKU。"
     elif category == "stock" and isinstance(leaf.get("items"), list):
         items = leaf.get("items") or []
         answer = f"发现 {len(items)} 个需要关注的低库存商品。" if items else "当前没有低库存商品。"
         tables.append({"title": "低库存商品", "rows": items})
+    elif category == "stock" and leaf.get("stock_predict_result"):
+        product = leaf.get("product") or {}
+        prediction = leaf.get("stock_predict_result") or {}
+        title = product.get("title_zh") or product.get("title_en") or leaf.get("sku")
+        current = product.get("stock_num")
+        answer = f"{title}（{leaf.get('sku')}）"
+        if current is not None:
+            answer += f"当前库存 {int(current)} 件；"
+        answer += (
+            f"近 30 天日均销量约 {prediction.get('daily_avg_sales', 0)} 件，"
+            f"未来 {leaf.get('predict_days', 7)} 天建议备货 "
+            f"{prediction.get('suggest_stock_amount', 0)} 件。"
+        )
+        highlights = [str(leaf.get("advice") or "").strip()] if leaf.get("advice") else []
+    elif category == "social":
+        social = leaf.get("social_copy") or {}
+        draft = str(social.get("copy_draft") or "").strip()
+        image_prompt = str((leaf.get("ai_image_prompt") or {}).get("positive_prompt") or "").strip()
+        answer = draft or "推广文案生成失败，请稍后重试。"
+        if draft:
+            highlights = [
+                f"平台：{social.get('platform') or leaf.get('platform') or '未指定'}",
+                f"语言：{social.get('lang') or leaf.get('lang') or '未指定'}",
+            ]
+        if image_prompt:
+            recommendations = [f"配图提示词：{image_prompt}"]
+    elif category == "competitor" and isinstance(leaf.get("comparisons"), list):
+        comparisons = leaf.get("comparisons") or []
+        answer = str(leaf.get("summary") or leaf.get("advice") or answer)
+        tables.append({"title": "竞品价格", "rows": comparisons})
 
     if leaf.get("approval_required"):
         answer = "该操作需要人工审批。请确认目标与参数后批准，再重试任务。"

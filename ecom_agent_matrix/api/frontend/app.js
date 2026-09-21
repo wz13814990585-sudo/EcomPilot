@@ -16,6 +16,8 @@ const TASKS = [
 ];
 
 let lastTaskBody = null;
+let currentSessionId = "";
+let taskSubmitting = false;
 
 const $ = (id) => document.getElementById(id);
 const views = {
@@ -38,6 +40,18 @@ const titles = {
 let editingProductSku = "";
 let editingRagDocumentId = "";
 let productCache = [];
+
+function newSessionId() {
+  const suffix = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `chat-${suffix}`;
+}
+
+function setCurrentSession(id) {
+  currentSessionId = id || newSessionId();
+  sessionStorage.setItem("agent_session_id", currentSessionId);
+  if ($("sessionId")) $("sessionId").value = currentSessionId;
+  if ($("conversationState")) $("conversationState").textContent = `已开启短期记忆 · ${currentSessionId.slice(-8)}`;
+}
 
 function normalizedError(data) {
   const source = data?.detail && typeof data.detail === "object" ? data.detail : data || {};
@@ -93,6 +107,7 @@ function renderResponse(title, data, latency, ok) {
     error?.message ||
     presentation?.answer ||
     data?.summary ||
+    data?.message ||
     data?.data?.summary ||
     data?.error_msg ||
     data?.detail ||
@@ -167,7 +182,11 @@ function renderPresentation(presentation, raw, error = null) {
     const heading = document.createElement("h4"); heading.textContent = "需要人工审批"; card.appendChild(heading);
     const note = document.createElement("p"); note.textContent = `目标：${presentation?.approval?.target || "受保护操作"}。审批前不会执行写入。`; card.appendChild(note);
     const button = document.createElement("button"); button.className = "button primary"; button.textContent = "批准并重试";
-    button.addEventListener("click", () => approveAndRetry(approvalId)); card.appendChild(button); root.appendChild(card);
+    button.addEventListener("click", async () => {
+      button.disabled = true; button.textContent = "正在审批并执行…";
+      await approveAndRetry(approvalId);
+      button.textContent = "已处理";
+    }); card.appendChild(button); root.appendChild(card);
   }
 }
 
@@ -242,10 +261,14 @@ $("loadPreset").addEventListener("click", () => {
 });
 
 $("sendTask").addEventListener("click", async () => {
+  if (taskSubmitting) return;
+  taskSubmitting = true;
+  $("sendTask").disabled = true;
+  $("sendTask").textContent = "处理中…";
   try {
     const query = $("taskQuery").value.trim();
     if (!query) throw new Error("Query 不能为空");
-    const body = {query, payload: jsonPayload()};
+    const body = {query, payload: jsonPayload(), session_id: currentSessionId};
     if ($("taskType").value) body.task_type = $("taskType").value;
     if ($("priority").value !== "") body.priority = Number($("priority").value);
     if ($("taskTimeout").value) body.timeout = Number($("taskTimeout").value);
@@ -266,21 +289,48 @@ $("sendTask").addEventListener("click", async () => {
     addMessage("assistant", friendly);
   } catch (error) {
     renderResponse("任务参数错误", {error: String(error)}, 0, false);
+  } finally {
+    taskSubmitting = false;
+    $("sendTask").disabled = false;
+    $("sendTask").textContent = "发送";
   }
 });
 
-$("clearTask").addEventListener("click", () => {
+$("clearTask").addEventListener("click", async () => {
+  const previousSession = currentSessionId;
+  if (previousSession) {
+    await apiFetch(`/api/v1/conversations/${encodeURIComponent(previousSession)}`, {
+      method: "DELETE",
+      headers: authHeaders()
+    }, false);
+  }
+  setCurrentSession(newSessionId());
+  lastTaskBody = null;
   $("taskQuery").value = "";
   $("taskPayload").value = "{}";
   $("taskApprovalId").value = "";
-  $("conversation").innerHTML = '<div class="message assistant">新对话已开始，请直接描述你的需求。</div>';
+  $("approvalId").value = "";
+  $("conversation").innerHTML = '<div class="message assistant">新对话已开始，上一轮记录和短期记忆已清除。</div>';
+  $("responseTitle").textContent = "新对话已开始";
+  $("responseStatus").textContent = "已清空";
+  $("responseStatus").className = "status ok";
+  $("responseLatency").textContent = "0 ms";
+  $("summaryBox").textContent = "上一轮回答、审批上下文和短期记忆已清除。";
+  $("summaryBox").className = "summary-box";
+  $("resultCards").replaceChildren();
+  $("responseJson").textContent = "{}";
 });
 
 async function approveAndRetry(id) {
   const approved = await apiFetch(`/api/v1/approvals/${encodeURIComponent(id)}/approve`, {method: "POST", headers: authHeaders()});
+  if (approved.data?.status === "consumed" || approved.data?.already_executed) {
+    addMessage("assistant", approved.data?.message || "该操作已执行，无需重复审批。");
+    return;
+  }
   if (!approved.response?.ok || !lastTaskBody) return;
   const retried = await apiFetch("/api/v1/tasks", {method: "POST", headers: authHeaders({"X-Approval-Id": id}), body: JSON.stringify(lastTaskBody)});
   addMessage("assistant", retried.data?.presentation?.answer || retried.data?.summary || "已重试审批操作。");
+  if (retried.response?.ok) $("taskApprovalId").value = "";
 }
 
 $("sendCustomer").addEventListener("click", async () => {
@@ -290,7 +340,7 @@ $("sendCustomer").addEventListener("click", async () => {
     use_rag: $("useRag").checked,
     use_taobao: $("useTaobao").checked
   };
-  if ($("sessionId").value.trim()) body.session_id = $("sessionId").value.trim();
+  body.session_id = $("sessionId").value.trim() || currentSessionId;
   if ($("orderNo").value.trim()) body.order_no = $("orderNo").value.trim();
   await apiFetch("/api/v1/customer/chat", {
     method: "POST",
@@ -316,10 +366,17 @@ $("sendCompetitor").addEventListener("click", async () => {
 $("approveButton").addEventListener("click", async () => {
   const id = $("approvalId").value.trim();
   if (!id) return renderResponse("审批参数错误", {error: "Approval ID 不能为空"}, 0, false);
-  await apiFetch(`/api/v1/approvals/${encodeURIComponent(id)}/approve`, {
-    method: "POST",
-    headers: authHeaders()
-  });
+  $("approveButton").disabled = true;
+  $("approveButton").textContent = "处理中…";
+  try {
+    await apiFetch(`/api/v1/approvals/${encodeURIComponent(id)}/approve`, {
+      method: "POST",
+      headers: authHeaders()
+    });
+  } finally {
+    $("approveButton").disabled = false;
+    $("approveButton").textContent = "批准请求";
+  }
 });
 
 $("copyApprovalToTask").addEventListener("click", () => {
@@ -549,6 +606,7 @@ async function checkHealth() {
 $("checkHealth").addEventListener("click", checkHealth);
 
 currentCredential();
+setCurrentSession(sessionStorage.getItem("agent_session_id") || newSessionId());
 setupCapabilities();
 usePreset("data_analysis");
 checkHealth();

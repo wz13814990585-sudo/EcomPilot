@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "timestamp": "2026-09-21T14:24:08.313441+00:00",
-    "git_sha": "c88d68a",
+    "timestamp": "2026-09-21T15:16:45.596020+00:00",
+    "git_sha": "d460d8f",
     "environment": "development",
     "suite": "deterministic",
     "architecture": {
@@ -46,7 +46,7 @@
       {
         "id": "competitor_watch",
         "status": "PASS",
-        "details": "{\"mode\":\"fast_path\",\"task_type\":\"competitor_watch\",\"target_agents\":[\"data_query\"],\"confidence\":0.95,\"reason_code\":\"RULE_COMPETITOR\",\"source\":\"rules\"}"
+        "details": "{\"mode\":\"fast_path\",\"task_type\":\"competitor_watch\",\"target_agents\":[\"data_query\"],\"confidence\":0.98,\"reason_code\":\"RULE_COMPETITOR\",\"source\":\"rules\"}"
       },
       {
         "id": "order_query",

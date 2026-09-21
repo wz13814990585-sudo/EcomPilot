@@ -89,10 +89,25 @@ async def run_stock_workflow(task: dict | TaskContext) -> WorkflowResult:
         )
 
     prediction = skill_result.data or {}
+    candidates = (ctx.params.get("_goods") or {}).get("candidates") or []
+    product = next(
+        (item for item in candidates if str(item.get("sku") or "") == request.sku),
+        candidates[0] if candidates else {},
+    )
+    if not product and prediction.get("current_stock") is not None:
+        product = {
+            "sku": request.sku,
+            "title_zh": prediction.get("product_title") or request.sku,
+            "stock_num": prediction.get("current_stock"),
+            "reorder_level": prediction.get("reorder_level"),
+        }
     suggestion = prediction.get("suggest_stock_amount")
     daily = prediction.get("daily_avg_sales")
+    stock_prefix = (
+        f"当前库存 {product.get('stock_num')} 件；" if product.get("stock_num") is not None else ""
+    )
     fallback = (
-        f"SKU {request.sku} 近30日日均销量约 {daily}，"
+        f"SKU {request.sku} {stock_prefix}近30日日均销量约 {daily}，"
         f"{request.predict_days} 天建议备货量 {suggestion}（含安全库存系数）。"
         "请结合在途库存与促销计划调整。"
     )
@@ -116,6 +131,7 @@ async def run_stock_workflow(task: dict | TaskContext) -> WorkflowResult:
             "history_hits": 0,
             "history_preview": [],
             "stock_predict_result": prediction,
+            "product": product,
             "advice": advice,
             "advice_source": advice_source,
             "advice_error": advice_error or None,

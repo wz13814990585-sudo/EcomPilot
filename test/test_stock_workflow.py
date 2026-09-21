@@ -12,7 +12,6 @@ from pydantic import ValidationError
 
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
 from ecom_agent_matrix.core.tasking import normalize_task_context
-from ecom_agent_matrix.core.tasking.result import MISSING_SKU
 from ecom_agent_matrix.workflows.stock import workflow as stock_handler
 from ecom_agent_matrix.workflows.stock.workflow import handle_stock, run_stock_workflow
 from ecom_agent_matrix.modules.parsers.stock import parse_stock_request
@@ -37,10 +36,28 @@ def test_stock_parser_does_not_modify_context():
     assert ctx.model_dump() == before
 
 
-def test_stock_missing_sku_has_structured_error():
-    result = asyncio.run(run_stock_workflow({"query": "看看库存"}))
-    assert result.success is False
-    assert result.error_code == MISSING_SKU
+def test_stock_without_sku_returns_human_inventory_overview():
+    overview = SkillResult(
+        success=True,
+        data={
+            "items": [
+                {
+                    "sku": "BAG-002",
+                    "title": "旅行背包",
+                    "current_stock": 8,
+                    "risk_level": "high",
+                }
+            ]
+        },
+    )
+    with patch(
+        "ecom_agent_matrix.workflows.stock.workflow.exec_skill",
+        new=AsyncMock(return_value=overview),
+    ):
+        result = asyncio.run(run_stock_workflow({"query": "看看库存"}))
+    assert result.success is True
+    assert result.data["count"] == 1
+    assert "1 个低库存商品" in result.data["summary"]
 
 
 def test_stock_predict_receives_only_current_fact_parameters():

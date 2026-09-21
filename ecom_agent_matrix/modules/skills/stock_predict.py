@@ -27,6 +27,9 @@ class StockPredictOutput(BaseModel):
     base_suggest_stock_amount: int = Field(ge=0)
     history_used: int = Field(ge=0)
     history_adjusted: bool
+    current_stock: int | None = Field(default=None, ge=0)
+    reorder_level: int | None = Field(default=None, ge=0)
+    product_title: str = ""
 
 
 class InventoryRiskListInput(BaseModel):
@@ -130,16 +133,22 @@ class StockPredictTool(BaseSkill):
 
             # 统计近30天有效销量（剔除退款订单）
             stat_sql = f"""
-            SELECT COALESCE(SUM(buy_num), 0)
-            FROM ecom_order
-            WHERE sku = %s
-              AND create_time >= NOW() - INTERVAL '30 days'
-              AND create_time <= NOW()
-              AND refund_flag = false
-              {scope_sql};
+            SELECT COALESCE(SUM(o.buy_num) FILTER (
+                     WHERE o.create_time >= NOW() - INTERVAL '30 days'
+                       AND o.create_time <= NOW() AND o.refund_flag = false), 0),
+                   MAX(g.stock_num), MAX(g.reorder_level), MAX(g.title_zh)
+            FROM ecom_goods g
+            LEFT JOIN ecom_order o ON o.sku = g.sku
+              AND o.tenant_id = g.tenant_id AND o.store_id = g.store_id
+            WHERE g.sku = %s
+              {scope_sql.replace("tenant_id", "g.tenant_id").replace("store_id", "g.store_id")};
             """
             stat_res = await AsyncPGClient.execute_read(stat_sql, query_params, scope=scope)
-            total_30d_sales = float(stat_res[0][0] or 0)
+            row = stat_res[0] if stat_res else (0, None, None, "")
+            total_30d_sales = float(row[0] or 0)
+            current_stock = int(row[1]) if len(row) > 1 and row[1] is not None else None
+            reorder_level = int(row[2]) if len(row) > 2 and row[2] is not None else None
+            product_title = str(row[3] or "") if len(row) > 3 else ""
             daily_avg = total_30d_sales / 30
             safety_stock_rate = 1.2
             base_suggest = round(daily_avg * predict_days * safety_stock_rate)
@@ -155,6 +164,9 @@ class StockPredictTool(BaseSkill):
                     "base_suggest_stock_amount": base_suggest,
                     "history_used": 0,
                     "history_adjusted": False,
+                    "current_stock": current_stock,
+                    "reorder_level": reorder_level,
+                    "product_title": product_title,
                 },
             )
         except KeyError as err:

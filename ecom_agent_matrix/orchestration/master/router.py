@@ -141,7 +141,11 @@ _RULES: tuple[tuple[str, str, re.Pattern[str]], ...] = (
         "goods_search",
         "RULE_GOODS_SEARCH",
         re.compile(
-            r"搜索.*商品|查找.*商品|帮我找.*(?:背包|商品|款式)|找.*(?:商品|款式)|商品搜索|search.*product",
+            r"搜索.*商品|查找.*商品|帮我找.*(?:背包|鞋|商品|款式)|"
+            r"找.*(?:商品|款式)|商品搜索|search.*product|"
+            r"(?:商店|店里|店内).*(?:背包|鞋子?|商品).*(?:多少钱|价格|售价)|"
+            r"(?:背包|鞋子?|充电器|帐篷|商品).*(?:多少钱|价格|售价)|"
+            r"^(?:那|它|这个|这款)?\s*(?:多少钱|价格|售价)[？?]?$",
             re.I,
         ),
     ),
@@ -192,6 +196,19 @@ def route_master_task(task_input: dict) -> MasterRouteDecision:
         "risk_control": bool(re.search(r"标记|拦截|mark", query, re.I)),
         "ad_optimize": bool(re.search(r"暂停|停止|pause", query, re.I)),
     }
+    if "competitor_watch" in matched_types and re.search(
+        r"竞品|比价|价格对比|竞价对比|跟价|competitor", query, re.I
+    ):
+        matched = next(rule for rule in matches if rule[0] == "competitor_watch")
+        enabled = settings.MASTER_FAST_PATH_ENABLED
+        return MasterRouteDecision(
+            mode="fast_path" if enabled else "planner",
+            task_type="competitor_watch",
+            target_agents=list(TASK_ROUTE_MAP["competitor_watch"]) if enabled else [],
+            confidence=0.98,
+            reason_code=matched[1] if enabled else "FAST_PATH_DISABLED",
+            source="rules" if enabled else "settings",
+        )
     for protected_type in ("risk_control", "ad_optimize"):
         if protected_type in matched_types and protected_write[protected_type]:
             matched = next(rule for rule in matches if rule[0] == protected_type)

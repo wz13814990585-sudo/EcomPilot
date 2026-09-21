@@ -68,24 +68,30 @@ def clean_product_query(text: str) -> str:
     """去掉查询意图噪声，保留尽可能稳定的商品名称。"""
     original = str(text or "").strip()
     cleaned = re.sub(
-        r"^(?:(?:我想知道|请帮我找|帮我找|请帮我|帮我|请|查询|查一下|看看|搜索|查找|找)\s*)+",
+        r"^(?:(?:我想知道|我想要|我要|请帮我找|帮我找|请帮我|帮我|请|查询|查一下|查看|看看|搜索|查找|找)\s*)+",
         "",
         original,
     )
+    cleaned = re.sub(r"^(?:商店|店里|店内|我们店)(?:里)?的?", "", cleaned)
     cleaned = re.sub(
-        r"(的)?(竞价对比|价格对比|比价|竞品监控|价格监控|库存|备货|补货).*$",
+        r"(的)?(竞价对比|价格对比|比价|竞品价格|竞品监控|价格监控|"
+        r"多少钱|价格|售价|现在处于什么库存状态|库存状态|库存|备货|补货).*$",
         "",
         cleaned,
     )
+    cleaned = re.sub(r"(?:是|卖|售价为)$", "", cleaned.strip())
     cleaned = re.sub(r"[。，！？,!?\s]+$", "", cleaned.strip())
     cleaned = re.sub(r"[的了呢吗啊]+$", "", cleaned.strip())
-    return cleaned.strip() or original
+    cleaned = cleaned.strip()
+    if cleaned in {"鞋子", "鞋款"}:
+        return "鞋"
+    return cleaned or original
 
 
 def parse_goods_request(task: TaskContext) -> GoodsRequest:
     """只使用 canonical TaskContext 和真实业务配置生成商品请求。"""
     params = task.params
-    product_name = clean_product_query(task.product_name or task.query)
+    product_name = clean_product_query(task.product_name or task.sku or task.query)
     explicit_mode = str(params.get("mode") or params.get("goods_mode") or "").strip().lower()
     catalog = (
         explicit_mode in {"catalog", "list", "count"}

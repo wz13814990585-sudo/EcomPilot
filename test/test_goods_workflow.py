@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 from ecom_agent_matrix.core.skill.base_skill import SkillResult
 from ecom_agent_matrix.core.tasking import WorkflowResult, normalize_task_context
-from ecom_agent_matrix.core.tasking.result import SKILL_FAILED
+from ecom_agent_matrix.core.tasking.result import MISSING_PRODUCT, SKILL_FAILED
 from ecom_agent_matrix.workflows.goods.workflow import (
     handle_goods,
     run_goods_workflow,
@@ -24,6 +24,18 @@ def test_goods_explicit_product_name_has_priority():
 def test_goods_product_name_is_extracted_and_cleaned_from_query():
     ctx = normalize_task_context({"query": "帮我看看防水背包的库存"})
     assert parse_goods_request(ctx).product_name == "防水背包"
+
+
+def test_human_price_stock_and_competitor_queries_extract_product_name():
+    cases = {
+        "商店的鞋子是多少钱的": "鞋",
+        "鞋子现在处于什么库存状态": "鞋",
+        "查看背包的竞品价格": "背包",
+    }
+    for query, expected in cases.items():
+        assert (
+            parse_goods_request(normalize_task_context({"query": query})).product_name == expected
+        )
 
 
 def test_goods_catalog_mode_is_deterministic():
@@ -132,6 +144,34 @@ def test_goods_search_workflow_builds_exact_skill_params():
     assert result.data["best_sku"] == "SKU-1"
 
 
+def test_exact_sku_follow_up_does_not_return_fuzzy_neighbors():
+    skill_result = SkillResult(
+        success=True,
+        data={
+            "candidates": [
+                {"sku": "SHOE-003", "title_zh": "户外凉鞋"},
+                {"sku": "SHOE-001", "title_zh": "防水徒步鞋"},
+            ],
+            "best_sku": "SHOE-003",
+            "count": 2,
+            "match_mode": "literal",
+        },
+    )
+
+    async def scenario():
+        with patch(
+            "ecom_agent_matrix.workflows.goods.workflow.exec_skill",
+            new=AsyncMock(return_value=skill_result),
+        ):
+            return await run_goods_workflow({"query": "多少钱？", "sku": "SHOE-003"})
+
+    result = asyncio.run(scenario())
+    assert result.success is True
+    assert result.data["best_sku"] == "SHOE-003"
+    assert result.data["count"] == 1
+    assert result.data["candidates"] == [{"sku": "SHOE-003", "title_zh": "户外凉鞋"}]
+
+
 def test_goods_workflow_preserves_skill_error_code():
     failure = SkillResult(
         success=False,
@@ -150,6 +190,24 @@ def test_goods_workflow_preserves_skill_error_code():
     assert result.success is False
     assert result.error_code == SKILL_FAILED
     assert result.metadata["skill_error_code"] == "PERMISSION_DENIED"
+
+
+def test_empty_goods_search_is_a_human_missing_product_error_not_server_failure():
+    async def scenario():
+        with patch(
+            "ecom_agent_matrix.workflows.goods.workflow.exec_skill",
+            new=AsyncMock(
+                return_value=SkillResult(
+                    success=True,
+                    data={"candidates": [], "best_sku": None, "count": 0},
+                )
+            ),
+        ):
+            return await run_goods_workflow({"query": "不存在的商品"})
+
+    result = asyncio.run(scenario())
+    assert result.success is False
+    assert result.error_code == MISSING_PRODUCT
 
 
 def test_goods_legacy_handler_accepts_dict_and_returns_tuple():

@@ -10,6 +10,7 @@ from ...config.constants import LANG_LIST
 from ...core.tasking import TaskContext
 
 SUPPORTED_PLATFORMS = frozenset({"tiktok", "instagram", "facebook", "twitter", "youtube"})
+_CJK = re.compile(r"[\u4e00-\u9fff]")
 
 _PLATFORM_ALIASES = {
     "tiktok": "tiktok",
@@ -149,7 +150,7 @@ def _extract_feature(task: TaskContext) -> str:
 
 def parse_social_request(task: TaskContext) -> SocialRequest:
     """确定性解析社媒参数；不调用外部系统或 Skill。"""
-    lang = (task.lang or "en").lower()
+    lang = (task.lang or ("zh" if _CJK.search(task.query) else "en")).lower()
     if lang not in LANG_LIST:
         lang = "en"
     return SocialRequest(

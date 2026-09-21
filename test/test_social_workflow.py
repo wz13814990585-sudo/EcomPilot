@@ -99,6 +99,17 @@ def test_social_feature_and_language_are_parsed():
     assert request.lang == "zh"
 
 
+def test_social_defaults_to_the_users_language():
+    chinese = parse_social_request(
+        normalize_task_context({"query": "给 BAG-001 写一条 TikTok 推广文案"})
+    )
+    english = parse_social_request(
+        normalize_task_context({"query": "Write a TikTok caption for BAG-001"})
+    )
+    assert chinese.lang == "zh"
+    assert english.lang == "en"
+
+
 def test_social_parser_does_not_reread_conflicting_user_query():
     request = parse_social_request(
         normalize_task_context(
