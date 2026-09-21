@@ -49,11 +49,7 @@ def test_agent_console_exposes_supported_agent_capabilities():
 
 def test_frontend_never_persists_credentials_to_local_storage():
     script = (
-        Path(__file__).parents[1]
-        / "ecom_agent_matrix"
-        / "api"
-        / "frontend"
-        / "app.js"
+        Path(__file__).parents[1] / "ecom_agent_matrix" / "api" / "frontend" / "app.js"
     ).read_text()
     assert "sessionStorage" in script
     assert "localStorage" not in script
