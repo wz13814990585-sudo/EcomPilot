@@ -1,5 +1,7 @@
 # 跨境电商多智能体运营矩阵
 
+[简体中文](README.md) | [English](README_EN.md)
+
 ## 安全、可解释、可本地运行的 RAG 与 Text-to-SQL 智能运营平台
 
 [![CI](https://github.com/wz13814990585-sudo/ecom-ops-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wz13814990585-sudo/ecom-ops-agent/actions/workflows/ci.yml)
@@ -323,14 +325,15 @@ curl -sS http://127.0.0.1:8002/api/v1/tasks \
   }'
 ```
 
-完整的四条演示路径：
+完整演示覆盖五条安全路径：
 
-1. Simple Query Fast Path
-2. Knowledge RAG
-3. Composite Typed DAG
-4. Risk Approval
+1. 安全 Text-to-SQL
+2. SQL + RAG 联合分析
+3. 业务 API 只读查询
+4. 危险 SQL 执行前拒绝
+5. 人工审批与幂等保护
 
-可复制请求、审批 header 和响应字段说明见 [Demo guide](docs/demo.md)。也可以运行 smoke runner：
+可复制请求、审批 Header 和响应字段说明见 [演示指南](docs/demo.md)。也可以运行覆盖四种 Runtime 模式的 Smoke Runner：
 
 ```bash
 export DEMO_API_KEY=your-local-demo-key
