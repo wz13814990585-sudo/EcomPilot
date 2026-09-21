@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ecom Agent Console</title>
+  <link rel="stylesheet" href="/app/static/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">EA</div>
+        <div>
+          <h1>Ecom Agent Console</h1>
+          <p>Enterprise Data Agent</p>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Console sections">
+        <button class="nav-item active" data-view="task">通用任务</button>
+        <button class="nav-item" data-view="customer">客服 / RAG</button>
+        <button class="nav-item" data-view="competitor">竞品监控</button>
+        <button class="nav-item" data-view="approval">人工审批</button>
+        <button class="nav-item" data-view="system">系统状态</button>
+      </nav>
+
+      <div class="auth-card">
+        <div class="section-kicker">Authentication</div>
+        <label>
+          模式
+          <select id="authMode">
+            <option value="api_key">X-API-Key</option>
+            <option value="jwt">JWT Bearer</option>
+          </select>
+        </label>
+        <label>
+          Credential
+          <input id="credential" type="password" autocomplete="off" placeholder="仅保存在当前标签页" />
+        </label>
+        <button id="saveCredential" class="button secondary">应用凭证</button>
+        <p class="hint">凭证仅写入 sessionStorage，不持久化到磁盘。</p>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Runtime console</span>
+          <h2 id="viewTitle">通用 Agent 任务</h2>
+        </div>
+        <div class="health-row">
+          <span id="healthDot" class="dot unknown"></span>
+          <span id="healthText">未检查</span>
+          <button id="checkHealth" class="button ghost">检查状态</button>
+        </div>
+      </header>
+
+      <section id="taskView" class="view active">
+        <div class="grid two">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="section-kicker">Master entry</span>
+                <h3>/api/v1/tasks</h3>
+              </div>
+              <button id="loadPreset" class="button ghost">载入示例</button>
+            </div>
+
+            <label>
+              Task Type
+              <select id="taskType">
+                <option value="">自动识别</option>
+                <option>data_analysis</option>
+                <option>knowledge_qa</option>
+                <option>goods_search</option>
+                <option>goods_catalog</option>
+                <option>stock_analysis</option>
+                <option>competitor_watch</option>
+                <option>order_query</option>
+                <option>ad_query</option>
+                <option>ad_optimize</option>
+                <option>data_check</option>
+                <option>ops_report</option>
+                <option>social_marketing</option>
+                <option>customer_service</option>
+                <option>risk_control</option>
+              </select>
+            </label>
+
+            <label>
+              Query
+              <textarea id="taskQuery" rows="5" placeholder="例如：为什么 8 月退款率上涨？"></textarea>
+            </label>
+
+            <div class="grid two compact">
+              <label>
+                Priority
+                <select id="priority">
+                  <option value="">默认</option>
+                  <option value="0">0 - highest</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4 - lowest</option>
+                </select>
+              </label>
+              <label>
+                Timeout (s)
+                <input id="taskTimeout" type="number" min="0" step="0.5" placeholder="默认" />
+              </label>
+            </div>
+
+            <label>
+              Payload JSON
+              <textarea id="taskPayload" class="code-input" rows="8">{}</textarea>
+            </label>
+
+            <label>
+              Approval ID（批准后重试写操作时使用）
+              <input id="taskApprovalId" placeholder="可选" />
+            </label>
+
+            <div class="actions">
+              <button id="sendTask" class="button primary">执行任务</button>
+              <button id="clearTask" class="button secondary">清空</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <span class="section-kicker">Capabilities</span>
+            <h3>可直接调用的功能</h3>
+            <div id="capabilityGrid" class="capability-grid"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="customerView" class="view">
+        <section class="panel">
+          <span class="section-kicker">RAG / order query</span>
+          <h3>/api/v1/customer/chat</h3>
+          <label>
+            Query
+            <textarea id="customerQuery" rows="5" placeholder="例如：退款政策是什么？"></textarea>
+          </label>
+          <div class="grid three compact">
+            <label>Language<input id="customerLang" value="zh" /></label>
+            <label>Session ID<input id="sessionId" placeholder="sess-demo-001" /></label>
+            <label>Order No<input id="orderNo" placeholder="可选" /></label>
+          </div>
+          <div class="toggle-row">
+            <label class="check"><input id="useRag" type="checkbox" checked /> 使用 RAG</label>
+            <label class="check"><input id="useTaobao" type="checkbox" /> 使用订单查询路径</label>
+          </div>
+          <button id="sendCustomer" class="button primary">发送</button>
+        </section>
+      </section>
+
+      <section id="competitorView" class="view">
+        <section class="panel">
+          <span class="section-kicker">Competitor workflow</span>
+          <h3>/api/v1/warn/competitor</h3>
+          <div class="grid two compact">
+            <label>SKU<input id="competitorSku" placeholder="SKU-BAG-001" /></label>
+            <label>Competitor<input id="competitorName" placeholder="Temu" /></label>
+          </div>
+          <div class="grid two compact">
+            <label>Observed price<input id="competitorPrice" type="number" step="0.01" /></label>
+            <label>Timeout<input id="competitorTimeout" type="number" step="0.5" /></label>
+          </div>
+          <label>
+            Query
+            <textarea id="competitorQuery" rows="4" placeholder="监控 Temu 上 SKU-BAG-001 的价格"></textarea>
+          </label>
+          <label class="check"><input id="viaMaster" type="checkbox" checked /> 通过 Master</label>
+          <button id="sendCompetitor" class="button primary">执行</button>
+        </section>
+      </section>
+
+      <section id="approvalView" class="view">
+        <section class="panel">
+          <span class="section-kicker">Human in the loop</span>
+          <h3>高风险操作审批</h3>
+          <p class="muted">当任务返回 <code>APPROVAL_REQUIRED</code> 时，控制台会尝试自动提取 approval_id。</p>
+          <label>Approval ID<input id="approvalId" placeholder="approval id" /></label>
+          <div class="actions">
+            <button id="approveButton" class="button primary">批准请求</button>
+            <button id="copyApprovalToTask" class="button secondary">用于任务重试</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="systemView" class="view">
+        <div class="grid two">
+          <section class="panel">
+            <span class="section-kicker">Health</span>
+            <h3>Runtime 状态</h3>
+            <div class="actions">
+              <button id="loadHealth" class="button primary">/health</button>
+              <button id="loadReady" class="button secondary">/health/ready</button>
+              <button id="loadAgents" class="button secondary">/api/v1/agents</button>
+            </div>
+          </section>
+          <section class="panel">
+            <span class="section-kicker">Quick links</span>
+            <h3>开发接口</h3>
+            <div class="quick-links">
+              <a href="/docs" target="_blank" rel="noreferrer">Swagger UI</a>
+              <a href="/redoc" target="_blank" rel="noreferrer">ReDoc</a>
+              <a href="/health" target="_blank" rel="noreferrer">Health</a>
+              <a href="/health/ready" target="_blank" rel="noreferrer">Readiness</a>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="response panel">
+        <div class="panel-head">
+          <div>
+            <span class="section-kicker">Response inspector</span>
+            <h3 id="responseTitle">等待请求</h3>
+          </div>
+          <div class="response-meta">
+            <span id="responseStatus" class="status neutral">IDLE</span>
+            <span id="responseLatency">—</span>
+          </div>
+        </div>
+        <div id="summaryBox" class="summary-box">请求结果的 summary、error 与关键信息会显示在这里。</div>
+        <details open>
+          <summary>完整 JSON</summary>
+          <pre id="responseJson">{}</pre>
+        </details>
+      </section>
+    </main>
+  </div>
+  <script src="/app/static/app.js" defer></script>
+</body>
+</html>
