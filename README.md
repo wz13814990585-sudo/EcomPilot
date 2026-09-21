@@ -263,6 +263,25 @@ python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode composite 
 python -m ecom_agent_matrix.scripts.smoke_e2e --transport http --mode risk --api-key "$DEMO_API_KEY"
 ```
 
+## Agent Console 前端
+
+API 启动后直接打开：
+
+```text
+http://127.0.0.1:8000/app
+```
+
+这个同源前端直接调用现有 FastAPI 网关，不引入第二套 Agent 逻辑。它提供：
+
+- 通用任务控制台：可选择或自动识别所有受支持的 `task_type`
+- Customer / RAG：知识问答与订单查询
+- Competitor：竞品监控，可选 Master 或直达 Query
+- Human Approval：识别 `APPROVAL_REQUIRED` 后审批，并携带 `X-Approval-Id` 重试
+- System：health、readiness、Agent/Skill registry 与 Swagger/ReDoc 快捷入口
+- API Key / JWT 两种鉴权输入；凭证只保存在当前浏览器标签页的 `sessionStorage`
+
+前端是现有 Runtime 的操作面板。所有任务仍然经过既有的认证、RBAC、Master 路由、Query/Exec/RAG、SQL Safety、Approval 和 SkillExecutor 安全边界。
+
 ## Agent Evaluation
 
 pytest 验证代码正确性；Evaluation Harness 衡量 Agent 的可观察行为。
