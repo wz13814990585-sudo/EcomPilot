@@ -1,5 +1,7 @@
 # 贡献指南
 
+[简体中文](CONTRIBUTING.md) | [English](CONTRIBUTING_EN.md)
+
 感谢你关注跨境电商多智能体运营矩阵。欢迎提交问题、文档改进、测试用例和功能实现。
 
 ## 开始之前
@@ -54,4 +56,3 @@ python -m eval.enterprise.advanced_runner --suite all --fail-on-regression
 - 高置信单任务优先走确定性 Fast Path，复杂组合任务才进入 Typed DAG。
 - 错误应面向用户说明原因和下一步，同时把技术细节保留在可展开区域。
 - 评估报告必须来自实际运行，未运行的能力应标为 `NOT_RUN`，不能虚构结果。
-

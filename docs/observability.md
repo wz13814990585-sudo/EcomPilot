@@ -1,5 +1,7 @@
 # 可观测性与韧性
 
+[简体中文](observability.md) | [English](observability_en.md)
+
 当前 Runtime 有意采用单进程异步 Agent 架构，使面试与 Demo 部署保持清晰，并避免不必要的分布式协调成本。`MessageBus` 保留了未来接入 Redis Streams 或 RabbitMQ 的抽象边界，但当前版本没有宣称实现分布式消息系统。
 
 `GET /metrics` 暴露标签受限的 Prometheus 指标。生产部署应设置 `METRICS_AUTH_REQUIRED=true`，调用方需要具备 `system:read` 权限。

@@ -1,5 +1,7 @@
 # 系统架构与关键时序
 
+[简体中文](architecture.md) | [English](architecture_en.md)
+
 系统只有四个 Runtime Agent。丰富的业务能力由 Workflow 与 Skill 提供，不会削弱四个 Agent 的职责和安全边界。
 
 ```text

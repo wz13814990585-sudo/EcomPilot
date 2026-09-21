@@ -1,5 +1,7 @@
 # 跨境电商多智能体平台演示指南
 
+[简体中文](demo.md) | [English](demo_en.md)
+
 下面五条演示路径会调用真实的四 Agent Runtime，而不是静态页面或伪响应。开始前请先完成 README 中的本地或 Docker 启动步骤，并在 API Key 开发模式下使用你自己的本地凭证。
 
 ```bash

@@ -1,5 +1,7 @@
 # 架构设计与面试笔记
 
+[简体中文](interview_notes.md) | [English](interview_notes_en.md)
+
 ## 1. 为什么只有四个 Agent？
 
 Agent 代表稳定的职责与安全边界，而不是数据库表或功能标签。Master、Query、Exec 和 RAG 分别覆盖编排、只读查询、命令执行和知识检索，避免形成脆弱的微型 Agent 网络。新增业务场景通常只需增加 Parser、Workflow 或 Skill，四个 Runtime Agent 的边界保持不变。

@@ -12,7 +12,7 @@
 
 > An enterprise-inspired agent system for cross-border e-commerce operations. It brings sales analytics, products and inventory, competitor monitoring, knowledge-base Q&A, customer service, social copy, and high-risk approvals into one natural-language interface. Deterministic routing, constrained DAG execution, tenant isolation, and human approval keep execution safe.
 
-[Highlights](#core-highlights) · [Quick demo](#run-the-complete-local-demo-in-5-minutes) · [Example questions](#questions-you-can-ask) · [Architecture](#system-architecture) · [Evaluation](#current-validation-status) · [Contributing](CONTRIBUTING.md)
+[Highlights](#core-highlights) · [Quick demo](#run-the-complete-local-demo-in-5-minutes) · [Example questions](#questions-you-can-ask) · [Architecture](#system-architecture) · [Evaluation](#current-validation-status) · [Contributing](CONTRIBUTING_EN.md)
 
 ## What can it do?
 
@@ -204,7 +204,7 @@ HTTP API
 | Exec | Advertising optimization, risk controls, reports, social content, and customer-service outputs | High-risk side effects require approval |
 | RAG | Store policies, FAQ, operating knowledge, and product knowledge | All retrieval goes through `RAGService` |
 
-See the [architecture guide](docs/architecture.md) for detailed sequence diagrams.
+See the [architecture guide](docs/architecture_en.md) for detailed sequence diagrams.
 
 ## Enterprise SQL safety pipeline
 
@@ -323,7 +323,7 @@ curl -sS http://127.0.0.1:8002/api/v1/tasks \
   }'
 ```
 
-The five principal demo paths cover safe Text-to-SQL, SQL+RAG analysis, business API reads, pre-execution security rejection, and risk approval with idempotency. See the [demo guide](docs/demo.md) for copyable requests, approval headers, and response fields.
+The five principal demo paths cover safe Text-to-SQL, SQL+RAG analysis, business API reads, pre-execution security rejection, and risk approval with idempotency. See the [demo guide](docs/demo_en.md) for copyable requests, approval headers, and response fields.
 
 The smoke runner also supports four primary runtime modes:
 
@@ -456,9 +456,9 @@ docs/                   architecture, demo, observability, and interview notes
 
 ## Further reading
 
-- [Architecture](docs/architecture.md) — Fast Path, Typed DAG, and risk-approval sequences
-- [Demo guide](docs/demo.md) — five copyable core demo paths
-- [Observability](docs/observability.md) — logs, metrics, and tracing
-- [Architecture and interview notes](docs/interview_notes.md) — design trade-offs and common questions
-- [Contributing](CONTRIBUTING.md) — local development, tests, and contribution rules
-- [Security policy](SECURITY.md) — vulnerability reporting and sensitive-data rules
+- [Architecture](docs/architecture_en.md) — Fast Path, Typed DAG, and risk-approval sequences
+- [Demo guide](docs/demo_en.md) — five copyable core demo paths
+- [Observability](docs/observability_en.md) — logs, metrics, and tracing
+- [Architecture and interview notes](docs/interview_notes_en.md) — design trade-offs and common questions
+- [Contributing](CONTRIBUTING_EN.md) — local development, tests, and contribution rules
+- [Security policy](SECURITY_EN.md) — vulnerability reporting and sensitive-data rules
